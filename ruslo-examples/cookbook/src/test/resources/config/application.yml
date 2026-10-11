@@ -1,0 +1,5 @@
+# Extends src/main/resources/application.yml: Spring Boot reads config/application.yml on top of it.
+# Tests start their own processes; demo processes would interfere.
+cookbook:
+  demo:
+    enabled: false

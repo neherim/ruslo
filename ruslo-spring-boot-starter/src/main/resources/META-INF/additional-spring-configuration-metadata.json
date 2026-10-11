@@ -1,0 +1,150 @@
+{
+  "groups": [
+    {
+      "name": "ruslo",
+      "description": "Ruslo process engine settings"
+    },
+    {
+      "name": "ruslo.database-migration",
+      "description": "Built-in database schema migration settings"
+    },
+    {
+      "name": "ruslo.dispatcher",
+      "description": "Process dispatcher settings"
+    },
+    {
+      "name": "ruslo.logging",
+      "description": "Process engine logging settings"
+    },
+    {
+      "name": "ruslo.history",
+      "description": "Process history settings"
+    },
+    {
+      "name": "ruslo.logging.mdc",
+      "description": "MDC keys for process logging"
+    },
+    {
+      "name": "ruslo.workers",
+      "description": "Worker settings by worker id"
+    }
+  ],
+  "properties": [
+    {
+      "name": "ruslo.admin-ui.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to enable the admin UI when the ruslo-admin-ui module is on the classpath",
+      "defaultValue": false
+    },
+    {
+      "name": "ruslo.database-dialect",
+      "type": "io.github.neherim.ruslo.core.api.DatabaseDialect",
+      "description": "SQL dialect of the database; detected from JDBC metadata if not set"
+    },
+    {
+      "name": "ruslo.history.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to store process state transitions in the xs_process_state_hist table",
+      "defaultValue": true
+    },
+    {
+      "name": "ruslo.database-migration.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to run the built-in database schema migration when the engine starts",
+      "defaultValue": true
+    },
+    {
+      "name": "ruslo.dispatcher.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to start the dispatcher and register the instance when the engine starts; if disabled, the instance does not run processes in the background",
+      "defaultValue": true
+    },
+    {
+      "name": "ruslo.dispatcher.max-interval",
+      "type": "java.time.Duration",
+      "description": "Maximum interval between polls for ready processes, used when there is no work",
+      "defaultValue": "10s"
+    },
+    {
+      "name": "ruslo.dispatcher.min-interval",
+      "type": "java.time.Duration",
+      "description": "Minimum interval between polls for ready processes, used when there is work",
+      "defaultValue": "100ms"
+    },
+    {
+      "name": "ruslo.dispatcher.instance-heartbeat-interval",
+      "type": "java.time.Duration",
+      "description": "Interval between instance heartbeats",
+      "defaultValue": "15s"
+    },
+    {
+      "name": "ruslo.dispatcher.instance-timeout",
+      "type": "java.time.Duration",
+      "description": "How long an instance without heartbeats stays registered before its leases are released, in database time; must be at least four heartbeat intervals",
+      "defaultValue": "60s"
+    },
+    {
+      "name": "ruslo.workers",
+      "type": "java.util.Map<java.lang.String,io.github.neherim.ruslo.spring.config.property.WorkerProperties>",
+      "description": "Worker settings. The key is the worker id; the key default is an alias for DEFAULT"
+    },
+    {
+      "name": "ruslo.logging.mdc.correlation-id-key",
+      "type": "java.lang.String",
+      "description": "MDC key for the process correlation id",
+      "defaultValue": "correlation_id"
+    },
+    {
+      "name": "ruslo.logging.mdc.process-id-key",
+      "type": "java.lang.String",
+      "description": "MDC key for the process id",
+      "defaultValue": "process_id"
+    },
+    {
+      "name": "ruslo.logging.mdc.process-type-key",
+      "type": "java.lang.String",
+      "description": "MDC key for the process type",
+      "defaultValue": "process_type"
+    },
+    {
+      "name": "ruslo.workers.*.execution-mode",
+      "type": "io.github.neherim.ruslo.core.api.WorkerSpec$ExecutionMode",
+      "description": "Step execution mode: transactional or non_transactional. The DEFAULT worker must be transactional because it runs await handlers",
+      "defaultValue": "transactional"
+    },
+    {
+      "name": "ruslo.workers.*.max-concurrency",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of steps running concurrently",
+      "defaultValue": 10
+    }
+  ],
+  "hints": [
+    {
+      "name": "ruslo.database-dialect",
+      "values": [
+        {
+          "value": "postgresql",
+          "description": "PostgreSQL"
+        },
+        {
+          "value": "h2",
+          "description": "H2"
+        }
+      ]
+    },
+    {
+      "name": "ruslo.workers.*.execution-mode",
+      "values": [
+        {
+          "value": "transactional",
+          "description": "The step runs in the engine transaction"
+        },
+        {
+          "value": "non_transactional",
+          "description": "The step runs outside the engine transaction, at least once"
+        }
+      ]
+    }
+  ]
+}

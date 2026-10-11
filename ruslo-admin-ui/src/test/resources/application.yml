@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:admin-ui-dev;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  thymeleaf:
+    cache: false
+  web:
+    resources:
+      cache:
+        period: 0
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+server:
+  port: 8080
+
+ruslo:
+  admin-ui:
+    enabled: true
+  dispatcher:
+    enabled: true
+
+logging:
+  level:
+    io.github.neherim.ruslo: INFO
+    io.github.neherim.ruslo.admin: DEBUG

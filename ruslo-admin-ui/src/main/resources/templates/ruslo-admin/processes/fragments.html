@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<select name="stateName" id="state-filter" th:fragment="stateFilterOptions">
+    <option value="">Any</option>
+    <option th:each="state : ${states}" th:value="${state}" th:text="${state}">STATE</option>
+</select>
+
+<form id="start-form"
+      class="field-grid two-cols"
+      th:fragment="startProcessForm"
+      hx-post="htmx/processes"
+      hx-target="#start-status"
+      hx-swap="innerHTML">
+    <label th:if="${lockedType != null}">Type
+        <input type="text" th:value="${lockedType}" readonly>
+        <input type="hidden" name="type" th:value="${lockedType}">
+    </label>
+    <label th:if="${lockedType == null}">Type
+        <select name="type"
+                id="start-type"
+                required>
+            <option th:each="definition : ${definitions}" th:value="${definition.type}" th:text="${definition.type}">TYPE</option>
+        </select>
+    </label>
+    <label>Business key <input name="businessKey"></label>
+    <label class="wide">Variables JSON object
+        <textarea class="json-input" name="variables" placeholder="{&quot;order&quot;:{&quot;id&quot;:42}}">{}</textarea>
+    </label>
+    <div class="action-bar wide">
+        <button type="submit">Start process</button>
+    </div>
+</form>
+
+<th:block th:fragment="processResults">
+    <div class="table-wrap">
+        <table class="processes-table">
+            <thead>
+            <tr>
+                <th class="col-id">ID</th>
+                <th class="col-status">Status</th>
+                <th class="col-type">Type</th>
+                <th class="col-state">State</th>
+                <th class="col-business">Business key</th>
+                <th class="col-time">Created</th>
+                <th class="col-time">Scheduled</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${processes.empty}">
+                <td colspan="7" class="muted">No processes</td>
+            </tr>
+            <tr th:each="process : ${processes}" class="process-row">
+                <td class="col-id">
+                    <a class="mono process-id"
+                       th:href="@{|processes/${process.id}|(returnTo=${returnTo})}"
+                       th:title="${process.id}"
+                       th:text="|…${#strings.substring(process.id.toString(), 24)}|">id</a>
+                    <button th:replace="~{ruslo-admin/shared/fragments :: copyButton(${process.id}, 'Copy process ID')}"></button>
+                </td>
+                <td><span th:replace="~{ruslo-admin/shared/fragments :: statusBadge(${process.status})}"></span></td>
+                <td><span th:text="${process.type}" th:title="${process.type}">TYPE</span></td>
+                <td><span th:text="${process.state}" th:title="${process.state}">STATE</span></td>
+                <td>
+                    <span th:if="${process.businessKey != null}"
+                          class="mono"
+                          th:text="${process.businessKey}"
+                          th:title="${process.businessKey}">key</span>
+                    <span th:if="${process.businessKey == null}" class="muted">—</span>
+                </td>
+                <td>
+                    <time class="local-date-time"
+                          th:datetime="${process.createdAt}"
+                          th:text="${process.createdAt}">—</time>
+                </td>
+                <td>
+                    <time th:if="${process.scheduledAt != null}"
+                          class="local-date-time"
+                          th:datetime="${process.scheduledAt}"
+                          th:text="${process.scheduledAt}">—</time>
+                    <span th:if="${process.scheduledAt == null}" class="muted">—</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <nav th:if="${page != null}" th:replace="~{ruslo-admin/processes/fragments :: pagination}"></nav>
+</th:block>
+
+<nav class="pagination" th:fragment="pagination">
+    <button type="button"
+            class="secondary"
+            hx-include="#filters"
+            hx-get="processes"
+            hx-select="#process-results"
+            hx-target="#process-results"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            data-page-action="prev"
+            th:attr="data-page-offset=${page.offset - page.limit < 0 ? 0 : page.offset - page.limit}"
+            th:disabled="${page.offset == 0}"><svg class="icon" aria-hidden="true"><use href="#ti-arrow-left"></use></svg> Prev</button>
+    <button type="button"
+            class="secondary"
+            hx-include="#filters"
+            hx-get="processes"
+            hx-select="#process-results"
+            hx-target="#process-results"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            data-page-action="next"
+            th:attr="data-page-offset=${page.offset + page.limit}"
+            th:disabled="${!page.hasNext}">Next <svg class="icon" aria-hidden="true"><use href="#ti-arrow-right"></use></svg></button>
+    <span class="page-separator"></span>
+    <label class="page-size">Per page
+        <select data-page-size
+                hx-get="processes"
+                hx-trigger="change"
+                hx-include="#filters"
+                hx-select="#process-results"
+                hx-target="#process-results"
+                hx-swap="outerHTML"
+                hx-push-url="true"
+                th:attr="data-current-limit=${page.limit}">
+            <option value="25"  th:selected="${page.limit == 25}">25</option>
+            <option value="50"  th:selected="${page.limit == 50}">50</option>
+            <option value="100" th:selected="${page.limit == 100}">100</option>
+        </select>
+    </label>
+</nav>
+</body>
+</html>

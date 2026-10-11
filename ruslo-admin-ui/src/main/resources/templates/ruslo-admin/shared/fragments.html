@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<script th:fragment="themeBootstrap">
+    (function () {
+        try {
+            const t = localStorage.getItem('admin-theme');
+            document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+        } catch (e) {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+        try {
+            if (localStorage.getItem('admin-sidebar') === 'collapsed') {
+                document.documentElement.setAttribute('data-sidebar', 'collapsed');
+            }
+        } catch (e) {
+            // Ignore storage restrictions.
+        }
+    })();
+</script>
+
+
+<aside class="sidebar" id="sidebar" th:fragment="sidebar(activePage)">
+    <div class="sidebar-brand">
+        <span class="brand-mark" aria-hidden="true">R</span>
+        <span class="brand-name">Ruslo</span>
+    </div>
+    <nav class="side-nav" aria-label="Main">
+        <a href="./"
+           title="Dashboard"
+           th:classappend="${activePage == 'dashboard'} ? ' active' : ''"
+           th:attr="aria-current=${activePage == 'dashboard'} ? 'page' : null">
+            <svg class="icon" aria-hidden="true"><use href="#ti-layout-grid"></use></svg>
+            <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="./processes"
+           title="Processes"
+           th:classappend="${activePage == 'processes'} ? ' active' : ''"
+           th:attr="aria-current=${activePage == 'processes'} ? 'page' : null">
+            <svg class="icon" aria-hidden="true"><use href="#ti-list"></use></svg>
+            <span class="nav-label">Processes</span>
+        </a>
+    </nav>
+    <footer class="sidebar-footer">
+        <!-- admin.js keeps aria-expanded, aria-label and title in sync with the collapsed state. -->
+        <button type="button"
+                class="sidebar-toggle"
+                data-sidebar-toggle
+                aria-controls="sidebar"
+                aria-expanded="true"
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar">
+            <svg class="icon sidebar-toggle-collapse" aria-hidden="true"><use href="#ti-layout-sidebar-left-collapse"></use></svg>
+            <svg class="icon sidebar-toggle-expand" aria-hidden="true"><use href="#ti-layout-sidebar-left-expand"></use></svg>
+            <span class="nav-label">Collapse</span>
+        </button>
+    </footer>
+</aside>
+
+<button type="button"
+        class="theme-toggle"
+        data-theme-toggle
+        role="switch"
+        aria-checked="false"
+        aria-label="Toggle theme"
+        title="Toggle theme"
+        th:fragment="themeToggle">
+    <span class="theme-toggle-track" aria-hidden="true">
+        <span class="theme-toggle-thumb">
+            <svg class="icon theme-icon-light" aria-hidden="true"><use href="#ti-sun"></use></svg>
+            <svg class="icon theme-icon-dark" aria-hidden="true"><use href="#ti-moon"></use></svg>
+        </span>
+    </span>
+</button>
+
+<header class="top-strip" th:fragment="topStrip(breadcrumbs)">
+    <nav class="breadcrumbs strip-title" aria-label="Breadcrumb">
+        <th:block th:each="breadcrumb, iter : ${breadcrumbs}">
+            <a th:if="${!breadcrumb.current()}"
+               th:href="${breadcrumb.href()}"
+               th:title="${breadcrumb.title()}"
+               th:text="${breadcrumb.label()}">Parent</a>
+            <span th:if="${breadcrumb.current()}"
+                  class="crumb-current"
+                  th:title="${breadcrumb.title()}"
+                  th:attr="aria-current=${breadcrumb.current()} ? 'page' : null"
+                  th:text="${breadcrumb.label()}">Current</span>
+            <span th:if="${!iter.last}" class="crumb-sep" aria-hidden="true">›</span>
+        </th:block>
+    </nav>
+    <div class="strip-chrome">
+        <button th:replace="~{ruslo-admin/shared/fragments :: themeToggle}"></button>
+    </div>
+</header>
+
+<div class="status-line"
+     th:fragment="statusLine"
+     th:classappend="${error == true} ? ' error' : ''"
+     th:text="${status}">Status</div>
+
+<!-- Tabler Icon https://tabler.io/icons -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" th:fragment="iconSprite">
+    <symbol id="ti-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 6l-12 12" />
+        <path d="M6 6l12 12" />
+    </symbol>
+    <symbol id="ti-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5l0 14" />
+        <path d="M5 12l14 0" />
+    </symbol>
+    <symbol id="ti-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12l14 0" />
+    </symbol>
+    <symbol id="ti-arrows-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 4l4 0l0 4" />
+        <path d="M14 10l6 -6" />
+        <path d="M8 20l-4 0l0 -4" />
+        <path d="M4 20l6 -6" />
+        <path d="M16 20l4 0l0 -4" />
+        <path d="M14 14l6 6" />
+        <path d="M8 4l-4 0l0 4" />
+        <path d="M4 4l6 6" />
+    </symbol>
+    <symbol id="ti-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 8v-2a2 2 0 0 1 2 -2h2" />
+        <path d="M4 16v2a2 2 0 0 0 2 2h2" />
+        <path d="M16 4h2a2 2 0 0 1 2 2v2" />
+        <path d="M16 20h2a2 2 0 0 0 2 -2v-2" />
+    </symbol>
+    <symbol id="ti-folder-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 19l2.8 -8h12.2l-2.8 8z" />
+        <path d="M5 19a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v2" />
+    </symbol>
+    <symbol id="ti-device-floppy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 4h11l3 3v13h-16v-16z" />
+        <path d="M8 4v6h8v-6" />
+        <path d="M8 20v-6h8v6" />
+        <path d="M14 4v4h2" />
+    </symbol>
+    <symbol id="ti-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+        <path d="M13.5 6.5l4 4" />
+    </symbol>
+    <symbol id="ti-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 7l16 0" />
+        <path d="M10 11l0 6" />
+        <path d="M14 11l0 6" />
+        <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+        <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+    </symbol>
+    <symbol id="ti-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" />
+        <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" />
+    </symbol>
+    <symbol id="ti-sitemap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 15m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
+        <path d="M15 15m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
+        <path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z" />
+        <path d="M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1" />
+        <path d="M12 9l0 3" />
+    </symbol>
+    <symbol id="ti-arrow-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12l14 0" />
+        <path d="M5 12l6 6" />
+        <path d="M5 12l6 -6" />
+    </symbol>
+    <symbol id="ti-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12l14 0" />
+        <path d="M13 18l6 -6" />
+        <path d="M13 6l6 6" />
+    </symbol>
+    <symbol id="ti-layout-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" />
+        <path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" />
+        <path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" />
+        <path d="M14 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" />
+    </symbol>
+    <symbol id="ti-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 6l11 0" />
+        <path d="M9 12l11 0" />
+        <path d="M9 18l11 0" />
+        <path d="M5 6l0 .01" />
+        <path d="M5 12l0 .01" />
+        <path d="M5 18l0 .01" />
+    </symbol>
+    <symbol id="ti-layout-sidebar-left-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" />
+        <path d="M9 4v16" />
+        <path d="M15 10l-2 2l2 2" />
+    </symbol>
+    <symbol id="ti-layout-sidebar-left-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" />
+        <path d="M9 4v16" />
+        <path d="M14 10l2 2l-2 2" />
+    </symbol>
+    <symbol id="ti-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 4m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" />
+        <path d="M3 12m0 3a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" />
+        <path d="M7 8l0 .01" />
+        <path d="M7 16l0 .01" />
+    </symbol>
+    <symbol id="ti-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />
+        <path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7" />
+    </symbol>
+    <symbol id="ti-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </symbol>
+    <symbol id="ti-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z" />
+        <path d="M3 7l9 6l9 -6" />
+    </symbol>
+    <symbol id="ti-player-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 4v16l13 -8z" />
+    </symbol>
+</svg>
+
+<span class="badge"
+      th:fragment="statusBadge(status)"
+      th:classappend="|status-${#strings.toLowerCase(status)}|"
+      th:text="${status}">ACTIVE</span>
+
+<button type="button"
+        class="icon-btn copy-btn"
+        th:fragment="copyButton(value, label)"
+        th:disabled="${value == null}"
+        th:attr="data-copy=${value},aria-label=${label},title=${label}"><svg class="icon" aria-hidden="true"><use href="#ti-copy"></use></svg></button>
+
+<!-- Replaces the browser confirm() for hx-confirm: admin.js fills the question and issues the request on Confirm. -->
+<dialog class="small-modal confirm-modal" id="confirm-dialog" th:fragment="confirmDialog">
+    <article>
+        <header class="modal-header">
+            <div>
+                <h2>Confirm action</h2>
+            </div>
+            <button class="icon-btn" type="button" data-modal-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#ti-x"></use></svg></button>
+        </header>
+        <div class="modal-body">
+            <p id="confirm-dialog-question">Are you sure?</p>
+            <div class="action-bar">
+                <button type="button" class="secondary" data-modal-close>Cancel</button>
+                <button type="button" data-confirm-accept>Confirm</button>
+            </div>
+        </div>
+    </article>
+</dialog>
+
+<div class="diagram-legend" aria-label="Diagram legend" th:fragment="diagramLegend(instance)">
+    <span class="legend-step">Step</span>
+    <span class="legend-await">Await</span>
+    <span class="legend-terminal">Terminal</span>
+    <span class="legend-message">Message</span>
+    <span class="legend-timer">Timer</span>
+    <th:block th:if="${instance}">
+        <span class="legend-visited">Visited</span>
+        <span class="legend-current">Current</span>
+        <span class="legend-failed">Failed</span>
+        <span class="legend-manual">Manual move</span>
+    </th:block>
+    <span class="diagram-legend-hint">Ctrl/⌘ + scroll to zoom</span>
+</div>
+</body>
+</html>

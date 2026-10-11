@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:cookbook;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+ruslo:
+  # Demo admin UI: http://localhost:8080/ruslo
+  admin-ui:
+    enabled: true
+  workers:
+    # The transactional DEFAULT worker is registered automatically.
+    # Recipe ioworker: non-transactional worker for long external calls.
+    # max-concurrency limits concurrent calls to the external service from this node.
+    io-worker:
+      execution-mode: non_transactional
+      max-concurrency: 4
+
+# Package demo: starts processes of all recipes on application startup for the admin UI.
+# Disabled in tests (src/test/resources/config/application.yml).
+cookbook:
+  demo:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics

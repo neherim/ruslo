@@ -1,0 +1,352 @@
+{
+  "benchmark" : "process-execution",
+  "timestampUtc" : "2026-10-11T10:05:35.237905Z",
+  "environment" : {
+    "gitCommit" : "d5c2eb6e30227d0ce0aa5a4c8e60dde50267adae",
+    "gitWorkingTree" : "clean",
+    "gitChanges" : "",
+    "hardwareAndDockerNotes" : "Apple M2 (8 cores), 16 GB RAM, internal SSD (APPLE SSD AP0256Z); Docker Desktop 29.6.1 VM 8 CPU / 7.75 GiB; PostgreSQL in Docker on the same machine",
+    "javaVersion" : "21.0.4",
+    "jvm" : "OpenJDK 64-Bit Server VM",
+    "jvmArguments" : [ "-Xmx4g", "-XX:+UseG1GC" ],
+    "os" : "Mac OS X",
+    "arch" : "aarch64",
+    "jvmCpuCount" : 8,
+    "maxHeapBytes" : 4294967296,
+    "postgres" : {
+      "dockerCpuCount" : 8,
+      "dockerMemoryBytes" : 8321798144,
+      "image" : "postgres:18.4-alpine",
+      "version" : "PostgreSQL 18.4 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+      "containerMemoryLimitBytes" : 0,
+      "containerNanoCpus" : 0,
+      "containerCpuQuota" : 0,
+      "containerCpuPeriod" : 0,
+      "containerCpuset" : "",
+      "settings" : [ {
+        "name" : "checkpoint_timeout",
+        "setting" : "300",
+        "unit" : "s"
+      }, {
+        "name" : "fsync",
+        "setting" : "on",
+        "unit" : ""
+      }, {
+        "name" : "full_page_writes",
+        "setting" : "on",
+        "unit" : ""
+      }, {
+        "name" : "max_connections",
+        "setting" : "100",
+        "unit" : ""
+      }, {
+        "name" : "max_wal_size",
+        "setting" : "1024",
+        "unit" : "MB"
+      }, {
+        "name" : "shared_buffers",
+        "setting" : "16384",
+        "unit" : "8kB"
+      }, {
+        "name" : "synchronous_commit",
+        "setting" : "on",
+        "unit" : ""
+      } ]
+    }
+  },
+  "workload" : {
+    "warmupProcessCount" : 1000,
+    "historyEnabled" : true,
+    "workerConcurrencyPerEngine" : 16,
+    "measuredIterations" : 3,
+    "processCount" : 10000,
+    "dispatchIntervalMillis" : 10,
+    "warmupIterations" : 1,
+    "stepsPerProcess" : 5,
+    "engineCounts" : [ 1, 2, 4 ],
+    "poolSizePerEngine" : 18
+  },
+  "iterations" : [ {
+    "executionMode" : "TRANSACTIONAL",
+    "topologies" : [ {
+      "engineCount" : 1,
+      "iterations" : [ {
+        "processCount" : 10000,
+        "durationMillis" : 11220.762333,
+        "processesPerSecond" : 891.2050450075244,
+        "stepsPerSecond" : 4456.0252250376225,
+        "completionLatencyMillis" : {
+          "p50" : 5882.772125,
+          "p95" : 10684.130625,
+          "p99" : 11127.985875,
+          "max" : 11220.762333
+        },
+        "completedProcessesByEngine" : [ 10000 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 10427.069792,
+        "processesPerSecond" : 959.0422045196568,
+        "stepsPerSecond" : 4795.211022598284,
+        "completionLatencyMillis" : {
+          "p50" : 5170.328417,
+          "p95" : 9911.213959,
+          "p99" : 10312.799917,
+          "max" : 10427.069792
+        },
+        "completedProcessesByEngine" : [ 10000 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 9968.787458,
+        "processesPerSecond" : 1003.1310269309586,
+        "stepsPerSecond" : 5015.655134654793,
+        "completionLatencyMillis" : {
+          "p50" : 5074.601625,
+          "p95" : 9469.279375,
+          "p99" : 9877.103916,
+          "max" : 9968.787458
+        },
+        "completedProcessesByEngine" : [ 10000 ]
+      } ],
+      "throughput" : {
+        "min" : 891.2050450075244,
+        "median" : 959.0422045196568,
+        "max" : 1003.1310269309586,
+        "spread" : 111.92598192343416
+      },
+      "speedupRelativeToOneEngine" : 1.0
+    }, {
+      "engineCount" : 2,
+      "iterations" : [ {
+        "processCount" : 10000,
+        "durationMillis" : 8823.110292,
+        "processesPerSecond" : 1133.3871694958973,
+        "stepsPerSecond" : 5666.935847479486,
+        "completionLatencyMillis" : {
+          "p50" : 4527.755458,
+          "p95" : 8388.018708,
+          "p99" : 8753.38125,
+          "max" : 8823.110292
+        },
+        "completedProcessesByEngine" : [ 4978, 5022 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 8832.060209,
+        "processesPerSecond" : 1132.2386581796457,
+        "stepsPerSecond" : 5661.193290898228,
+        "completionLatencyMillis" : {
+          "p50" : 4416.017667,
+          "p95" : 8412.419292,
+          "p99" : 8746.370209,
+          "max" : 8832.060209
+        },
+        "completedProcessesByEngine" : [ 4980, 5020 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 9209.5245,
+        "processesPerSecond" : 1085.8323901521735,
+        "stepsPerSecond" : 5429.1619507608675,
+        "completionLatencyMillis" : {
+          "p50" : 4758.276542,
+          "p95" : 8795.067042,
+          "p99" : 9138.437834,
+          "max" : 9209.5245
+        },
+        "completedProcessesByEngine" : [ 5009, 4991 ]
+      } ],
+      "throughput" : {
+        "min" : 1085.8323901521735,
+        "median" : 1132.2386581796457,
+        "max" : 1133.3871694958973,
+        "spread" : 47.554779343723794
+      },
+      "speedupRelativeToOneEngine" : 1.1805931510039598
+    }, {
+      "engineCount" : 4,
+      "iterations" : [ {
+        "processCount" : 10000,
+        "durationMillis" : 8027.14375,
+        "processesPerSecond" : 1245.7731306979522,
+        "stepsPerSecond" : 6228.865653489761,
+        "completionLatencyMillis" : {
+          "p50" : 4183.529209,
+          "p95" : 7672.366292,
+          "p99" : 7968.053709,
+          "max" : 8027.14375
+        },
+        "completedProcessesByEngine" : [ 2472, 2512, 2501, 2515 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 8120.180084,
+        "processesPerSecond" : 1231.499781600164,
+        "stepsPerSecond" : 6157.498908000819,
+        "completionLatencyMillis" : {
+          "p50" : 4175.889417,
+          "p95" : 7736.206042,
+          "p99" : 8052.2325,
+          "max" : 8120.180084
+        },
+        "completedProcessesByEngine" : [ 2432, 2517, 2514, 2537 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 8224.502042,
+        "processesPerSecond" : 1215.8790828834474,
+        "stepsPerSecond" : 6079.395414417237,
+        "completionLatencyMillis" : {
+          "p50" : 4212.367584,
+          "p95" : 7817.279125,
+          "p99" : 8153.927917,
+          "max" : 8224.502042
+        },
+        "completedProcessesByEngine" : [ 2510, 2517, 2535, 2438 ]
+      } ],
+      "throughput" : {
+        "min" : 1215.8790828834474,
+        "median" : 1231.499781600164,
+        "max" : 1245.7731306979522,
+        "spread" : 29.894047814504802
+      },
+      "speedupRelativeToOneEngine" : 1.2840934171577667
+    } ]
+  }, {
+    "executionMode" : "NON_TRANSACTIONAL",
+    "topologies" : [ {
+      "engineCount" : 1,
+      "iterations" : [ {
+        "processCount" : 10000,
+        "durationMillis" : 13017.5395,
+        "processesPerSecond" : 768.1943273534911,
+        "stepsPerSecond" : 3840.971636767455,
+        "completionLatencyMillis" : {
+          "p50" : 6557.171459,
+          "p95" : 12328.587792,
+          "p99" : 12874.337042,
+          "max" : 13017.5395
+        },
+        "completedProcessesByEngine" : [ 10000 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 12801.541917,
+        "processesPerSecond" : 781.1559001904567,
+        "stepsPerSecond" : 3905.779500952284,
+        "completionLatencyMillis" : {
+          "p50" : 6418.452375,
+          "p95" : 12196.287708,
+          "p99" : 12683.97175,
+          "max" : 12801.541917
+        },
+        "completedProcessesByEngine" : [ 10000 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 12915.998,
+        "processesPerSecond" : 774.2336287137858,
+        "stepsPerSecond" : 3871.168143568929,
+        "completionLatencyMillis" : {
+          "p50" : 6543.312541,
+          "p95" : 12261.5065,
+          "p99" : 12793.935875,
+          "max" : 12915.998
+        },
+        "completedProcessesByEngine" : [ 10000 ]
+      } ],
+      "throughput" : {
+        "min" : 768.1943273534911,
+        "median" : 774.2336287137858,
+        "max" : 781.1559001904567,
+        "spread" : 12.961572836965615
+      },
+      "speedupRelativeToOneEngine" : 1.0
+    }, {
+      "engineCount" : 2,
+      "iterations" : [ {
+        "processCount" : 10000,
+        "durationMillis" : 11356.951333,
+        "processesPerSecond" : 880.5179934990922,
+        "stepsPerSecond" : 4402.589967495461,
+        "completionLatencyMillis" : {
+          "p50" : 5672.065667,
+          "p95" : 10832.692167,
+          "p99" : 11263.1375,
+          "max" : 11356.951333
+        },
+        "completedProcessesByEngine" : [ 5007, 4993 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 11322.020959,
+        "processesPerSecond" : 883.2345423323818,
+        "stepsPerSecond" : 4416.1727116619095,
+        "completionLatencyMillis" : {
+          "p50" : 5632.971292,
+          "p95" : 10747.733167,
+          "p99" : 11219.533875,
+          "max" : 11322.020959
+        },
+        "completedProcessesByEngine" : [ 4981, 5019 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 11284.982292,
+        "processesPerSecond" : 886.1334241604497,
+        "stepsPerSecond" : 4430.667120802249,
+        "completionLatencyMillis" : {
+          "p50" : 5703.909417,
+          "p95" : 10752.019959,
+          "p99" : 11181.666,
+          "max" : 11284.982292
+        },
+        "completedProcessesByEngine" : [ 5045, 4955 ]
+      } ],
+      "throughput" : {
+        "min" : 880.5179934990922,
+        "median" : 883.2345423323818,
+        "max" : 886.1334241604497,
+        "spread" : 5.61543066135755
+      },
+      "speedupRelativeToOneEngine" : 1.1407855582295958
+    }, {
+      "engineCount" : 4,
+      "iterations" : [ {
+        "processCount" : 10000,
+        "durationMillis" : 10766.740875,
+        "processesPerSecond" : 928.7861680798554,
+        "stepsPerSecond" : 4643.930840399277,
+        "completionLatencyMillis" : {
+          "p50" : 5516.414208,
+          "p95" : 10265.157166,
+          "p99" : 10677.888875,
+          "max" : 10766.740875
+        },
+        "completedProcessesByEngine" : [ 2527, 2511, 2455, 2507 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 10748.719334,
+        "processesPerSecond" : 930.3433915488262,
+        "stepsPerSecond" : 4651.716957744131,
+        "completionLatencyMillis" : {
+          "p50" : 5572.799667,
+          "p95" : 10258.934625,
+          "p99" : 10674.401792,
+          "max" : 10748.719334
+        },
+        "completedProcessesByEngine" : [ 2547, 2559, 2549, 2345 ]
+      }, {
+        "processCount" : 10000,
+        "durationMillis" : 10611.830416,
+        "processesPerSecond" : 942.344497413235,
+        "stepsPerSecond" : 4711.722487066175,
+        "completionLatencyMillis" : {
+          "p50" : 5356.796791,
+          "p95" : 10076.71725,
+          "p99" : 10533.180208,
+          "max" : 10611.830416
+        },
+        "completedProcessesByEngine" : [ 2451, 2517, 2523, 2509 ]
+      } ],
+      "throughput" : {
+        "min" : 928.7861680798554,
+        "median" : 930.3433915488262,
+        "max" : 942.344497413235,
+        "spread" : 13.558329333379561
+      },
+      "speedupRelativeToOneEngine" : 1.2016313384557855
+    } ]
+  } ]
+}

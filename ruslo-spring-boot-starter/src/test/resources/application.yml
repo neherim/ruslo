@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password:
+
+ruslo:
+  database-migration:
+    enabled: true
+  dispatcher:
+    enabled: false
+    max-interval: 10s
+    min-interval: 100ms
+    instance-heartbeat-interval: 15s
+    instance-timeout: 60s
+  workers:
+    DEFAULT:
+      execution-mode: transactional
+      max-concurrency: 10
+    reports:
+      execution-mode: non-transactional
+      max-concurrency: 20

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" translate="no" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
+    <base th:href="@{|${basePath}/|}">
+    <title>Processes</title>
+    <script th:replace="~{ruslo-admin/shared/fragments :: themeBootstrap}"></script>
+    <link rel="stylesheet" href="assets/vendor/pico/2.1.1/pico.min.css">
+    <link rel="stylesheet" href="assets/admin.css">
+</head>
+<body th:attr="hx-headers=${_csrf == null ? '{}' : '{&quot;' + _csrf.headerName + '&quot;:&quot;' + _csrf.token + '&quot;}'}">
+<th:block th:replace="~{ruslo-admin/shared/fragments :: iconSprite}"></th:block>
+<div class="app">
+    <aside th:replace="~{ruslo-admin/shared/fragments :: sidebar('processes')}"></aside>
+    <div class="app-content">
+        <header th:replace="~{ruslo-admin/shared/fragments :: topStrip(${breadcrumbs})}"></header>
+        <main class="shell processes-shell">
+            <article class="filter-bar">
+                <form id="filters"
+                      class="stack"
+                      hx-get="processes"
+                      hx-select="#process-results"
+                      hx-target="#process-results"
+                      hx-swap="outerHTML"
+                      hx-push-url="true"
+                      hx-trigger="submit">
+                    <div class="field-grid primary-filters">
+                        <label class="uuid-filter">Id <input name="processId" class="mono" placeholder="UUID" th:value="${searchForm.processId()}"></label>
+                        <label>Type
+                            <select name="typeName"
+                                    id="type-filter"
+                                    hx-get="htmx/definitions/state-options"
+                                    hx-trigger="change"
+                                    hx-select="#state-filter"
+                                    hx-target="#state-filter"
+                                    hx-swap="outerHTML"
+                                    hx-include="#type-filter"
+                                    hx-push-url="false">
+                                <option value="">Any</option>
+                                <option th:each="definition : ${definitions}"
+                                        th:value="${definition.type}"
+                                        th:text="${definition.type}"
+                                        th:selected="${definition.type == searchForm.typeName()}">TYPE</option>
+                            </select>
+                        </label>
+                        <label>State
+                            <select name="stateName" id="state-filter">
+                                <option value="">Any</option>
+                                <option th:each="state : ${states}"
+                                        th:value="${state}"
+                                        th:text="${state}"
+                                        th:selected="${state == searchForm.stateName()}">STATE</option>
+                            </select>
+                        </label>
+                        <label>Status
+                            <select name="status">
+                                <option value="">Any</option>
+                                <option value="ACTIVE" th:selected="${searchForm.status() == T(io.github.neherim.ruslo.core.api.view.ProcessStatus).ACTIVE}">Active</option>
+                                <option value="FAILED" th:selected="${searchForm.status() == T(io.github.neherim.ruslo.core.api.view.ProcessStatus).FAILED}">Failed</option>
+                                <option value="COMPLETED" th:selected="${searchForm.status() == T(io.github.neherim.ruslo.core.api.view.ProcessStatus).COMPLETED}">Completed</option>
+                            </select>
+                        </label>
+                        <label>Business key <input name="businessKey" th:value="${searchForm.businessKey()}"></label>
+                        <div class="action-bar">
+                            <button type="submit" class="secondary">Search</button>
+                            <a href="processes" role="button" class="secondary">Reset</a>
+                        </div>
+                    </div>
+                    <details class="advanced">
+                        <summary>Advanced filters</summary>
+                        <div class="advanced-panel field-grid">
+                            <label class="uuid-filter">Correlation id <input name="correlationId" class="mono" th:value="${searchForm.correlationId()}"></label>
+                            <label>Variables LIKE <input name="variablesLike" placeholder="%&quot;key&quot;%" th:value="${searchForm.variablesLike()}"></label>
+                            <label class="date-filter">Scheduled from <input name="scheduledAtFrom" type="datetime-local" th:value="${searchForm.scheduledAtFrom()}"></label>
+                            <label class="date-filter">Scheduled to <input name="scheduledAtTo" type="datetime-local" th:value="${searchForm.scheduledAtTo()}"></label>
+                            <label class="date-filter">Created from <input name="createdAtFrom" type="datetime-local" th:value="${searchForm.createdAtFrom()}"></label>
+                            <label class="date-filter">Created to <input name="createdAtTo" type="datetime-local" th:value="${searchForm.createdAtTo()}"></label>
+                        </div>
+                    </details>
+                    <input type="hidden" name="limit"  id="limit-input"  th:value="${page.limit}">
+                    <input type="hidden" name="offset" id="offset-input" th:value="${page.offset}">
+                    <input type="hidden" name="timeZone" id="time-zone-input" th:value="${searchForm.timeZone()}">
+                </form>
+            </article>
+
+            <article class="results-panel">
+                <div id="process-results">
+                    <th:block th:replace="~{ruslo-admin/processes/fragments :: processResults}"></th:block>
+                </div>
+            </article>
+        </main>
+    </div>
+</div>
+<div id="toasts" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
+<script src="assets/vendor/htmx/2.0.10/htmx.min.js"></script>
+<script src="assets/admin.js"></script>
+</body>
+</html>

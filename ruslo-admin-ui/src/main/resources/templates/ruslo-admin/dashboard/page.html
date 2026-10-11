@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" translate="no" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
+    <base th:href="@{|${basePath}/|}">
+    <title>Ruslo Admin</title>
+    <script th:replace="~{ruslo-admin/shared/fragments :: themeBootstrap}"></script>
+    <link rel="stylesheet" href="assets/vendor/pico/2.1.1/pico.min.css">
+    <link rel="stylesheet" href="assets/admin.css">
+</head>
+<body th:attr="hx-headers=${_csrf == null ? '{}' : '{&quot;' + _csrf.headerName + '&quot;:&quot;' + _csrf.token + '&quot;}'}">
+<th:block th:replace="~{ruslo-admin/shared/fragments :: iconSprite}"></th:block>
+<div class="app">
+    <aside th:replace="~{ruslo-admin/shared/fragments :: sidebar('dashboard')}"></aside>
+    <div class="app-content">
+        <header th:replace="~{ruslo-admin/shared/fragments :: topStrip(${breadcrumbs})}"></header>
+        <main class="shell">
+            <div id="dashboard"
+                 class="dashboard"
+                 hx-get="htmx/dashboard"
+                 hx-trigger="load, every 5s [AdminUi.canRefresh()]"
+                 hx-vals='js:{timeZone: AdminUi.browserTimeZone()}'
+                 hx-swap="innerHTML">
+                <div class="status-line">Loading</div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<dialog class="small-modal" id="start-process-drawer">
+    <article>
+        <header class="modal-header">
+            <div>
+                <h2>Start process</h2>
+                <div class="muted">Create a new process instance</div>
+            </div>
+            <button class="icon-btn"
+                    type="button"
+                    aria-label="Close"
+                    data-modal-close><svg class="icon" aria-hidden="true"><use href="#ti-x"></use></svg></button>
+        </header>
+        <div class="modal-body">
+            <div id="start-process-panel">
+                <div class="status-line muted">Pick a definition</div>
+            </div>
+            <div class="status-line" id="start-status"></div>
+        </div>
+    </article>
+</dialog>
+
+<dialog class="diagram-dialog small-modal" id="diagram-dialog">
+    <article>
+        <header class="modal-header">
+            <h2 id="diagram-dialog-title">Process diagram</h2>
+            <button class="icon-btn"
+                    type="button"
+                    aria-label="Close"
+                    data-modal-close><svg class="icon" aria-hidden="true"><use href="#ti-x"></use></svg></button>
+        </header>
+        <div class="diagram-dialog-body">
+            <div class="diagram-canvas-shell">
+                <div class="diagram-toolbar" aria-label="Process diagram controls">
+                    <button class="icon-btn" type="button" data-diagram-control="zoom-in" aria-label="Zoom in" title="Zoom in"><svg class="icon" aria-hidden="true"><use href="#ti-plus"></use></svg></button>
+                    <button class="icon-btn" type="button" data-diagram-control="zoom-out" aria-label="Zoom out" title="Zoom out"><svg class="icon" aria-hidden="true"><use href="#ti-minus"></use></svg></button>
+                    <button class="icon-btn" type="button" data-diagram-control="fit" aria-label="Fit to viewport" title="Fit to viewport"><svg class="icon" aria-hidden="true"><use href="#ti-arrows-maximize"></use></svg></button>
+                </div>
+                <div id="diagram-canvas"></div>
+            </div>
+            <div th:replace="~{ruslo-admin/shared/fragments :: diagramLegend(false)}"></div>
+            <div class="status-line" id="diagram-status">Loading</div>
+        </div>
+    </article>
+</dialog>
+
+<div id="toasts" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
+<script src="assets/vendor/htmx/2.0.10/htmx.min.js"></script>
+<script src="assets/admin.js"></script>
+</body>
+</html>

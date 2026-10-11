@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="dashboard">
+    <section class="dashboard-hero">
+        <div class="hero-numbers">
+            <a class="hero-number"
+               th:href="@{processes(status='FAILED')}"
+               title="Processes stopped in FAILED: they wait for Retry or a manual move">
+                <span>Failed</span>
+                <strong class="metric-value numeric"
+                        th:classappend="${dashboard.failedCount > 0 ? 'is-failed' : ''}"
+                        th:text="${dashboard.failedCount}">0</strong>
+            </a>
+            <a class="hero-number"
+               th:href="@{processes(status='ACTIVE',scheduledAtTo=${dashboard.overdueAt},timeZone=${dashboard.timeZone})}"
+               title="Active processes scheduled more than a minute ago and still not executed">
+                <span>Overdue</span>
+                <strong class="metric-value numeric"
+                        th:classappend="${dashboard.overdueCount > 0 ? 'is-overdue' : ''}"
+                        th:text="${dashboard.overdueCount}">0</strong>
+            </a>
+            <a class="hero-number"
+               th:href="@{processes(status='ACTIVE')}"
+               title="Processes in progress: running steps or waiting for events">
+                <span>Active</span>
+                <strong class="metric-value numeric" th:text="${dashboard.activeCount}">0</strong>
+            </a>
+            <div class="hero-number"
+                 title="Engine instances with a running dispatcher">
+                <span>Instances</span>
+                <strong class="metric-value numeric"
+                        th:classappend="${dashboard.instances.empty ? 'is-overdue' : ''}"
+                        th:text="${dashboard.instances.size()}">0</strong>
+            </div>
+        </div>
+    </section>
+
+    <article class="definitions-panel">
+        <div class="section-header">
+            <div class="section-title">
+                <h2>Process definitions</h2>
+                <div class="muted" th:text="|${definitions.size()} registered, counters of incomplete processes|">Registered definitions</div>
+            </div>
+        </div>
+        <div class="definitions-grid">
+            <div class="empty-state" th:if="${definitions.empty}">No definitions</div>
+            <article class="definition-card" th:each="definition : ${definitions}"
+                     th:with="counts=${dashboard.countsFor(definition.type)}">
+                <header class="definition-card-header">
+                    <span class="badge" th:text="${definition.type}">TYPE</span>
+                </header>
+                <div class="definition-card-body">
+                    <div class="muted definition-description"
+                         th:text="${definition.description ?: '—'}">Description</div>
+                    <div class="definition-counts">
+                        <a th:href="@{processes(typeName=${definition.type},status='ACTIVE')}"
+                           th:classappend="${counts.active == 0 ? 'zero' : ''}"><strong th:text="${counts.active}">0</strong> active</a>
+                        <a th:href="@{processes(typeName=${definition.type},status='FAILED')}"
+                           th:classappend="${counts.failed == 0 ? 'zero' : 'is-failed'}"><strong th:text="${counts.failed}">0</strong> failed</a>
+                        <a th:href="@{processes(typeName=${definition.type},status='ACTIVE',scheduledAtTo=${dashboard.overdueAt},timeZone=${dashboard.timeZone})}"
+                           th:classappend="${counts.overdue == 0 ? 'zero' : 'is-overdue'}"><strong th:text="${counts.overdue}">0</strong> overdue</a>
+                    </div>
+                </div>
+                <footer class="definition-card-actions">
+                    <button type="button"
+                            class="secondary"
+                            th:attr="data-start-type=${definition.type}"><svg class="icon" aria-hidden="true"><use href="#ti-player-play"></use></svg> Start</button>
+                    <button type="button"
+                            class="secondary"
+                            data-diagram-open="true"
+                            th:attr="data-diagram-type=${definition.type}"
+                            title="View process diagram"><svg class="icon" aria-hidden="true"><use href="#ti-sitemap"></use></svg> Diagram</button>
+                </footer>
+            </article>
+        </div>
+    </article>
+
+    <article class="instances-panel">
+        <div class="section-header">
+            <div class="section-title">
+                <h2><svg class="icon" aria-hidden="true"><use href="#ti-server"></use></svg> Engine instances</h2>
+                <div class="muted">Nodes with a running dispatcher and the processes they hold right now</div>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table class="instances-table">
+                <thead>
+                <tr>
+                    <th>Instance</th>
+                    <th class="col-leases">Leased processes</th>
+                    <th class="col-registration">Registration</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:if="${dashboard.instances.empty}">
+                    <td colspan="3" class="muted">No registered instances: the dispatcher is not running on any node, so ready processes are not executed.</td>
+                </tr>
+                <tr th:each="instance : ${dashboard.instances}">
+                    <td>
+                        <span class="mono"
+                              th:title="${instance.id}"
+                              th:text="|…${#strings.substring(instance.id.toString(), 24)}|">id</span>
+                        <button th:replace="~{ruslo-admin/shared/fragments :: copyButton(${instance.id}, 'Copy instance ID')}"></button>
+                        <span class="badge" th:if="${instance.current}" title="The instance serving this admin UI">this node</span>
+                    </td>
+                    <td class="col-leases numeric" th:text="${instance.leaseCount}">0</td>
+                    <td class="col-registration">
+                        <span class="muted"
+                              th:if="${instance.expiresInSeconds >= 0}"
+                              th:text="|expires in ${instance.expiresInSeconds}s|">expires in 30s</span>
+                        <span class="badge danger"
+                              th:if="${instance.expiresInSeconds < 0}"
+                              title="Heartbeat is late: recovery will remove the instance and release its leases"
+                              th:text="|expired ${-instance.expiresInSeconds}s ago|">expired</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </article>
+</th:block>
+</body>
+</html>

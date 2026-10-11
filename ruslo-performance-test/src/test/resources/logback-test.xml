@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Reduce noise from internal components -->
+    <logger name="io.github.neherim.ruslo" level="INFO"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+
+    <!-- Performance test output -->
+    <logger name="io.github.neherim.ruslo.perf" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

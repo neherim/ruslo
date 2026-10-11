@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="processDetailsContent">
+    <!-- Polling sends the shown version: an unchanged process answers 204 and the card is not redrawn. -->
+    <div class="details-poll"
+         hidden
+         th:if="${process.status.name() != 'COMPLETED'}"
+         th:attr="hx-get=@{htmx/processes/{id}/details(id=${process.id},since=${process.version()})}"
+         hx-trigger="every 5s [AdminUi.canRefresh()]"
+         hx-target="#process-details-content"
+         hx-swap="innerHTML"></div>
+    <main class="shell process-shell">
+        <div class="process-main">
+            <article id="metadata-panel" class="hero-panel">
+                <th:block th:replace="~{ruslo-admin/process-details/fragments :: processHero}"></th:block>
+            </article>
+
+            <article class="data-panel tabs">
+                <input type="radio" name="data-tab" id="tab-vars" checked>
+                <input type="radio" name="data-tab" id="tab-history">
+                <nav class="tab-bar" role="tablist">
+                    <label for="tab-vars" th:text="|Variables (${process.variablesCount()})|">Variables (0)</label>
+                    <label for="tab-history" th:text="|History (${process.historyCount()})|">History (0)</label>
+                </nav>
+                <section class="tab-panel" data-tab="vars">
+                    <div id="variables-panel">
+                        <th:block th:replace="~{ruslo-admin/process-details/fragments :: processVariables}"></th:block>
+                    </div>
+                </section>
+                <section class="tab-panel" data-tab="history">
+                    <div id="history-panel">
+                        <th:block th:replace="~{ruslo-admin/process-details/fragments :: processHistory}"></th:block>
+                    </div>
+                </section>
+            </article>
+        </div>
+
+        <article id="diagram-panel" class="process-diagram">
+            <th:block th:replace="~{ruslo-admin/process-details/fragments :: processDiagram}"></th:block>
+        </article>
+    </main>
+
+    <dialog id="add-variable-modal" class="small-modal">
+        <article>
+            <header class="modal-header">
+                <div>
+                    <h2 id="variable-modal-title">Add variable</h2>
+                    <div class="muted">Set or replace a process variable</div>
+                </div>
+                <button class="icon-btn" type="button" data-modal-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#ti-x"></use></svg></button>
+            </header>
+            <div class="modal-body">
+                <form class="variable-add-form"
+                      th:attr="hx-post=@{|htmx/processes/${process.id}/variables|}"
+                      hx-target="#add-variable-status"
+                      hx-swap="innerHTML">
+                    <label>Name <input name="name" placeholder="variable-name" required></label>
+                    <label>Value <textarea class="json-input" name="jsonValue" placeholder="{}" required>{}</textarea></label>
+                    <div class="action-bar">
+                        <button type="submit" id="variable-submit-button">Add</button>
+                        <button type="button" class="secondary" data-modal-close>Cancel</button>
+                    </div>
+                </form>
+                <div class="status-line" id="add-variable-status"></div>
+            </div>
+        </article>
+    </dialog>
+
+    <dialog id="send-message-modal" class="small-modal message-modal" th:if="${process.acceptsMessages()}">
+        <article>
+            <header class="modal-header">
+                <div>
+                    <h2>Send message</h2>
+                    <div class="muted">Deliver an async message to this process</div>
+                </div>
+                <button class="icon-btn" type="button" data-modal-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#ti-x"></use></svg></button>
+            </header>
+            <div class="modal-body">
+                <form class="message-send"
+                      th:attr="hx-post=@{|htmx/processes/${process.id}/messages|}"
+                      hx-target="#message-status"
+                      hx-swap="innerHTML">
+                    <label>Message name <select name="name" required><option th:each="name : ${process.acceptedMessageTypes}" th:value="${name}" th:text="${name}">message</option></select></label>
+                    <label>JSON value <textarea class="json-input" name="jsonValue" required>{}</textarea></label>
+                    <div class="action-bar">
+                        <button type="button" class="secondary" data-modal-close>Cancel</button>
+                        <button type="submit">Send async message</button>
+                    </div>
+                </form>
+                <div class="status-line" id="message-status"></div>
+            </div>
+        </article>
+    </dialog>
+
+    <dialog class="small-modal" id="change-state-drawer"
+            th:attr="data-process-id=${process.id}">
+        <article>
+            <header class="modal-header">
+                <div>
+                    <h2>Change state</h2>
+                    <div class="muted">Move the instance and continue execution</div>
+                </div>
+                <button class="icon-btn"
+                        type="button"
+                        aria-label="Close"
+                        data-modal-close><svg class="icon" aria-hidden="true"><use href="#ti-x"></use></svg></button>
+            </header>
+            <div class="modal-body">
+                <div id="change-state-form-target">
+                    <th:block th:replace="~{ruslo-admin/process-details/fragments :: changeStateForm}"></th:block>
+                </div>
+            </div>
+        </article>
+    </dialog>
+</th:block>
+
+<div th:fragment="processHero" class="process-hero">
+    <div class="hero-main">
+        <div class="hero-summary">
+            <div class="hero-id-block">
+                <span>Process ID</span>
+                <div class="hero-title-row">
+                    <h1 class="hero-title mono" th:text="${process.id}">process-id</h1>
+                    <button th:replace="~{ruslo-admin/shared/fragments :: copyButton(${process.id}, 'Copy process ID')}"></button>
+                    <span th:replace="~{ruslo-admin/shared/fragments :: statusBadge(${process.status.name()})}"></span>
+                </div>
+            </div>
+            <div class="hero-fields">
+                <div class="hero-field hero-field-wide">
+                    <span>State</span>
+                    <strong class="mono" th:text="${process.state}">STATE</strong>
+                    <small class="hero-field-note"
+                           th:if="${process.stateDescription != null}"
+                           th:text="${process.stateDescription}">Description</small>
+                </div>
+                <div class="hero-field">
+                    <span>Type</span>
+                    <strong th:text="${process.type}">TYPE</strong>
+                </div>
+                <div class="hero-field">
+                    <span>State kind</span>
+                    <strong th:text="${process.stateKind}">STEP</strong>
+                    <small class="hero-field-note"
+                           th:if="${process.timerDelay != null}"
+                           th:text="|Timer ${process.timerDelay}|">Timer PT5M</small>
+                </div>
+                <div class="hero-field">
+                    <span>Attempt</span>
+                    <strong class="numeric" th:text="${process.attempt}">0</strong>
+                </div>
+                <div class="hero-field">
+                    <span>Scheduled</span>
+                    <strong>
+                        <time th:if="${process.scheduledAt != null}"
+                              class="relative-time"
+                              th:attr="data-overdue-check=${process.status.name() == 'ACTIVE'} ? 'true' : null"
+                              th:datetime="${process.scheduledAt}"
+                              th:text="${process.scheduledAt}">—</time>
+                        <span th:if="${process.scheduledAt == null}" class="muted">—</span>
+                    </strong>
+                </div>
+                <div class="hero-field hero-field-wide">
+                    <span>Business key</span>
+                    <div class="hero-field-value">
+                        <strong class="mono" th:text="${process.businessKey ?: '—'}">business-key</strong>
+                        <button th:replace="~{ruslo-admin/shared/fragments :: copyButton(${process.businessKey}, 'Copy business key')}"></button>
+                    </div>
+                </div>
+                <div class="hero-field hero-field-wide">
+                    <span>Correlation id</span>
+                    <div class="hero-field-value">
+                        <strong class="mono" th:text="${process.correlationId ?: '—'}">trace</strong>
+                        <button th:replace="~{ruslo-admin/shared/fragments :: copyButton(${process.correlationId}, 'Copy correlation id')}"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Every action is always listed; one that does not apply to the current process is disabled with a reason. -->
+        <details class="actions-menu">
+            <summary aria-label="Process actions">Actions</summary>
+            <div class="actions-menu-panel">
+                <button type="button"
+                        class="actions-menu-item"
+                        data-modal-open="change-state-drawer">Change state</button>
+                <button type="button"
+                        class="actions-menu-item"
+                        th:disabled="${!process.acceptsMessages()}"
+                        data-modal-open="send-message-modal">Send message
+                    <small th:unless="${process.acceptsMessages()}">Current state accepts no messages</small></button>
+                <button type="button"
+                        class="actions-menu-item"
+                        th:disabled="${process.status.name() != 'FAILED'}"
+                        th:attr="hx-post=@{|htmx/processes/${process.id}/retry-current-step|}"
+                        hx-target="#process-action-status"
+                        hx-swap="innerHTML"
+                        hx-confirm="Retry the current process step?">Retry current step
+                    <small th:if="${process.status.name() != 'FAILED'}">Only for FAILED processes</small></button>
+            </div>
+        </details>
+    </div>
+    <div class="status-line hero-status" id="process-action-status"></div>
+    <pre class="hero-error mono"
+         th:if="${process.status.name() == 'FAILED' && process.lastError != null}"
+         th:text="${process.lastError}">error</pre>
+</div>
+
+<th:block th:fragment="changeStateForm">
+    <form class="toolbar"
+          th:attr="hx-post=@{|htmx/processes/${process.id}/state|}"
+          hx-target="#state-status"
+          hx-swap="innerHTML">
+        <label>State
+            <select name="state">
+                <option th:each="state : ${states}"
+                        th:value="${state.name}"
+                        th:text="${state.description == null ? state.name : state.name + ' — ' + state.description}"
+                        th:selected="${state.name == process.state}">STATE</option>
+            </select>
+        </label>
+        <div class="action-bar">
+            <button class="secondary" type="submit">Change state and continue</button>
+        </div>
+    </form>
+    <div class="status-line" id="state-status"></div>
+</th:block>
+
+<th:block th:fragment="processVariables">
+    <div class="table-wrap">
+        <table class="variables-table">
+            <thead>
+            <tr>
+                <th class="col-name">Name</th>
+                <th class="col-value">Value</th>
+                <th class="col-actions" aria-label="Actions"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${process.variables.empty}">
+                <td colspan="3" class="muted">No entries</td>
+            </tr>
+            <tr th:each="entry : ${process.variables}"
+                class="variable-row"
+                th:attr="data-variable-name=${entry.key},data-variable-value=${entry.value}">
+                <td class="col-name mono" th:text="${entry.key}">name</td>
+                <td class="col-value" th:with="structured=${process.structuredVariable(entry.key)}">
+                    <!-- Objects and arrays show one line and expand into formatted JSON; scalars stay inline. -->
+                    <details class="variable-value" th:if="${structured}">
+                        <summary class="mono" th:text="${entry.value}">{}</summary>
+                        <pre class="mono variable-json" th:text="${entry.value}">{}</pre>
+                    </details>
+                    <pre class="mono variable-value"
+                         th:unless="${structured}"
+                         th:text="${entry.value}">42</pre>
+                </td>
+                <td class="col-actions">
+                    <button th:replace="~{ruslo-admin/shared/fragments :: copyButton(${entry.value}, 'Copy value')}"></button>
+                    <button class="icon-btn"
+                            type="button"
+                            data-variable-edit
+                            aria-label="Edit"
+                            title="Edit"><svg class="icon" aria-hidden="true"><use href="#ti-pencil"></use></svg></button>
+                    <button class="icon-btn"
+                            type="button"
+                            th:attr="hx-delete=@{htmx/processes/{id}/variables(id=${process.id},name=${entry.key})}"
+                            hx-target="#variables-status"
+                            hx-swap="innerHTML"
+                            hx-confirm="Remove this variable?"
+                            aria-label="Remove"
+                            title="Remove"><svg class="icon" aria-hidden="true"><use href="#ti-trash"></use></svg></button>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="variable-add-bar">
+        <button type="button" class="secondary" data-variable-add><svg class="icon" aria-hidden="true"><use href="#ti-plus"></use></svg> Add variable</button>
+        <div class="status-line" id="variables-status"></div>
+    </div>
+</th:block>
+
+<th:block th:fragment="processHistory">
+    <div class="table-wrap">
+        <table class="history-table">
+            <thead>
+            <tr>
+                <th>State</th>
+                <th>Changed at</th>
+                <th>Duration</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${process.stateHistory.empty}">
+                <td colspan="3" class="muted">No entries</td>
+            </tr>
+            <!-- The last entry is still running unless the process has completed. -->
+            <tr th:each="item, iter : ${process.stateHistory}"
+                th:with="current=${iter.last and process.status.name() != 'COMPLETED'}"
+                th:classappend="${current} ? 'history-current'">
+                <td>
+                    <span class="mono" th:text="${item.state}">STATE</span>
+                    <span class="badge history-manual"
+                          th:if="${item.manual}"
+                          title="Transition is not declared in the process definition">Manual move</span>
+                </td>
+                <td class="col-time">
+                    <time class="local-date-time"
+                          th:datetime="${item.changedAt}"
+                          th:text="${item.changedAt}">date</time>
+                </td>
+                <td class="numeric muted">
+                    <span th:unless="${iter.last and !current}"
+                          th:attr="data-from=${item.changedAt},
+                                   data-to=${iter.last ? '' : process.stateHistory[iter.index + 1].changedAt}">—</span>
+                    <span th:if="${iter.last and !current}">—</span>
+                    <span class="history-current-label" th:if="${current}">current</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</th:block>
+
+<!-- The canvas survives card redraws (hx-preserve), so the instance data lives on the section that is redrawn. -->
+<div th:fragment="processDiagram" class="diagram-section"
+     th:attr="data-current=${process.state},
+              data-status=${process.status},
+              data-history=${#strings.listJoin(process.stateHistory.![state], ',')},
+              data-history-at=${#strings.listJoin(process.stateHistory.![changedAt], ',')}">
+    <header class="diagram-header">
+        <svg class="icon" aria-hidden="true"><use href="#ti-sitemap"></use></svg>
+        <span>Process diagram</span>
+    </header>
+    <div class="diagram-canvas-shell">
+        <div class="diagram-toolbar" aria-label="Process diagram controls">
+            <button class="icon-btn" type="button" data-diagram-control="zoom-in" aria-label="Zoom in" title="Zoom in"><svg class="icon" aria-hidden="true"><use href="#ti-plus"></use></svg></button>
+            <button class="icon-btn" type="button" data-diagram-control="zoom-out" aria-label="Zoom out" title="Zoom out"><svg class="icon" aria-hidden="true"><use href="#ti-minus"></use></svg></button>
+            <button class="icon-btn" type="button" data-diagram-control="fit" aria-label="Fit to viewport" title="Fit to viewport"><svg class="icon" aria-hidden="true"><use href="#ti-arrows-maximize"></use></svg></button>
+            <button class="icon-btn" type="button" data-diagram-control="fullscreen" aria-label="Full screen" title="Full screen"><svg class="icon" aria-hidden="true"><use href="#ti-maximize"></use></svg></button>
+        </div>
+        <div id="diagram-canvas" hx-preserve="true" th:attr="data-diagram-type=${process.type}"></div>
+    </div>
+    <div th:replace="~{ruslo-admin/shared/fragments :: diagramLegend(true)}"></div>
+    <div class="status-line" id="diagram-status"></div>
+</div>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.neherim</groupId>
+        <artifactId>ruslo-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>ruslo-admin-ui</artifactId>
+    <name>Ruslo Admin UI</name>
+    <description>Web administration interface for Ruslo</description>
+
+    <properties>
+        <!-- The dev application starts only on demand: spring-boot:test-run -Dspring-boot.run.skip=false -->
+        <spring-boot.run.skip>true</spring-boot.run.skip>
+    </properties>
+
+    <dependencies>
+        <!-- Ruslo Core API -->
+        <dependency>
+            <groupId>io.github.neherim</groupId>
+            <artifactId>ruslo-core</artifactId>
+        </dependency>
+
+        <!-- Spring MVC: provided by the consuming servlet application, not pulled into WebFlux or non-web apps -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Thymeleaf Template Engine -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
+        <!-- Test Dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.neherim</groupId>
+            <artifactId>ruslo-spring-boot-starter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-configuration-processor</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <!-- Only for the local dev application (spring-boot:test-run); repackage is not bound, the jar stays a library.
+                 Skipped by default so that spring-boot:run of the demo app with -am does not try to start it. -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>${spring-boot.run.skip}</skip>
+                    <mainClass>io.github.neherim.ruslo.admin.dev.AdminUiDevApplication</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
