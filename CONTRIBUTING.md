@@ -10,4 +10,7 @@ Requires Java 21, and Docker for the PostgreSQL tests only.
 ./mvnw spring-boot:run -pl ruslo-examples/cookbook -am        # demo: http://localhost:8080, Admin UI at /ruslo
 ```
 
+Every pull request runs [CI](.github/workflows/ci.yml): `./mvnw verify` (tests on H2 and the Spotless check) on
+Java 21 and 25, and the core tests on PostgreSQL. Run `./mvnw verify` before opening a pull request.
+
 Modules, architecture and code rules are described in [AGENTS.md](AGENTS.md).

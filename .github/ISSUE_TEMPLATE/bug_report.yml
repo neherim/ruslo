@@ -1,0 +1,31 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead. Include stack traces and logs.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How to reproduce
+      description: A minimal process definition or test that shows the problem.
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Ruslo version
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Java version, Spring Boot version, database and its version.
+    validations:
+      required: false

@@ -1,5 +1,6 @@
 # Ruslo
 
+[![CI](https://github.com/neherim/ruslo/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/neherim/ruslo/actions/workflows/ci.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.neherim/ruslo-core)](https://central.sonatype.com/namespace/io.github.neherim)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 ![Java 21](https://img.shields.io/badge/Java-21-orange)
