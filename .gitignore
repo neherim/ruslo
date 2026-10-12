@@ -41,3 +41,6 @@ jacoco.exec
 .worktrees/
 /.agents/
 /.codex/
+
+# Claude Code settings and hooks are local
+.claude/

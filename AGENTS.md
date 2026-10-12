@@ -4,6 +4,7 @@
 
 - **Language**: code, Javadoc, comments, log and exception messages are in English.
 - **Public methods with business logic** must have a Javadoc comment. Simple getters and setters do not require Javadoc.
+- **Formatting** is owned by Spotless: the Eclipse formatter with `eclipse-formatter.xml` and import order, configured in the root `pom.xml`. Run `./mvnw spotless:apply` before every commit; `./mvnw verify` and CI fail on unformatted code.
 
 ### Javadoc
 
@@ -57,6 +58,8 @@ Engine operations join the caller's transaction, and in Spring any exception esc
 ./mvnw test -Dtest=TestClassName#methodName             # Run specific test method
 ./mvnw spring-boot:run -pl ruslo-examples/cookbook -am  # Start demo app (http://localhost:8080, admin at /ruslo)
 ./mvnw verify                                           # Full build with tests and checks
+./mvnw spotless:apply                                   # Format code (run before every commit)
+./mvnw spotless:check                                   # Check formatting without changing files
 ./mvnw test -Pperf-tests                                # Run performance tests only
 ./mvnw test -pl ruslo-core -Ppostgresql-tests  # Run core tests against PostgreSQL (Testcontainers, needs Docker)
 ```
