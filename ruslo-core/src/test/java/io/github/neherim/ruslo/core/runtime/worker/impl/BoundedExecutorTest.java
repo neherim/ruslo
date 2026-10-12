@@ -31,8 +31,7 @@ class BoundedExecutorTest {
         });
         executorReference.set(executor);
 
-        assertTrue(executor.trySubmit(() -> {
-        }));
+        assertTrue(executor.trySubmit(() -> {}));
 
         assertEquals(1, capacityAtHook.get());
         assertEquals(0, activeAtHook.get());
@@ -46,8 +45,7 @@ class BoundedExecutorTest {
         var completions = new AtomicInteger();
         var executor = new BoundedExecutor(1, delegate, false, completions::incrementAndGet);
 
-        assertFalse(executor.trySubmit(() -> {
-        }));
+        assertFalse(executor.trySubmit(() -> {}));
 
         assertEquals(1, executor.getAvailableCapacity());
         assertEquals(0, completions.get());
@@ -56,8 +54,7 @@ class BoundedExecutorTest {
 
     @Test
     void executionFailureStillReleasesCapacity() {
-        var executor = new BoundedExecutor(1, new CurrentThreadExecutorService(), true, () -> {
-        });
+        var executor = new BoundedExecutor(1, new CurrentThreadExecutorService(), true, () -> {});
 
         assertThrows(IllegalStateException.class, () -> executor.trySubmit(() -> {
             throw new IllegalStateException("execution failed");
@@ -73,8 +70,7 @@ class BoundedExecutorTest {
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         ExecutorService delegate = Executors.newSingleThreadExecutor();
-        var executor = new BoundedExecutor(2, delegate, false, () -> {
-        });
+        var executor = new BoundedExecutor(2, delegate, false, () -> {});
         Runnable task = () -> {
             entered.countDown();
             await(release);
@@ -148,8 +144,7 @@ class BoundedExecutorTest {
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         ExecutorService delegate = Executors.newSingleThreadExecutor();
-        var executor = new BoundedExecutor(1, delegate, false, () -> {
-        }, Duration.ofMillis(50));
+        var executor = new BoundedExecutor(1, delegate, false, () -> {}, Duration.ofMillis(50));
         Runnable task = () -> {
             entered.countDown();
             await(release);
