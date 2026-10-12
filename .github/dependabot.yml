@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    # Spring Boot is the oldest supported baseline: only patch updates. Raise it deliberately.
+    ignore:
+      - dependency-name: 'org.springframework.boot:*'
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
     groups:
       maven-minor-and-patch:
         update-types: [minor, patch]
