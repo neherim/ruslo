@@ -58,9 +58,11 @@ public class ExpenseApprovalDefinition implements ProcessDefinition {
     private final ApprovalHandlers approvalHandlers;
     private final EscalateStep escalateStep;
 
-    public ExpenseApprovalDefinition(RequestApprovalStep requestApprovalStep,
-                                     ApprovalHandlers approvalHandlers,
-                                     EscalateStep escalateStep) {
+    public ExpenseApprovalDefinition(
+            RequestApprovalStep requestApprovalStep,
+            ApprovalHandlers approvalHandlers,
+            EscalateStep escalateStep
+    ) {
         this.requestApprovalStep = requestApprovalStep;
         this.approvalHandlers = approvalHandlers;
         this.escalateStep = escalateStep;
@@ -70,22 +72,22 @@ public class ExpenseApprovalDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.REQUESTING)
-                .step(State.REQUESTING, requestApprovalStep, State.WAITING_FOR_DECISION)
-                .await(State.WAITING_FOR_DECISION, await -> await
-                        .message(DECISION, approvalHandlers::onDecision, routes -> routes
-                                .on(ApprovalHandlers.Outcome.APPROVED, State.APPROVED)
-                                .on(ApprovalHandlers.Outcome.REJECTED, State.REJECTED))
-                        .every(REMINDER_INTERVAL, approvalHandlers::remind, State.WAITING_FOR_DECISION)
-                        .timeout(DECISION_DEADLINE, State.ESCALATING))
-                .step(State.ESCALATING, escalateStep, routes -> routes
-                        .on(EscalateStep.Escalation.ESCALATED, State.REQUESTING)
-                        .on(EscalateStep.Escalation.NO_ONE_LEFT, State.EXPIRED))
-                .terminal(State.APPROVED)
-                .terminal(State.REJECTED)
-                .terminal(State.EXPIRED)
-                .build();
+            .type(TYPE)
+            .initialState(State.REQUESTING)
+            .step(State.REQUESTING, requestApprovalStep, State.WAITING_FOR_DECISION)
+            .await(State.WAITING_FOR_DECISION, await -> await
+                .message(DECISION, approvalHandlers::onDecision, routes -> routes
+                    .on(ApprovalHandlers.Outcome.APPROVED, State.APPROVED)
+                    .on(ApprovalHandlers.Outcome.REJECTED, State.REJECTED))
+                .every(REMINDER_INTERVAL, approvalHandlers::remind, State.WAITING_FOR_DECISION)
+                .timeout(DECISION_DEADLINE, State.ESCALATING))
+            .step(State.ESCALATING, escalateStep, routes -> routes
+                .on(EscalateStep.Escalation.ESCALATED, State.REQUESTING)
+                .on(EscalateStep.Escalation.NO_ONE_LEFT, State.EXPIRED))
+            .terminal(State.APPROVED)
+            .terminal(State.REJECTED)
+            .terminal(State.EXPIRED)
+            .build();
     }
 
     public enum State implements ProcessState {

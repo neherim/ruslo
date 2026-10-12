@@ -45,16 +45,18 @@ public class ProcessEngine implements AutoCloseable {
     private final boolean dispatcherEnabled;
     private volatile boolean started;
 
-    ProcessEngine(ProcessSearchService processSearchService,
-                  WorkerRegistry workerRegistry,
-                  ProcessDefinitionRegistry processDefinitionRegistry,
-                  ProcessDispatchScheduler processDispatchScheduler,
-                  ManagementService managementService,
-                  ProcessRuntimeService processRuntimeService,
-                  ApplicationInstanceLifecycle applicationInstanceLifecycle,
-                  Clock clock,
-                  boolean databaseMigrationEnabled,
-                  boolean dispatcherEnabled) {
+    ProcessEngine(
+            ProcessSearchService processSearchService,
+            WorkerRegistry workerRegistry,
+            ProcessDefinitionRegistry processDefinitionRegistry,
+            ProcessDispatchScheduler processDispatchScheduler,
+            ManagementService managementService,
+            ProcessRuntimeService processRuntimeService,
+            ApplicationInstanceLifecycle applicationInstanceLifecycle,
+            Clock clock,
+            boolean databaseMigrationEnabled,
+            boolean dispatcherEnabled
+    ) {
         this.processSearchService = processSearchService;
         this.workerRegistry = workerRegistry;
         this.processDefinitionRegistry = processDefinitionRegistry;

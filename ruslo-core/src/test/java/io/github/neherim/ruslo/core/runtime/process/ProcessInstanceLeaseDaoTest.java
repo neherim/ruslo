@@ -1,10 +1,10 @@
 package io.github.neherim.ruslo.core.runtime.process;
 
-import io.github.neherim.ruslo.core.TestDatabases;
 import io.github.neherim.ruslo.core.BaseTest;
+import io.github.neherim.ruslo.core.TestDatabases;
 import io.github.neherim.ruslo.core.definitions.SimpleOneStepProcessDefinition;
-import io.github.neherim.ruslo.core.dispatcher.lease.LeaseDao;
 import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceDao;
+import io.github.neherim.ruslo.core.dispatcher.lease.LeaseDao;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseLostException;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerTestFixture;
@@ -149,8 +149,9 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
         ordinary.setVariable("ordinary", true);
 
         processDao.update(ordinary);
-        assertTrue(processDao.findById(process.getId()).orElseThrow()
-                .getVariable("ordinary", Boolean.class));
+        assertTrue(processDao.findById(process.getId())
+            .orElseThrow()
+            .getVariable("ordinary", Boolean.class));
         assertEquals(claim.ownerId(), leaseOwner(process.getId()));
     }
 
@@ -164,7 +165,8 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
 
     private long rowVersion(UUID processId) {
         return database.queryForObject("select row_version from xs_process_instance where id = ?",
-                rs -> rs.getLong(1), processId).orElseThrow();
+                rs -> rs.getLong(1), processId)
+            .orElseThrow();
     }
 
     private ProcessLease claim(ProcessInstance process) {
@@ -172,9 +174,13 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
     }
 
     private ProcessLease claim(
-            ProcessInstance process, UUID claimOwner) {
+            ProcessInstance process,
+            UUID claimOwner
+    ) {
         return leaseDao.claimReadyForWorker(claimOwner, process.getWorkerId().orElseThrow(), 1, NOW)
-                .stream().findFirst().orElseThrow();
+            .stream()
+            .findFirst()
+            .orElseThrow();
     }
 
     private UUID registerOwner() {
@@ -185,6 +191,7 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
 
     private UUID leaseOwner(UUID processId) {
         return database.queryForObject("select lease_owner from xs_process_instance where id = ?",
-                rs -> rs.getObject(1, UUID.class), processId).orElse(null);
+                rs -> rs.getObject(1, UUID.class), processId)
+            .orElse(null);
     }
 }

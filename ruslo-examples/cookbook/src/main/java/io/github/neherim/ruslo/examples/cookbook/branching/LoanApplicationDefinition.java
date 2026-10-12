@@ -44,14 +44,16 @@ public class LoanApplicationDefinition implements ProcessDefinition {
     public static final VariableType<Long> AMOUNT = VariableType.of("amount", Long.class);
     public static final VariableType<String> REVIEWER = VariableType.of("reviewer", String.class);
     public static final VariableType<String> REJECTION_REASON = VariableType.of("rejectionReason", String.class);
-    public static final MessageType<ReviewDecision> REVIEW_DECISION =
-            MessageType.of("reviewDecision", ReviewDecision.class);
+    public static final MessageType<ReviewDecision> REVIEW_DECISION = MessageType.of("reviewDecision",
+            ReviewDecision.class);
 
     private final CheckApplicationStep checkApplicationStep;
     private final ReviewDecisionHandler reviewDecisionHandler;
 
-    public LoanApplicationDefinition(CheckApplicationStep checkApplicationStep,
-                                     ReviewDecisionHandler reviewDecisionHandler) {
+    public LoanApplicationDefinition(
+            CheckApplicationStep checkApplicationStep,
+            ReviewDecisionHandler reviewDecisionHandler
+    ) {
         this.checkApplicationStep = checkApplicationStep;
         this.reviewDecisionHandler = reviewDecisionHandler;
     }
@@ -60,19 +62,19 @@ public class LoanApplicationDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.CHECKING)
-                .step(State.CHECKING, checkApplicationStep, routes -> routes
-                        .on(CheckApplicationStep.Decision.APPROVE, State.APPROVED)
-                        .on(CheckApplicationStep.Decision.REJECT, State.REJECTED)
-                        .on(CheckApplicationStep.Decision.MANUAL_REVIEW, State.MANUAL_REVIEW))
-                .await(State.MANUAL_REVIEW, await -> await
-                        .message(REVIEW_DECISION, reviewDecisionHandler, routes -> routes
-                                .on(ReviewDecisionHandler.Verdict.APPROVED, State.APPROVED)
-                                .on(ReviewDecisionHandler.Verdict.REJECTED, State.REJECTED)))
-                .terminal(State.APPROVED)
-                .terminal(State.REJECTED)
-                .build();
+            .type(TYPE)
+            .initialState(State.CHECKING)
+            .step(State.CHECKING, checkApplicationStep, routes -> routes
+                .on(CheckApplicationStep.Decision.APPROVE, State.APPROVED)
+                .on(CheckApplicationStep.Decision.REJECT, State.REJECTED)
+                .on(CheckApplicationStep.Decision.MANUAL_REVIEW, State.MANUAL_REVIEW))
+            .await(State.MANUAL_REVIEW, await -> await
+                .message(REVIEW_DECISION, reviewDecisionHandler, routes -> routes
+                    .on(ReviewDecisionHandler.Verdict.APPROVED, State.APPROVED)
+                    .on(ReviewDecisionHandler.Verdict.REJECTED, State.REJECTED)))
+            .terminal(State.APPROVED)
+            .terminal(State.REJECTED)
+            .build();
     }
 
     public enum State implements ProcessState {

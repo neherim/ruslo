@@ -1,11 +1,11 @@
 package io.github.neherim.ruslo.core.search;
 
-import io.github.neherim.ruslo.core.api.view.ProcessQuery;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.exception.TooManyRowsException;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceSummary;
+import io.github.neherim.ruslo.core.api.view.ProcessQuery;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 
 import java.time.Instant;

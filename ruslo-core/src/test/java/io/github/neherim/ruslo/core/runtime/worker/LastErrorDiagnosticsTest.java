@@ -12,7 +12,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LastErrorDiagnosticsTest extends BaseTest {
-    @Test void failedActionPersistsErrorAndResumeClearsIt() {
+    @Test
+    void failedActionPersistsErrorAndResumeClearsIt() {
         var fail = new AtomicBoolean(true);
         var fixture = WorkerTestFixture.with(database, definition(fail));
         var process = fixture.insertNewProcess(ProcessType.of("ERROR_DIAGNOSTICS"), "correlation");
@@ -31,7 +32,8 @@ class LastErrorDiagnosticsTest extends BaseTest {
         assertTrue(completed.getLastError().isEmpty());
     }
 
-    @Test void systemRetryPreservesActionScheduleAndChangesAvailability() {
+    @Test
+    void systemRetryPreservesActionScheduleAndChangesAvailability() {
         var fixture = WorkerTestFixture.with(database, definition(new AtomicBoolean(false)));
         var process = fixture.insertNewProcess(ProcessType.of("ERROR_DIAGNOSTICS"), "correlation");
         var task = fixture.task(process);
@@ -43,7 +45,8 @@ class LastErrorDiagnosticsTest extends BaseTest {
         assertEquals(1, stored.getAttempt());
     }
 
-    @Test void unreadableProcessIsPostponedAndReleased() {
+    @Test
+    void unreadableProcessIsPostponedAndReleased() {
         var fixture = WorkerTestFixture.with(database, definition(new AtomicBoolean(false)));
         var process = fixture.insertNewProcess(ProcessType.of("ERROR_DIAGNOSTICS"), "correlation");
         var task = fixture.task(process);
@@ -51,21 +54,28 @@ class LastErrorDiagnosticsTest extends BaseTest {
         var before = Instant.now();
         fixture.transactionalWorker().tryExecute(task);
         var row = database.queryForObject(
-            "select attempt, last_error, available_at, lease_owner from xs_process_instance where id = ?",
-            rs -> new Object[]{rs.getInt(1), rs.getString(2), rs.getTimestamp(3).toInstant(), rs.getObject(4)},
-            process.getId()).orElseThrow();
+                "select attempt, last_error, available_at, lease_owner from xs_process_instance where id = ?",
+                rs -> new Object[]{rs.getInt(1), rs.getString(2), rs.getTimestamp(3).toInstant(), rs.getObject(4)},
+                process.getId())
+            .orElseThrow();
         assertEquals(1, row[0]);
         assertTrue(((String) row[1]).contains("REMOVED_TYPE"), (String) row[1]);
         assertFalse(((Instant) row[2]).isBefore(before.plus(Duration.ofSeconds(59))));
         assertNull(row[3]);
     }
 
-    @Test void failingErrorHandlerSchedulesRetry() {
+    @Test
+    void failingErrorHandlerSchedulesRetry() {
         ProcessDefinition definition = builder -> builder.type("ERROR_HANDLER_FAILS")
-            .onError((context, error) -> { throw new IllegalStateException("handler failed"); })
+            .onError((context, error) -> {
+                throw new IllegalStateException("handler failed");
+            })
             .initialState(State.START)
-            .step(State.START, context -> { throw new IllegalStateException("step failed"); }, State.DONE)
-            .terminal(State.DONE).build();
+            .step(State.START, context -> {
+                throw new IllegalStateException("step failed");
+            }, State.DONE)
+            .terminal(State.DONE)
+            .build();
         var fixture = WorkerTestFixture.with(database, definition);
         var process = fixture.insertNewProcess(ProcessType.of("ERROR_HANDLER_FAILS"), "correlation");
         fixture.transactionalWorker().tryExecute(fixture.task(process));
@@ -77,11 +87,17 @@ class LastErrorDiagnosticsTest extends BaseTest {
     }
 
     private ProcessDefinition definition(AtomicBoolean fail) {
-        return builder -> builder.type("ERROR_DIAGNOSTICS").initialState(State.START)
+        return builder -> builder.type("ERROR_DIAGNOSTICS")
+            .initialState(State.START)
             .step(State.START, context -> {
                 if (fail.get()) throw new IllegalStateException("step failed");
-            }, State.DONE).terminal(State.DONE).build();
+            }, State.DONE)
+            .terminal(State.DONE)
+            .build();
     }
 
-    private enum State implements ProcessState { START, DONE }
+    private enum State implements ProcessState {
+        START,
+        DONE
+    }
 }

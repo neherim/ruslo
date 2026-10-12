@@ -31,8 +31,13 @@ final class BoundedExecutor implements AutoCloseable {
         this(maxConcurrency, executor, executorOwned, completionHook, DEFAULT_SHUTDOWN_TIMEOUT);
     }
 
-    BoundedExecutor(int maxConcurrency, ExecutorService executor, boolean executorOwned,
-                    Runnable completionHook, Duration shutdownTimeout) {
+    BoundedExecutor(
+            int maxConcurrency,
+            ExecutorService executor,
+            boolean executorOwned,
+            Runnable completionHook,
+            Duration shutdownTimeout
+    ) {
         if (maxConcurrency <= 0) {
             throw new IllegalArgumentException("maxConcurrency must be greater than 0");
         }

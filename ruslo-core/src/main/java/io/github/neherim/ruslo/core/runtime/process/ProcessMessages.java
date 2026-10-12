@@ -15,7 +15,8 @@ import java.util.UUID;
 
 /** Message queue of the current await; cleared on every state entry. */
 public final class ProcessMessages {
-    private static final TypeReference<List<PendingMessage>> MESSAGE_LIST = new TypeReference<>() {};
+    private static final TypeReference<List<PendingMessage>> MESSAGE_LIST = new TypeReference<>() {
+    };
 
     private final ObjectMapper mapper;
     private final List<PendingMessage> entries;
@@ -59,14 +60,23 @@ public final class ProcessMessages {
         }
     }
 
-    public void clear() { entries.clear(); }
-    public boolean isEmpty() { return entries.isEmpty(); }
-    public Optional<Instant> firstReceivedAt() { return peekFirst().map(PendingMessage::receivedAt); }
+    public void clear() {
+        entries.clear();
+    }
+
+    public boolean isEmpty() {
+        return entries.isEmpty();
+    }
+
+    public Optional<Instant> firstReceivedAt() {
+        return peekFirst().map(PendingMessage::receivedAt);
+    }
 
     public <T> IncomingMessage<T> convert(PendingMessage entry, MessageType<T> type) {
         if (!entry.type().equals(type.name())) throw new IllegalArgumentException("Message type mismatch");
         T payload = entry.payload() == null || entry.payload().isNull()
-            ? null : mapper.treeToValue(entry.payload(), type.clazz());
+                ? null
+                : mapper.treeToValue(entry.payload(), type.clazz());
         return new IncomingMessage<>(entry.id(), type, payload, entry.receivedAt());
     }
 

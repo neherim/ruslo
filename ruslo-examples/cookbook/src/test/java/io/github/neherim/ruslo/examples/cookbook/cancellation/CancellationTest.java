@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.examples.cookbook.cancellation;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
-import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
+import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
 import io.github.neherim.ruslo.examples.cookbook.CookbookApplication;
 import io.github.neherim.ruslo.spring.test.ProcessEngineTest;
 import org.junit.jupiter.api.Test;
@@ -111,8 +111,8 @@ class CancellationTest {
 
     private UUID startOrder(String orderId) {
         return processEngine.newProcess(OrderDeliveryDefinition.TYPE)
-                .businessKey(orderId)
-                .start();
+            .businessKey(orderId)
+            .start();
     }
 
     private ProcessStateId stateOf(UUID processId) {

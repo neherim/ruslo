@@ -1,7 +1,7 @@
 package io.github.neherim.ruslo.spring.config.property;
 
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
 
 /**
  * Worker properties.

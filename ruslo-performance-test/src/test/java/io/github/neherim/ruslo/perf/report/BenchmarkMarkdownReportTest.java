@@ -13,8 +13,9 @@ class BenchmarkMarkdownReportTest {
     @Test
     void marksPartialRunAndEscapesEnvironmentTable() {
         var report = BenchmarkMarkdownReport.render(List.of(ingestion()));
-        assertThat(report).contains("Diagnostic run", "incomplete run", "machine \\| notes more", "process-ingestion.json")
-                .doesNotContain("## Execution and scaling");
+        assertThat(report)
+            .contains("Diagnostic run", "incomplete run", "machine \\| notes more", "process-ingestion.json")
+            .doesNotContain("## Execution and scaling");
     }
 
     @Test

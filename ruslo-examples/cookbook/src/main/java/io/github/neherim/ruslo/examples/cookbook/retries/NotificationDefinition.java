@@ -47,8 +47,8 @@ public class NotificationDefinition implements ProcessDefinition {
     public static final VariableType<String> TEXT = VariableType.of("text", String.class);
 
     static final int MAX_RETRIES = 3;
-    private static final ProcessErrorHandler BACKOFF =
-            ProcessErrorHandler.exponential(MAX_RETRIES, Duration.ofSeconds(1), Duration.ofMinutes(1));
+    private static final ProcessErrorHandler BACKOFF = ProcessErrorHandler.exponential(MAX_RETRIES,
+            Duration.ofSeconds(1), Duration.ofMinutes(1));
 
     private final SendNotificationStep sendNotificationStep;
 
@@ -60,13 +60,13 @@ public class NotificationDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .onError(this::onError, State.DELIVERY_FAILED)
-                .initialState(State.SENDING)
-                .step(State.SENDING, sendNotificationStep, State.SENT)
-                .terminal(State.SENT)
-                .terminal(State.DELIVERY_FAILED)
-                .build();
+            .type(TYPE)
+            .onError(this::onError, State.DELIVERY_FAILED)
+            .initialState(State.SENDING)
+            .step(State.SENDING, sendNotificationStep, State.SENT)
+            .terminal(State.SENT)
+            .terminal(State.DELIVERY_FAILED)
+            .build();
     }
 
     /** Does not retry errors a retry cannot fix; retries the rest with a growing delay. */

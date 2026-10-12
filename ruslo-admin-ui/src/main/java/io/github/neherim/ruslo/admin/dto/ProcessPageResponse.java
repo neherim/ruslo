@@ -9,5 +9,6 @@ public record ProcessPageResponse(
         List<ProcessSummaryResponse> items,
         boolean hasNext,
         int limit,
-        int offset) {
+        int offset
+) {
 }

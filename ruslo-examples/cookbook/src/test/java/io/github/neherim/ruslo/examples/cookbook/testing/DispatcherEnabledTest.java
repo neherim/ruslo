@@ -35,12 +35,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * </ul>
  */
 @ImportAutoConfiguration(ProcessEngineTestConfiguration.class)
-@SpringBootTest(classes = CookbookApplication.class, properties = {
-        "spring.datasource.url=jdbc:h2:mem:cookbook-dispatcher;DB_CLOSE_DELAY=-1",
-        "ruslo.dispatcher.enabled=true",
-        "ruslo.dispatcher.min-interval=50ms",
-        "ruslo.dispatcher.max-interval=100ms"
-})
+@SpringBootTest(
+        classes = CookbookApplication.class,
+        properties = {
+                "spring.datasource.url=jdbc:h2:mem:cookbook-dispatcher;DB_CLOSE_DELAY=-1",
+                "ruslo.dispatcher.enabled=true",
+                "ruslo.dispatcher.min-interval=50ms",
+                "ruslo.dispatcher.max-interval=100ms"
+        }
+)
 @DirtiesContext
 class DispatcherEnabledTest {
     private static final Duration PROCESSING_TIMEOUT = Duration.ofSeconds(10);
@@ -74,13 +77,14 @@ class DispatcherEnabledTest {
 
     private UUID startReview() {
         return processEngine.newProcess(ReviewDefinition.TYPE)
-                .variable(ReviewDefinition.DOCUMENT_ID, "doc-1")
-                .start();
+            .variable(ReviewDefinition.DOCUMENT_ID, "doc-1")
+            .start();
     }
 
     private ProcessInstanceDetails awaitState(UUID processId, ReviewDefinition.State state) {
-        return await().atMost(PROCESSING_TIMEOUT).until(
-                () -> processEngine.processes().byId(processId).singleDetails().orElseThrow(),
-                process -> process.state().is(state));
+        return await().atMost(PROCESSING_TIMEOUT)
+            .until(
+                    () -> processEngine.processes().byId(processId).singleDetails().orElseThrow(),
+                    process -> process.state().is(state));
     }
 }

@@ -1,10 +1,10 @@
 package io.github.neherim.ruslo.perf.tests;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
-import io.github.neherim.ruslo.core.api.definition.ProcessType;
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.WorkerSpec.ExecutionMode;
+import io.github.neherim.ruslo.core.api.definition.ProcessType;
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.metrics.InMemoryProcessEngineMetrics;
 import io.github.neherim.ruslo.perf.config.BenchmarkEnvironment;
 import io.github.neherim.ruslo.perf.config.BenchmarkPostgres;
@@ -54,12 +54,15 @@ class ProcessExecutionBenchmarkTest {
                             environment, mode, engines, index < 0 ? WARMUP_COUNT : PROCESS_COUNT));
                     topologies.add(new TopologyResult(engines, iterations,
                             BenchmarkStatistics.throughputSummary(iterations.stream()
-                                    .map(IterationResult::processesPerSecond).toList()), 1.0));
+                                .map(IterationResult::processesPerSecond)
+                                .toList()),
+                            1.0));
                 }
                 var baseline = medianThroughput(topologies.getFirst());
                 modes.add(new ModeResult(mode.name(), topologies.stream()
-                        .map(result -> new TopologyResult(result.engineCount(), result.iterations(),
-                                result.throughput(), medianThroughput(result) / baseline)).toList()));
+                    .map(result -> new TopologyResult(result.engineCount(), result.iterations(),
+                            result.throughput(), medianThroughput(result) / baseline))
+                    .toList()));
             }
             BenchmarkReportWriter.write("process-execution", environment, Map.of(
                     "processCount", PROCESS_COUNT, "warmupProcessCount", WARMUP_COUNT,
@@ -71,7 +74,12 @@ class ProcessExecutionBenchmarkTest {
         }
     }
 
-    private IterationResult runIteration(BenchmarkEnvironment environment, ExecutionMode mode, int engineCount, int count) {
+    private IterationResult runIteration(
+            BenchmarkEnvironment environment,
+            ExecutionMode mode,
+            int engineCount,
+            int count
+    ) {
         environment.truncateEngineTables();
         var definition = new FastProcessDefinition(mode);
         var engines = new ArrayList<ProcessEngine>();
@@ -83,7 +91,9 @@ class ProcessExecutionBenchmarkTest {
                     POOL_SIZE, CONCURRENCY, true, metric, List.of(definition), builder -> {
                         if (mode == ExecutionMode.NON_TRANSACTIONAL) {
                             builder.registerWorker(WorkerSpec.builder(new WorkerId("perf-non-transactional"))
-                                    .nonTransactional().maxConcurrency(CONCURRENCY).build());
+                                .nonTransactional()
+                                .maxConcurrency(CONCURRENCY)
+                                .build());
                         }
                     }));
         }
@@ -107,8 +117,10 @@ class ProcessExecutionBenchmarkTest {
         var durationNanos = completionTimes.stream().mapToLong(Long::longValue).max().orElseThrow() - startedAt;
         var steps = metrics.stream().mapToLong(CompletionMetrics::getTotalStepsExecuted).sum();
         assertThat(steps).isEqualTo((long) count * 5);
-        assertThat(scalar(environment, "select count(*) from xs_process_instance where status = 'COMPLETED'")).isEqualTo(count);
-        assertThat(scalar(environment, "select count(*) from xs_process_instance where lease_owner is not null")).isZero();
+        assertThat(scalar(environment, "select count(*) from xs_process_instance where status = 'COMPLETED'"))
+            .isEqualTo(count);
+        assertThat(scalar(environment, "select count(*) from xs_process_instance where lease_owner is not null"))
+            .isZero();
         // The SQL load skips the initial history record, leaving five transitions.
         assertThat(scalar(environment, "select count(*) from xs_process_state_hist")).isEqualTo((long) count * 5);
         return new IterationResult(count, durationNanos / 1_000_000.0,
@@ -117,16 +129,22 @@ class ProcessExecutionBenchmarkTest {
                 metrics.stream().map(CompletionMetrics::getTotalProcessesCompleted).toList());
     }
 
-    private static void insertReadyProcesses(BenchmarkEnvironment environment, FastProcessDefinition definition,
-                                            ExecutionMode mode, int count) {
-        environment.database().update("""
-                insert into xs_process_instance
-                    (id, create_at, state, worker_id, status, type, attempt, scheduled_at, available_at, messages, row_version)
-                select md5(? || '-' || value)::uuid, current_timestamp, ?, ?, 'ACTIVE', ?, 0, current_timestamp, current_timestamp, '[]', 0
-                from generate_series(1, ?) value
-                """, mode.name(), FastProcessDefinition.State.STEP_1.name(),
-                mode == ExecutionMode.TRANSACTIONAL ? WorkerId.DEFAULT.name() : "perf-non-transactional",
-                definition.type().name(), count);
+    private static void insertReadyProcesses(
+            BenchmarkEnvironment environment,
+            FastProcessDefinition definition,
+            ExecutionMode mode,
+            int count
+    ) {
+        environment.database()
+            .update("""
+                    insert into xs_process_instance
+                        (id, create_at, state, worker_id, status, type, attempt, scheduled_at, available_at, messages, row_version)
+                    select md5(? || '-' || value)::uuid, current_timestamp, ?, ?, 'ACTIVE', ?, 0, current_timestamp, current_timestamp, '[]', 0
+                    from generate_series(1, ?) value
+                    """,
+                    mode.name(), FastProcessDefinition.State.STEP_1.name(),
+                    mode == ExecutionMode.TRANSACTIONAL ? WorkerId.DEFAULT.name() : "perf-non-transactional",
+                    definition.type().name(), count);
     }
 
     private static void waitForCompletion(List<CompletionMetrics> metrics, int expected) {
@@ -143,7 +161,8 @@ class ProcessExecutionBenchmarkTest {
     }
 
     private static double medianThroughput(TopologyResult topology) {
-        return BenchmarkStatistics.median(topology.iterations().stream().map(IterationResult::processesPerSecond).toList());
+        return BenchmarkStatistics
+            .median(topology.iterations().stream().map(IterationResult::processesPerSecond).toList());
     }
 
     private static final class CompletionMetrics extends InMemoryProcessEngineMetrics {
@@ -157,10 +176,24 @@ class ProcessExecutionBenchmarkTest {
         }
     }
 
-    private record ModeResult(String executionMode, List<TopologyResult> topologies) {}
-    private record TopologyResult(int engineCount, List<IterationResult> iterations,
-                                  Map<String, Object> throughput, double speedupRelativeToOneEngine) {}
-    private record IterationResult(int processCount, double durationMillis, double processesPerSecond,
-                                   double stepsPerSecond, Map<String, Object> completionLatencyMillis,
-                                   List<Long> completedProcessesByEngine) {}
+    private record ModeResult(String executionMode, List<TopologyResult> topologies) {
+    }
+
+    private record TopologyResult(
+            int engineCount,
+            List<IterationResult> iterations,
+            Map<String, Object> throughput,
+            double speedupRelativeToOneEngine
+    ) {
+    }
+
+    private record IterationResult(
+            int processCount,
+            double durationMillis,
+            double processesPerSecond,
+            double stepsPerSecond,
+            Map<String, Object> completionLatencyMillis,
+            List<Long> completedProcessesByEngine
+    ) {
+    }
 }

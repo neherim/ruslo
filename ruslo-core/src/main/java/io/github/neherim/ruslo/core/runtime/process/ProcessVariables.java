@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-
 /** Stores process variables as one JSON object: variable name to its JSON value. */
 public class ProcessVariables {
     private static final TypeReference<HashMap<String, JsonNode>> VARIABLES_TYPE = new TypeReference<>() {
@@ -51,7 +50,6 @@ public class ProcessVariables {
             .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES);
     }
-
 
     /** Serializes the variables; an empty set is stored as {@code null} (the {@code variables} column is nullable). */
     public String serializeToString() {

@@ -83,8 +83,8 @@ class PollingTest {
     void retriesFailedCheckInsteadOfStopping() {
         when(reportService.requestReport(any())).thenReturn(JOB_ID);
         when(reportService.checkStatus(JOB_ID))
-                .thenThrow(new IllegalStateException("Connection reset"))
-                .thenReturn(new ReportStatus(ReportStatus.State.FAILED, null));
+            .thenThrow(new IllegalStateException("Connection reset"))
+            .thenReturn(new ReportStatus(ReportStatus.State.FAILED, null));
         var processId = startReport();
         emulator.runUntilStop(processId);
 
@@ -101,7 +101,7 @@ class PollingTest {
 
     private UUID startReport() {
         return processEngine.newProcess(ReportGenerationDefinition.TYPE)
-                .variable(ReportGenerationDefinition.PERIOD, "2026-09")
-                .start();
+            .variable(ReportGenerationDefinition.PERIOD, "2026-09")
+            .start();
     }
 }

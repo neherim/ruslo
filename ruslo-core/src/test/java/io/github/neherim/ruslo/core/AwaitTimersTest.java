@@ -28,7 +28,8 @@ class AwaitTimersTest extends BaseTest {
     private final MutableClock clock = new MutableClock();
     private final List<String> log = new ArrayList<>();
 
-    @Test void messageBeforeDeadlineWinsEvenIfHandledAfterIt() {
+    @Test
+    void messageBeforeDeadlineWinsEvenIfHandledAfterIt() {
         var engine = engine("T1", (context, message) -> handled(message), null, null, noRetry());
         try {
             var id = start(engine, "T1", "11:00:00");
@@ -37,10 +38,13 @@ class AwaitTimersTest extends BaseTest {
             at("12:01:00");
             assertEquals("MSG_DONE", run(engine, id).state().name());
             assertEquals(List.of("m"), log);
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void deadlineWinsFailedMessageInRetryBackoff() {
+    @Test
+    void deadlineWinsFailedMessageInRetryBackoff() {
         var engine = engine("T2", (context, message) -> {
             log.add(message.payload());
             throw new IllegalStateException("boom");
@@ -53,10 +57,13 @@ class AwaitTimersTest extends BaseTest {
             at("12:00:00");
             assertEquals("TIMEOUT_DONE", run(engine, id).state().name());
             assertEquals(List.of("first", "timeout"), log);
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void failedMessageBackoffIsNotShiftedByNewMessage() {
+    @Test
+    void failedMessageBackoffIsNotShiftedByNewMessage() {
         var fail = new AtomicBoolean(true);
         var engine = engine("T2B", (context, message) -> {
             log.add(message.payload());
@@ -75,12 +82,15 @@ class AwaitTimersTest extends BaseTest {
             at("11:35:00");
             assertEquals("MSG_DONE", run(engine, id).state().name());
             assertEquals(List.of("first", "first"), log);
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void selfTargetOnMessageLetsDeadlineFireNext() {
+    @Test
+    void selfTargetOnMessageLetsDeadlineFireNext() {
         var engine = engine(definition("T3", (context, message) -> log.add(message.payload()), State.WAIT,
-            null, null, State.EVERY_DONE, noRetry()));
+                null, null, State.EVERY_DONE, noRetry()));
         try {
             var id = start(engine, "T3", "11:00:00");
             at("11:59:00");
@@ -89,10 +99,13 @@ class AwaitTimersTest extends BaseTest {
             assertEquals("WAIT", run(engine, id).state().name());
             assertEquals("TIMEOUT_DONE", run(engine, id).state().name());
             assertEquals(List.of("m", "timeout"), log);
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void messageAfterDeadlineLosesToTimeout() {
+    @Test
+    void messageAfterDeadlineLosesToTimeout() {
         var engine = engine("T4", (context, message) -> handled(message), null, null, noRetry());
         try {
             var id = start(engine, "T4", "11:00:00");
@@ -101,62 +114,80 @@ class AwaitTimersTest extends BaseTest {
             at("12:01:00");
             assertEquals("TIMEOUT_DONE", run(engine, id).state().name());
             assertEquals(List.of("timeout"), log);
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void messageWinsTieWithEveryAndTimeout() {
+    @Test
+    void messageWinsTieWithEveryAndTimeout() {
         var engine = engine("T5A", (context, message) -> handled(message), Duration.ofHours(1),
-            context -> { }, noRetry());
+                context -> {}, noRetry());
         try {
             var id = start(engine, "T5A", "11:00:00");
             at("12:00:00");
             engine.sendMessage(id, SIGNAL, "m");
             assertEquals("MSG_DONE", run(engine, id).state().name());
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void everyWinsTieWithTimeout() {
+    @Test
+    void everyWinsTieWithTimeout() {
         var engine = engine("T5B", (context, message) -> handled(message), Duration.ofHours(1),
-            context -> { }, noRetry());
+                context -> {}, noRetry());
         try {
             var id = start(engine, "T5B", "11:00:00");
             at("12:00:00");
             assertEquals("EVERY_DONE", run(engine, id).state().name());
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void everySelfTargetDoesNotShiftDeadlineAndSkippedChecksAreNotBatched() {
+    @Test
+    void everySelfTargetDoesNotShiftDeadlineAndSkippedChecksAreNotBatched() {
         var engine = engine(definition("T6", (context, message) -> handled(message), State.MSG_DONE,
-            Duration.ofMinutes(10), context -> log.add("every"), State.WAIT, noRetry()));
+                Duration.ofMinutes(10), context -> log.add("every"), State.WAIT, noRetry()));
         try {
             var id = start(engine, "T6", "11:00:00");
             at("12:30:00");
             assertEquals("WAIT", run(engine, id).state().name());
             assertEquals("TIMEOUT_DONE", run(engine, id).state().name());
             assertEquals(List.of("every", "timeout"), log);
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void lateEveryIsProcessedBeforeDeadline() {
+    @Test
+    void lateEveryIsProcessedBeforeDeadline() {
         var engine = engine("T7", (context, message) -> handled(message), Duration.ofMinutes(58),
-            context -> { }, noRetry());
+                context -> {}, noRetry());
         try {
             var id = start(engine, "T7", "11:00:00");
             at("12:01:00");
             assertEquals("EVERY_DONE", run(engine, id).state().name());
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void everyWithZeroInitialDelayRunsOnEnteringAwait() {
+    @Test
+    void everyWithZeroInitialDelayRunsOnEnteringAwait() {
         var engine = engine(everyDefinition("T12", Duration.ZERO, context -> log.add("every"), State.EVERY_DONE));
         try {
             var id = start(engine, "T12", "11:00:00");
             assertEquals("EVERY_DONE", run(engine, id).state().name());
             assertEquals(List.of("every"), log);
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void everyInitialDelayOnlyShiftsFirstCheck() {
+    @Test
+    void everyInitialDelayOnlyShiftsFirstCheck() {
         var engine = engine(everyDefinition("T13", Duration.ofSeconds(10), context -> log.add("every"), State.WAIT));
         try {
             var id = start(engine, "T13", "11:00:00");
@@ -172,10 +203,13 @@ class AwaitTimersTest extends BaseTest {
             at("11:10:10");
             run(engine, id);
             assertEquals(List.of("every", "every"), log);
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void failedProcessIsNotWokenByDeadlineAndResumeRepeatsEarliestEvent() {
+    @Test
+    void failedProcessIsNotWokenByDeadlineAndResumeRepeatsEarliestEvent() {
         var fail = new AtomicBoolean(true);
         var engine = engine("T9", (context, message) -> {
             if (fail.get()) throw new IllegalStateException("boom");
@@ -195,19 +229,25 @@ class AwaitTimersTest extends BaseTest {
             engine.resumeFailedProcess(id);
             assertEquals("MSG_DONE", run(engine, id).state().name());
             assertEquals(List.of("m"), log);
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void fallbackFromAwaitDropsDeadline() {
+    @Test
+    void fallbackFromAwaitDropsDeadline() {
         ProcessDefinition definition = builder -> builder.type("T11")
-            .onError(ProcessErrorHandler.noRetry(), State.FALLBACK).initialState(State.WAIT)
+            .onError(ProcessErrorHandler.noRetry(), State.FALLBACK)
+            .initialState(State.WAIT)
             .await(State.WAIT, await -> await
                 .message(SIGNAL, (context, message) -> {
                     throw new IllegalStateException("boom");
                 }, State.MSG_DONE)
                 .timeout(Duration.ofHours(1), State.TIMEOUT_DONE))
-            .step(State.FALLBACK, context -> { }, State.MSG_DONE)
-            .terminal(State.MSG_DONE).terminal(State.TIMEOUT_DONE).build();
+            .step(State.FALLBACK, context -> {}, State.MSG_DONE)
+            .terminal(State.MSG_DONE)
+            .terminal(State.TIMEOUT_DONE)
+            .build();
         var engine = engine(definition);
         try {
             var id = start(engine, "T11", "11:00:00");
@@ -215,39 +255,68 @@ class AwaitTimersTest extends BaseTest {
             engine.sendMessage(id, SIGNAL, "m");
             assertEquals("FALLBACK", run(engine, id).state().name());
             assertEquals("MSG_DONE", run(engine, id).state().name());
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    private ProcessDefinition definition(String type, ProcessMessageHandler<String> onMessage, State messageTarget,
-                                         Duration every, ProcessTimerHandler onEvery, State everyTarget,
-                                         ProcessErrorHandler errorHandler) {
-        return builder -> builder.type(type).onError(errorHandler).initialState(State.WAIT)
+    private ProcessDefinition definition(
+            String type,
+            ProcessMessageHandler<String> onMessage,
+            State messageTarget,
+            Duration every,
+            ProcessTimerHandler onEvery,
+            State everyTarget,
+            ProcessErrorHandler errorHandler
+    ) {
+        return builder -> builder.type(type)
+            .onError(errorHandler)
+            .initialState(State.WAIT)
             .await(State.WAIT, await -> {
                 await.message(SIGNAL, onMessage, messageTarget);
                 if (every != null) await.every(every, onEvery, everyTarget);
                 await.timeout(Duration.ofHours(1), context -> log.add("timeout"), State.TIMEOUT_DONE);
             })
-            .terminal(State.MSG_DONE).terminal(State.EVERY_DONE).terminal(State.TIMEOUT_DONE).build();
+            .terminal(State.MSG_DONE)
+            .terminal(State.EVERY_DONE)
+            .terminal(State.TIMEOUT_DONE)
+            .build();
     }
 
-    private ProcessDefinition everyDefinition(String type, Duration initialDelay, ProcessTimerHandler onEvery,
-                                              State everyTarget) {
-        return builder -> builder.type(type).initialState(State.WAIT)
+    private ProcessDefinition everyDefinition(
+            String type,
+            Duration initialDelay,
+            ProcessTimerHandler onEvery,
+            State everyTarget
+    ) {
+        return builder -> builder.type(type)
+            .initialState(State.WAIT)
             .await(State.WAIT, await -> await
                 .every(Duration.ofMinutes(10), onEvery, everyTarget,
-                    options -> options.initialDelay(initialDelay))
+                        options -> options.initialDelay(initialDelay))
                 .timeout(Duration.ofHours(1), State.TIMEOUT_DONE))
-            .terminal(State.EVERY_DONE).terminal(State.TIMEOUT_DONE).build();
+            .terminal(State.EVERY_DONE)
+            .terminal(State.TIMEOUT_DONE)
+            .build();
     }
 
-    private ProcessEngine engine(String type, ProcessMessageHandler<String> onMessage, Duration every,
-                                 ProcessTimerHandler onEvery, ProcessErrorHandler errorHandler) {
+    private ProcessEngine engine(
+            String type,
+            ProcessMessageHandler<String> onMessage,
+            Duration every,
+            ProcessTimerHandler onEvery,
+            ProcessErrorHandler errorHandler
+    ) {
         return engine(definition(type, onMessage, State.MSG_DONE, every, onEvery, State.EVERY_DONE, errorHandler));
     }
 
     private ProcessEngine engine(ProcessDefinition definition) {
-        return new ProcessEngineBuilder(database).withClock(clock).addProcessDefinition(definition)
-            .withDatabaseMigrationEnabled(false).withDispatcherEnabled(false).build().start();
+        return new ProcessEngineBuilder(database).withClock(clock)
+            .addProcessDefinition(definition)
+            .withDatabaseMigrationEnabled(false)
+            .withDispatcherEnabled(false)
+            .build()
+            .start();
     }
 
     private void at(String time) {
@@ -273,10 +342,28 @@ class AwaitTimersTest extends BaseTest {
 
     private static final class MutableClock extends Clock {
         private Instant now;
-        @Override public ZoneId getZone() { return ZoneId.of("UTC"); }
-        @Override public Clock withZone(ZoneId zone) { return this; }
-        @Override public Instant instant() { return now; }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.of("UTC");
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
     }
 
-    private enum State implements ProcessState { WAIT, MSG_DONE, EVERY_DONE, TIMEOUT_DONE, FALLBACK }
+    private enum State implements ProcessState {
+        WAIT,
+        MSG_DONE,
+        EVERY_DONE,
+        TIMEOUT_DONE,
+        FALLBACK
+    }
 }

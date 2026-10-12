@@ -19,19 +19,31 @@ public class ProcessInstanceFactory {
     private final ObjectMapper objectMapper;
     private final ProcessDefinitionRegistry processDefinitionRegistry;
 
-    public ProcessInstanceFactory(Clock clock, ObjectMapper objectMapper,
-                                  ProcessDefinitionRegistry processDefinitionRegistry) {
+    public ProcessInstanceFactory(
+            Clock clock,
+            ObjectMapper objectMapper,
+            ProcessDefinitionRegistry processDefinitionRegistry
+    ) {
         this.clock = clock;
         this.objectMapper = objectMapper;
         this.processDefinitionRegistry = processDefinitionRegistry;
     }
 
-    ProcessInstance loadFromStorage(UUID id, String businessKey,
-                                    String processTypeName, String processState,
-                                    String correlationId, ProcessStatus status,
-                                    String variablesStr, String messagesStr,
-                                    int attempt, String lastError, Instant scheduledAt, Instant availableAt,
-                                    Instant deadlineAt) {
+    ProcessInstance loadFromStorage(
+            UUID id,
+            String businessKey,
+            String processTypeName,
+            String processState,
+            String correlationId,
+            ProcessStatus status,
+            String variablesStr,
+            String messagesStr,
+            int attempt,
+            String lastError,
+            Instant scheduledAt,
+            Instant availableAt,
+            Instant deadlineAt
+    ) {
 
         var processType = ProcessType.of(processTypeName);
         var state = ProcessState.of(processState);
@@ -41,18 +53,22 @@ public class ProcessInstanceFactory {
         var messages = ProcessMessages.fromString(objectMapper, messagesStr);
 
         return ProcessInstance.loadFromStorage(id, businessKey, spec, state, status, variables, messages,
-            correlationId, attempt, lastError, scheduledAt, availableAt, deadlineAt, clock);
+                correlationId, attempt, lastError, scheduledAt, availableAt, deadlineAt, clock);
     }
 
-    public ProcessInstance newInstance(ProcessType type, Instant startDate,
-                                       @Nullable String businessKey, String correlationId,
-                                       Map<String, Object> variables) {
+    public ProcessInstance newInstance(
+            ProcessType type,
+            Instant startDate,
+            @Nullable String businessKey,
+            String correlationId,
+            Map<String, Object> variables
+    ) {
         var id = UUIDGenerator.generate();
         var spec = processDefinitionRegistry.getProcessSpec(type);
         var processVariables = ProcessVariables.fromMap(objectMapper, variables);
 
         return ProcessInstance.createNew(id, businessKey, spec,
-            processVariables, ProcessMessages.empty(objectMapper),
-            correlationId, startDate, clock);
+                processVariables, ProcessMessages.empty(objectMapper),
+                correlationId, startDate, clock);
     }
 }

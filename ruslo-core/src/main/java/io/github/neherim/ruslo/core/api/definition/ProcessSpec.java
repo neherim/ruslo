@@ -24,9 +24,15 @@ public class ProcessSpec {
     private final ProcessErrorHandler processErrorHandler;
     private final ProcessStateId fallbackState;
 
-    ProcessSpec(ProcessTypeId type, String description, ProcessStateId initialState,
-                Map<String, StateSpec> stateSpecs, Map<String, String> stateDescriptions,
-                ProcessErrorHandler processErrorHandler, ProcessStateId fallbackState) {
+    ProcessSpec(
+            ProcessTypeId type,
+            String description,
+            ProcessStateId initialState,
+            Map<String, StateSpec> stateSpecs,
+            Map<String, String> stateDescriptions,
+            ProcessErrorHandler processErrorHandler,
+            ProcessStateId fallbackState
+    ) {
         this.type = type;
         this.description = description;
         this.initialState = initialState;
@@ -36,9 +42,13 @@ public class ProcessSpec {
         this.fallbackState = fallbackState;
     }
 
-    public ProcessTypeId getType() { return type; }
+    public ProcessTypeId getType() {
+        return type;
+    }
 
-    public Optional<String> getDescription() { return Optional.ofNullable(description); }
+    public Optional<String> getDescription() {
+        return Optional.ofNullable(description);
+    }
 
     /** Returns the state description given in its declaration. */
     public String getStateDescription(ProcessState state) {
@@ -46,9 +56,13 @@ public class ProcessSpec {
         return stateDescriptions.get(state.name());
     }
 
-    public ProcessStateId getInitialState() { return initialState; }
+    public ProcessStateId getInitialState() {
+        return initialState;
+    }
 
-    public Collection<StateSpec> getAllStateSpecs() { return stateSpecs.values(); }
+    public Collection<StateSpec> getAllStateSpecs() {
+        return stateSpecs.values();
+    }
 
     /** @throws UnsupportedProcessStateException if the process has no such state */
     public StateSpec getStateSpec(ProcessState state) {
@@ -62,7 +76,8 @@ public class ProcessSpec {
         return switch (getStateSpec(state)) {
             case StepState step -> step.worker();
             case AwaitState ignored -> WorkerId.DEFAULT;
-            case TerminalState ignored -> throw new IllegalStateException("Terminal state has no worker: " + state.name());
+            case TerminalState ignored ->
+                throw new IllegalStateException("Terminal state has no worker: " + state.name());
         };
     }
 
@@ -81,9 +96,10 @@ public class ProcessSpec {
 
     /** Returns {@code true} if any await of the process declares this message type. */
     public boolean declaresMessage(MessageType<?> type) {
-        return stateSpecs.values().stream()
+        return stateSpecs.values()
+            .stream()
             .anyMatch(spec -> spec instanceof AwaitState await
-                && await.messages().stream().anyMatch(event -> event.type().equals(type)));
+                    && await.messages().stream().anyMatch(event -> event.type().equals(type)));
     }
 
     /** Returns the message names the state accepts; empty for non-await states. */
@@ -94,12 +110,18 @@ public class ProcessSpec {
         return Set.of();
     }
 
-    public ProcessErrorHandler getProcessErrorHandler() { return processErrorHandler; }
+    public ProcessErrorHandler getProcessErrorHandler() {
+        return processErrorHandler;
+    }
 
     /** Returns the state entered on {@link ErrorResult#fallback()}. */
-    public Optional<ProcessStateId> getFallbackState() { return Optional.ofNullable(fallbackState); }
+    public Optional<ProcessStateId> getFallbackState() {
+        return Optional.ofNullable(fallbackState);
+    }
 
-    public boolean hasState(ProcessState state) { return stateSpecs.containsKey(state.name()); }
+    public boolean hasState(ProcessState state) {
+        return stateSpecs.containsKey(state.name());
+    }
 
     /** Engine model of a state. */
     public sealed interface StateSpec permits StepState, AwaitState, TerminalState {
@@ -112,8 +134,12 @@ public class ProcessSpec {
     }
 
     /** Await state and its events; {@code every} and {@code timeout} are nullable. */
-    public record AwaitState(ProcessStateId state, List<MessageEvent<?>> messages, EveryEvent every,
-                             TimeoutEvent timeout) implements StateSpec {
+    public record AwaitState(
+            ProcessStateId state,
+            List<MessageEvent<?>> messages,
+            EveryEvent every,
+            TimeoutEvent timeout
+    ) implements StateSpec {
         public AwaitState {
             messages = List.copyOf(messages);
         }
@@ -126,8 +152,11 @@ public class ProcessSpec {
      * Message event. {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
      * A target equal to the await itself keeps waiting.
      */
-    public record MessageEvent<T>(MessageType<T> type,
-                                  BiFunction<ProcessContext, IncomingMessage<T>, Enum<?>> handler, Exit exit) {
+    public record MessageEvent<T>(
+            MessageType<T> type,
+            BiFunction<ProcessContext, IncomingMessage<T>, Enum<?>> handler,
+            Exit exit
+    ) {
     }
 
     /**
@@ -135,8 +164,12 @@ public class ProcessSpec {
      * {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
      * A target equal to the await itself keeps waiting.
      */
-    public record EveryEvent(Duration interval, Duration initialDelay, Function<ProcessContext, Enum<?>> handler,
-                             Exit exit) {
+    public record EveryEvent(
+            Duration interval,
+            Duration initialDelay,
+            Function<ProcessContext, Enum<?>> handler,
+            Exit exit
+    ) {
     }
 
     /** Await deadline with a nullable {@code handler} and an unconditional target {@code next}. */

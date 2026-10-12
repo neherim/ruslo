@@ -72,7 +72,7 @@ public class StepExecutor {
         var started = System.nanoTime();
         try (var ignored = processMdc.open(process)) {
             var message = new IncomingMessage<>(UUIDGenerator.generate(), event.type(),
-                event.type().clazz().cast(payload), clock.instant());
+                    event.type().clazz().cast(payload), clock.instant());
             executeMessage(process, new DefaultProcessContext(process), event, message);
             recordStepExecuted(process, executedState, started);
         } catch (HandlerException ex) {
@@ -111,21 +111,30 @@ public class StepExecutor {
     /** Executes the first queued message and removes it if the process stays in the current await. */
     private void executeQueuedMessage(ProcessInstance process, DefaultProcessContext context) {
         var pending = process.getMessages().peekFirst().orElseThrow();
-        var event = process.getProcessSpec().getMessageEvent(pending.type(), process.getState())
+        var event = process.getProcessSpec()
+            .getMessageEvent(pending.type(), process.getState())
             .orElseThrow(() -> new IllegalStateException("Queued message " + pending.type()
-                + " is not expected in state " + process.getState().name()));
+                    + " is not expected in state " + process.getState().name()));
         if (convertAndExecute(process, context, event, pending)) process.consumeMessage(pending.id());
     }
 
     /** Converts the stored message to the handler type {@code T} from the definition and executes it. */
-    private <T> boolean convertAndExecute(ProcessInstance process, DefaultProcessContext context,
-                                          MessageEvent<T> event, PendingMessage pending) {
+    private <T> boolean convertAndExecute(
+            ProcessInstance process,
+            DefaultProcessContext context,
+            MessageEvent<T> event,
+            PendingMessage pending
+    ) {
         return executeMessage(process, context, event, process.getMessages().convert(pending, event.type()));
     }
 
     /** Returns {@code true} if the process stays in the current await. */
-    private <T> boolean executeMessage(ProcessInstance process, DefaultProcessContext context,
-                                       MessageEvent<T> event, IncomingMessage<T> message) {
+    private <T> boolean executeMessage(
+            ProcessInstance process,
+            DefaultProcessContext context,
+            MessageEvent<T> event,
+            IncomingMessage<T> message
+    ) {
         var outcome = invokeHandler(() -> event.handler().apply(context, message));
         return applyAwait(outcome, event.exit(), process, "message " + event.type().name());
     }
@@ -153,8 +162,8 @@ public class StepExecutor {
             case Routes routes -> {
                 if (outcome == null) {
                     throw new HandlerException(new IllegalStateException("Branching " + handler + " in state "
-                        + process.getState().name() + " of process " + process.getType().name()
-                        + " returned null, but an outcome is required"));
+                            + process.getState().name() + " of process " + process.getType().name()
+                            + " returned null, but an outcome is required"));
                 }
                 yield Objects.requireNonNull(routes.routes().get(outcome), "No route for outcome " + outcome);
             }
@@ -212,5 +221,9 @@ public class StepExecutor {
         return selected;
     }
 
-    private enum AwaitEvent { MESSAGE, EVERY, TIMEOUT }
+    private enum AwaitEvent {
+        MESSAGE,
+        EVERY,
+        TIMEOUT
+    }
 }

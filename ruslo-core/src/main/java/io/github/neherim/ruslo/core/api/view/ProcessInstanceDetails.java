@@ -15,18 +15,19 @@ import java.util.UUID;
  *                  truncated to 1024 characters
  */
 public record ProcessInstanceDetails(
-    UUID id,
-    ProcessTypeId type,
-    ProcessStateId state,
-    ProcessStatus status,
-    Instant createdAt,
-    Optional<Instant> scheduledAt,
-    Optional<String> businessKey,
-    String correlationId,
-    int attempt,
-    Optional<String> lastError,
-    List<StateHistoryEntry> stateHistory,
-    ProcessVariablesView variables) {
+        UUID id,
+        ProcessTypeId type,
+        ProcessStateId state,
+        ProcessStatus status,
+        Instant createdAt,
+        Optional<Instant> scheduledAt,
+        Optional<String> businessKey,
+        String correlationId,
+        int attempt,
+        Optional<String> lastError,
+        List<StateHistoryEntry> stateHistory,
+        ProcessVariablesView variables
+) {
 
     /** State history entry: the state and when it was entered. */
     public record StateHistoryEntry(ProcessStateId state, Instant changedAt) {

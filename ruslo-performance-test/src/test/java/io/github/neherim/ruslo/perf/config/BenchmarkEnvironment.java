@@ -1,16 +1,16 @@
 package io.github.neherim.ruslo.perf.config;
 
-import io.github.neherim.ruslo.core.api.ProcessEngine;
-import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
-import io.github.neherim.ruslo.core.spi.Database;
-import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
-import io.github.neherim.ruslo.core.api.WorkerSpec;
-import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
-import io.github.neherim.ruslo.core.management.DatabaseSchemaMigrator;
-import io.github.neherim.ruslo.core.metrics.InMemoryProcessEngineMetrics;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import io.github.neherim.ruslo.core.api.ProcessEngine;
+import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
+import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
+import io.github.neherim.ruslo.core.management.DatabaseSchemaMigrator;
+import io.github.neherim.ruslo.core.metrics.InMemoryProcessEngineMetrics;
+import io.github.neherim.ruslo.core.spi.Database;
+import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.Duration;
@@ -55,19 +55,26 @@ public final class BenchmarkEnvironment implements AutoCloseable {
 
     /** Builds an engine with its own pool and a fixed 10 ms polling interval. */
     public ProcessEngine createEngine(
-            String name, int poolSize, int concurrency, boolean dispatcherEnabled,
-            InMemoryProcessEngineMetrics metrics, List<? extends ProcessDefinition> definitions,
-            Consumer<ProcessEngineBuilder> customizer) {
+            String name,
+            int poolSize,
+            int concurrency,
+            boolean dispatcherEnabled,
+            InMemoryProcessEngineMetrics metrics,
+            List<? extends ProcessDefinition> definitions,
+            Consumer<ProcessEngineBuilder> customizer
+    ) {
         var pool = createPool(name, poolSize);
         var builder = new ProcessEngineBuilder(new PlainJdbcDatabase(pool))
-                .addProcessDefinitions(definitions)
-                .withDatabaseMigrationEnabled(false)
-                .withDispatcherEnabled(dispatcherEnabled)
-                .withMinProcessDispatchInterval(Duration.ofMillis(10))
-                .withMaxProcessDispatchInterval(Duration.ofMillis(10))
-                .withMetrics(metrics)
-                .registerWorker(WorkerSpec.builder(WorkerId.DEFAULT)
-                        .transactional().maxConcurrency(concurrency).build());
+            .addProcessDefinitions(definitions)
+            .withDatabaseMigrationEnabled(false)
+            .withDispatcherEnabled(dispatcherEnabled)
+            .withMinProcessDispatchInterval(Duration.ofMillis(10))
+            .withMaxProcessDispatchInterval(Duration.ofMillis(10))
+            .withMetrics(metrics)
+            .registerWorker(WorkerSpec.builder(WorkerId.DEFAULT)
+                .transactional()
+                .maxConcurrency(concurrency)
+                .build());
         customizer.accept(builder);
         var engine = builder.build();
         enginePools.put(engine, pool);
@@ -99,8 +106,10 @@ public final class BenchmarkEnvironment implements AutoCloseable {
 
     /** Returns database settings and the container's actual limits. */
     public Map<String, Object> postgresMetadata() {
-        var host = container.getDockerClient().inspectContainerCmd(container.getContainerId())
-                .exec().getHostConfig();
+        var host = container.getDockerClient()
+            .inspectContainerCmd(container.getContainerId())
+            .exec()
+            .getHostConfig();
         var result = new java.util.LinkedHashMap<String, Object>();
         var docker = container.getDockerClient().infoCmd().exec();
         result.put("dockerCpuCount", docker.getNCPU());
@@ -118,7 +127,7 @@ public final class BenchmarkEnvironment implements AutoCloseable {
                                'full_page_writes', 'max_wal_size', 'checkpoint_timeout')
                 order by name
                 """, rs -> Map.of("name", rs.getString(1), "setting", rs.getString(2),
-                        "unit", rs.getString(3) == null ? "" : rs.getString(3))));
+                "unit", rs.getString(3) == null ? "" : rs.getString(3))));
         return result;
     }
 
@@ -130,7 +139,8 @@ public final class BenchmarkEnvironment implements AutoCloseable {
                 stopEngine(engine);
             } catch (RuntimeException ex) {
                 if (failure == null) failure = ex;
-                else failure.addSuppressed(ex);
+                else
+                    failure.addSuppressed(ex);
             }
         }
         pools.forEach(HikariDataSource::close);

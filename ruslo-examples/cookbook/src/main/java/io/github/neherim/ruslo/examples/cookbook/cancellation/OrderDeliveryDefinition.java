@@ -56,8 +56,7 @@ public class OrderDeliveryDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("ORDER_DELIVERY");
     public static final VariableType<String> PAYMENT_ID = VariableType.of("paymentId", String.class);
     public static final VariableType<String> COURIER = VariableType.of("courier", String.class);
-    public static final VariableType<String> CANCELLATION_REASON =
-            VariableType.of("cancellationReason", String.class);
+    public static final VariableType<String> CANCELLATION_REASON = VariableType.of("cancellationReason", String.class);
     public static final MessageType<String> PAYMENT_RECEIVED = MessageType.of("paymentReceived", String.class);
     public static final MessageType<String> HANDED_TO_COURIER = MessageType.of("handedToCourier", String.class);
     public static final MessageType<String> CANCEL = MessageType.of("cancel", String.class);
@@ -66,9 +65,11 @@ public class OrderDeliveryDefinition implements ProcessDefinition {
     private final PackOrderStep packOrderStep;
     private final CancelOrderStep cancelOrderStep;
 
-    public OrderDeliveryDefinition(ReserveItemsStep reserveItemsStep,
-                                   PackOrderStep packOrderStep,
-                                   CancelOrderStep cancelOrderStep) {
+    public OrderDeliveryDefinition(
+            ReserveItemsStep reserveItemsStep,
+            PackOrderStep packOrderStep,
+            CancelOrderStep cancelOrderStep
+    ) {
         this.reserveItemsStep = reserveItemsStep;
         this.packOrderStep = packOrderStep;
         this.cancelOrderStep = cancelOrderStep;
@@ -78,20 +79,20 @@ public class OrderDeliveryDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.RESERVING)
-                .step(State.RESERVING, reserveItemsStep, State.WAITING_FOR_PAYMENT)
-                .await(State.WAITING_FOR_PAYMENT, await -> await
-                        .message(PAYMENT_RECEIVED, OrderDeliveryDefinition::onPayment, State.PACKING)
-                        .message(CANCEL, OrderDeliveryDefinition::onCancel, State.CANCELLING))
-                .step(State.PACKING, packOrderStep, State.WAITING_FOR_COURIER)
-                .await(State.WAITING_FOR_COURIER, await -> await
-                        .message(HANDED_TO_COURIER, OrderDeliveryDefinition::onHandedToCourier, State.SHIPPED)
-                        .message(CANCEL, OrderDeliveryDefinition::onCancel, State.CANCELLING))
-                .step(State.CANCELLING, cancelOrderStep, State.CANCELLED)
-                .terminal(State.SHIPPED)
-                .terminal(State.CANCELLED)
-                .build();
+            .type(TYPE)
+            .initialState(State.RESERVING)
+            .step(State.RESERVING, reserveItemsStep, State.WAITING_FOR_PAYMENT)
+            .await(State.WAITING_FOR_PAYMENT, await -> await
+                .message(PAYMENT_RECEIVED, OrderDeliveryDefinition::onPayment, State.PACKING)
+                .message(CANCEL, OrderDeliveryDefinition::onCancel, State.CANCELLING))
+            .step(State.PACKING, packOrderStep, State.WAITING_FOR_COURIER)
+            .await(State.WAITING_FOR_COURIER, await -> await
+                .message(HANDED_TO_COURIER, OrderDeliveryDefinition::onHandedToCourier, State.SHIPPED)
+                .message(CANCEL, OrderDeliveryDefinition::onCancel, State.CANCELLING))
+            .step(State.CANCELLING, cancelOrderStep, State.CANCELLED)
+            .terminal(State.SHIPPED)
+            .terminal(State.CANCELLED)
+            .build();
     }
 
     /** Stores the order payment. */

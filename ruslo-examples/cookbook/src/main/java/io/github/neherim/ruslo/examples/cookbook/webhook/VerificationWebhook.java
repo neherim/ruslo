@@ -28,9 +28,9 @@ public class VerificationWebhook {
      */
     public void onCallback(VerificationCallback callback) {
         var process = processEngine.processes()
-                .byType(IdentityVerificationDefinition.TYPE)
-                .byBusinessKey(callback.applicationId())
-                .single();
+            .byType(IdentityVerificationDefinition.TYPE)
+            .byBusinessKey(callback.applicationId())
+            .single();
         if (process.isEmpty()) {
             log.warn("Verification callback {} for unknown application {} ignored",
                     callback.eventId(), callback.applicationId());

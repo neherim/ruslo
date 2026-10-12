@@ -91,9 +91,9 @@ class ApprovalTest {
 
     private UUID startApproval(String reportId, String approver) {
         return processEngine.newProcess(ExpenseApprovalDefinition.TYPE)
-                .businessKey(reportId)
-                .variable(ExpenseApprovalDefinition.APPROVER, approver)
-                .start();
+            .businessKey(reportId)
+            .variable(ExpenseApprovalDefinition.APPROVER, approver)
+            .start();
     }
 
     private static String newReportId() {

@@ -1,11 +1,11 @@
 package io.github.neherim.ruslo.core.api;
 
+import io.github.neherim.ruslo.core.api.definition.ProcessType;
+import io.github.neherim.ruslo.core.api.definition.VariableType;
 import org.jspecify.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
-import io.github.neherim.ruslo.core.api.definition.ProcessType;
-import io.github.neherim.ruslo.core.api.definition.VariableType;
 import java.util.UUID;
 
 /** Creates and starts a process. */
@@ -57,7 +57,11 @@ public class ProcessStartBuilder {
     @FunctionalInterface
     public interface ProcessStarter {
 
-        UUID start(ProcessType type, @Nullable String businessKey, @Nullable String correlationId,
-                   Map<String, Object> variables);
+        UUID start(
+                ProcessType type,
+                @Nullable String businessKey,
+                @Nullable String correlationId,
+                Map<String, Object> variables
+        );
     }
 }

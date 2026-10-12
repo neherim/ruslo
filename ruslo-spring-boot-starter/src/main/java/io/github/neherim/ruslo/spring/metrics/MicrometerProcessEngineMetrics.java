@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.spring.metrics;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.micrometer.core.instrument.*;
 
@@ -94,34 +94,36 @@ public class MicrometerProcessEngineMetrics implements ProcessEngineMetrics {
     @Override
     public void registerProcessCount(ProcessStatus status, Supplier<Long> supplier) {
         Gauge.builder(METRIC_PREFIX + ".processes", supplier::get)
-                .description("Number of processes in status")
-                .tag("status", status.name())
-                .register(registry);
+            .description("Number of processes in status")
+            .tag("status", status.name())
+            .register(registry);
     }
 
     @Override
-    public void registerWorkerMetrics(String workerId,
-                                      int capacity,
-                                      Supplier<Integer> activeTasksSupplier,
-                                      Supplier<Long> readyProcessesSupplier,
-                                      Supplier<Duration> lagSupplier) {
+    public void registerWorkerMetrics(
+            String workerId,
+            int capacity,
+            Supplier<Integer> activeTasksSupplier,
+            Supplier<Long> readyProcessesSupplier,
+            Supplier<Duration> lagSupplier
+    ) {
         Gauge.builder(METRIC_PREFIX + ".worker.capacity", () -> capacity)
-                .description("Maximum number of concurrently executing tasks")
-                .tag("worker", workerId)
-                .register(registry);
+            .description("Maximum number of concurrently executing tasks")
+            .tag("worker", workerId)
+            .register(registry);
         Gauge.builder(METRIC_PREFIX + ".worker.active", activeTasksSupplier::get)
-                .description("Number of executing tasks")
-                .tag("worker", workerId)
-                .register(registry);
+            .description("Number of executing tasks")
+            .tag("worker", workerId)
+            .register(registry);
         Gauge.builder(METRIC_PREFIX + ".worker.ready", readyProcessesSupplier::get)
-                .description("Number of ready processes not yet claimed by any instance")
-                .tag("worker", workerId)
-                .register(registry);
+            .description("Number of ready processes not yet claimed by any instance")
+            .tag("worker", workerId)
+            .register(registry);
         TimeGauge.builder(METRIC_PREFIX + ".worker.lag",
-                        () -> lagSupplier.get().toNanos(), TimeUnit.NANOSECONDS)
-                .description("How long the oldest ready process has been waiting to be claimed")
-                .tag("worker", workerId)
-                .register(registry);
+                () -> lagSupplier.get().toNanos(), TimeUnit.NANOSECONDS)
+            .description("How long the oldest ready process has been waiting to be claimed")
+            .tag("worker", workerId)
+            .register(registry);
     }
 
     @Override
@@ -130,24 +132,25 @@ public class MicrometerProcessEngineMetrics implements ProcessEngineMetrics {
     }
 
     private Counter processCounter(Map<String, Counter> counters, String event, ProcessType processType) {
-        return counters.computeIfAbsent(processType.name(), type -> Counter.builder(METRIC_PREFIX + ".processes." + event)
-                .description("Number of processes " + event)
-                .tag("type", type)
-                .register(registry));
+        return counters.computeIfAbsent(processType.name(),
+                type -> Counter.builder(METRIC_PREFIX + ".processes." + event)
+                    .description("Number of processes " + event)
+                    .tag("type", type)
+                    .register(registry));
     }
 
     private Timer stepTimer(ProcessType processType, ProcessState processState, String outcome) {
         var tags = Tags.of("type", processType.name(), "state", processState.name(), "outcome", outcome);
         return stepTimers.computeIfAbsent(tags, t -> Timer.builder(METRIC_PREFIX + ".processes.steps.duration")
-                .description("Duration of process step handler execution")
-                .tags(t)
-                .register(registry));
+            .description("Duration of process step handler execution")
+            .tags(t)
+            .register(registry));
     }
 
     private Counter counter(String name, String description) {
         return Counter.builder(METRIC_PREFIX + "." + name)
-                .description(description)
-                .register(registry);
+            .description(description)
+            .register(registry);
     }
 
 }

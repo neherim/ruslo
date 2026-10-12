@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.core.runtime.process;
 
-import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec.*;
+import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 
 import java.time.Clock;
@@ -34,8 +34,15 @@ public final class ProcessInstance {
     private Instant availableAt;
     private Instant deadlineAt;
 
-    private ProcessInstance(UUID id, String businessKey, ProcessSpec spec, ProcessVariables variables,
-                            ProcessMessages messages, String correlationId, Clock clock) {
+    private ProcessInstance(
+            UUID id,
+            String businessKey,
+            ProcessSpec spec,
+            ProcessVariables variables,
+            ProcessMessages messages,
+            String correlationId,
+            Clock clock
+    ) {
         this.id = Objects.requireNonNull(id);
         this.businessKey = businessKey;
         this.spec = Objects.requireNonNull(spec);
@@ -45,20 +52,37 @@ public final class ProcessInstance {
         this.clock = Objects.requireNonNull(clock);
     }
 
-    public static ProcessInstance createNew(UUID id, String businessKey, ProcessSpec spec,
-                                            ProcessVariables variables, ProcessMessages messages,
-                                            String correlationId, Instant startAt, Clock clock) {
+    public static ProcessInstance createNew(
+            UUID id,
+            String businessKey,
+            ProcessSpec spec,
+            ProcessVariables variables,
+            ProcessMessages messages,
+            String correlationId,
+            Instant startAt,
+            Clock clock
+    ) {
         var process = new ProcessInstance(id, businessKey, spec, variables, messages, correlationId, clock);
         process.enterStateAt(spec.getInitialState(), startAt);
         return process;
     }
 
-    public static ProcessInstance loadFromStorage(UUID id, String businessKey, ProcessSpec spec,
-                                                  ProcessStateId state, ProcessStatus status,
-                                                  ProcessVariables variables, ProcessMessages messages,
-                                                  String correlationId, int attempt, String lastError,
-                                                  Instant scheduledAt, Instant availableAt, Instant deadlineAt,
-                                                  Clock clock) {
+    public static ProcessInstance loadFromStorage(
+            UUID id,
+            String businessKey,
+            ProcessSpec spec,
+            ProcessStateId state,
+            ProcessStatus status,
+            ProcessVariables variables,
+            ProcessMessages messages,
+            String correlationId,
+            int attempt,
+            String lastError,
+            Instant scheduledAt,
+            Instant availableAt,
+            Instant deadlineAt,
+            Clock clock
+    ) {
         var process = new ProcessInstance(id, businessKey, spec, variables, messages, correlationId, clock);
         process.state = state;
         process.status = status;
@@ -173,54 +197,130 @@ public final class ProcessInstance {
         if (getStateSpec() instanceof StepState) {
             scheduledAt = clock.instant();
             availableAt = scheduledAt;
-        } else recomputeAvailability();
+        } else
+            recomputeAvailability();
         return true;
     }
 
     /** Recomputes when the active await is available: the earliest of timer, deadline and first queued message. */
     private void recomputeAvailability() {
         availableAt = Stream.of(scheduledAt, deadlineAt, messages.firstReceivedAt().orElse(null))
-            .filter(Objects::nonNull).min(Comparator.naturalOrder()).orElse(null);
+            .filter(Objects::nonNull)
+            .min(Comparator.naturalOrder())
+            .orElse(null);
     }
 
     /** Clears the previous error. */
-    private void resetAttemptsAndError() { attempt = 0; lastError = null; }
+    private void resetAttemptsAndError() {
+        attempt = 0;
+        lastError = null;
+    }
+
     /**
      * Returns whether the process waits for a retry: {@code availableAt} is then the retry time, not the next event.
      */
-    public boolean hasRetryBackoff() { return attempt > 0; }
+    public boolean hasRetryBackoff() {
+        return attempt > 0;
+    }
+
     public boolean isTimeToExecute() {
         return status == ProcessStatus.ACTIVE && availableAt != null && !availableAt.isAfter(clock.instant());
     }
-    public StateSpec getStateSpec() { return spec.getStateSpec(state); }
-    public ProcessSpec getProcessSpec() { return spec; }
-    public ProcessErrorHandler getProcessErrorHandler() { return spec.getProcessErrorHandler(); }
-    public UUID getId() { return id; }
-    public Optional<String> getBusinessKey() { return Optional.ofNullable(businessKey); }
-    public String getCorrelationId() { return correlationId; }
-    public ProcessTypeId getType() { return spec.getType(); }
-    public ProcessStateId getState() { return state; }
-    public ProcessStatus getStatus() { return status; }
-    public boolean isCompleted() { return status == ProcessStatus.COMPLETED; }
-    public ProcessVariables getVariables() { return variables; }
-    public <T> T getVariable(String name, Class<T> clazz) { return variables.getVariable(name, clazz); }
-    public void setVariable(String name, Object value) { variables.setVariable(name, value); }
-    public boolean removeVariable(String name) { return variables.removeVariable(name); }
-    public ProcessMessages getMessages() { return messages; }
-    public int getAttempt() { return attempt; }
-    public Optional<String> getLastError() { return Optional.ofNullable(lastError); }
-    public Optional<Instant> getScheduledAt() { return Optional.ofNullable(scheduledAt); }
-    public Optional<Instant> getDeadlineAt() { return Optional.ofNullable(deadlineAt); }
-    public Optional<Instant> getAvailableAt() { return Optional.ofNullable(availableAt); }
+
+    public StateSpec getStateSpec() {
+        return spec.getStateSpec(state);
+    }
+
+    public ProcessSpec getProcessSpec() {
+        return spec;
+    }
+
+    public ProcessErrorHandler getProcessErrorHandler() {
+        return spec.getProcessErrorHandler();
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public Optional<String> getBusinessKey() {
+        return Optional.ofNullable(businessKey);
+    }
+
+    public String getCorrelationId() {
+        return correlationId;
+    }
+
+    public ProcessTypeId getType() {
+        return spec.getType();
+    }
+
+    public ProcessStateId getState() {
+        return state;
+    }
+
+    public ProcessStatus getStatus() {
+        return status;
+    }
+
+    public boolean isCompleted() {
+        return status == ProcessStatus.COMPLETED;
+    }
+
+    public ProcessVariables getVariables() {
+        return variables;
+    }
+
+    public <T> T getVariable(String name, Class<T> clazz) {
+        return variables.getVariable(name, clazz);
+    }
+
+    public void setVariable(String name, Object value) {
+        variables.setVariable(name, value);
+    }
+
+    public boolean removeVariable(String name) {
+        return variables.removeVariable(name);
+    }
+
+    public ProcessMessages getMessages() {
+        return messages;
+    }
+
+    public int getAttempt() {
+        return attempt;
+    }
+
+    public Optional<String> getLastError() {
+        return Optional.ofNullable(lastError);
+    }
+
+    public Optional<Instant> getScheduledAt() {
+        return Optional.ofNullable(scheduledAt);
+    }
+
+    public Optional<Instant> getDeadlineAt() {
+        return Optional.ofNullable(deadlineAt);
+    }
+
+    public Optional<Instant> getAvailableAt() {
+        return Optional.ofNullable(availableAt);
+    }
+
     /** Returns the worker of the current state; empty for a terminal or removed state. */
     public Optional<WorkerId> getWorkerId() {
         if (!spec.hasState(state) || getStateSpec() instanceof TerminalState) return Optional.empty();
         return Optional.of(spec.getWorkerId(state));
     }
+
     List<ProcessStateHist> drainPendingHistoryEntries() {
         var entries = List.copyOf(pendingHistory);
         pendingHistory.clear();
         return entries;
     }
-    @Override public String toString() { return "Process{" + "id=" + id + ", type=" + getType() + ", state=" + state + '}'; }
+
+    @Override
+    public String toString() {
+        return "Process{" + "id=" + id + ", type=" + getType() + ", state=" + state + '}';
+    }
 }

@@ -68,9 +68,11 @@ public class ProcessesAdminController {
      * @param returnTo relative address of the process list to return to
      */
     @GetMapping("/processes/{processId}")
-    public String processDetails(@PathVariable UUID processId,
-                                 @RequestParam(required = false) String returnTo,
-                                 Model model) {
+    public String processDetails(
+            @PathVariable UUID processId,
+            @RequestParam(required = false) String returnTo,
+            Model model
+    ) {
         var process = findProcess(processId);
         model.addAttribute("processId", processId);
         model.addAttribute("process", process);
@@ -110,12 +112,14 @@ public class ProcessesAdminController {
      * @param variables JSON object of process variables
      */
     @PostMapping("/htmx/processes")
-    public String startProcess(@RequestParam String type,
-                               @RequestParam(required = false) String businessKey,
-                               @RequestParam(required = false, defaultValue = "{}") String variables,
-                               HttpServletRequest request,
-                               HttpServletResponse response,
-                               Model model) {
+    public String startProcess(
+            @RequestParam String type,
+            @RequestParam(required = false) String businessKey,
+            @RequestParam(required = false, defaultValue = "{}") String variables,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Model model
+    ) {
         return statusLine(request, response, model, "start process of type " + type, () -> {
             var processId = adminService.startProcess(type, businessKey, variables);
             success(response, model, HtmxResponseSupport.PROCESS_LIST_CHANGED, "Started " + processId);
@@ -130,9 +134,11 @@ public class ProcessesAdminController {
      * @param since version of the content already displayed in the browser
      */
     @GetMapping("/htmx/processes/{processId}/details")
-    public ModelAndView processDetails(@PathVariable UUID processId,
-                                       @RequestParam(required = false) String since,
-                                       HttpServletResponse response) {
+    public ModelAndView processDetails(
+            @PathVariable UUID processId,
+            @RequestParam(required = false) String since,
+            HttpServletResponse response
+    ) {
         var process = findProcess(processId);
         if (process.version().equals(since)) {
             response.setStatus(HttpStatus.NO_CONTENT.value());
@@ -148,11 +154,13 @@ public class ProcessesAdminController {
      * Moves the process to {@code state}.
      */
     @PostMapping("/htmx/processes/{processId}/state")
-    public String changeState(@PathVariable UUID processId,
-                              @RequestParam String state,
-                              HttpServletRequest request,
-                              HttpServletResponse response,
-                              Model model) {
+    public String changeState(
+            @PathVariable UUID processId,
+            @RequestParam String state,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Model model
+    ) {
         return statusLine(request, response, model, "move process " + processId + " to state " + state, () -> {
             adminService.changeState(processId, state);
             success(response, model, HtmxResponseSupport.PROCESS_DETAILS_CHANGED, "State changed");
@@ -163,10 +171,12 @@ public class ProcessesAdminController {
      * Schedules the current step of the process for another run.
      */
     @PostMapping("/htmx/processes/{processId}/retry-current-step")
-    public String retryCurrentStep(@PathVariable UUID processId,
-                                   HttpServletRequest request,
-                                   HttpServletResponse response,
-                                   Model model) {
+    public String retryCurrentStep(
+            @PathVariable UUID processId,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Model model
+    ) {
         return statusLine(request, response, model, "retry current step of process " + processId, () -> {
             adminService.retryCurrentStep(processId);
             success(response, model, HtmxResponseSupport.PROCESS_DETAILS_CHANGED, "Retry scheduled");
@@ -179,12 +189,14 @@ public class ProcessesAdminController {
      * @param jsonValue message value as JSON
      */
     @PostMapping("/htmx/processes/{processId}/messages")
-    public String sendMessage(@PathVariable UUID processId,
-                              @RequestParam String name,
-                              @RequestParam String jsonValue,
-                              HttpServletRequest request,
-                              HttpServletResponse response,
-                              Model model) {
+    public String sendMessage(
+            @PathVariable UUID processId,
+            @RequestParam String name,
+            @RequestParam String jsonValue,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Model model
+    ) {
         return statusLine(request, response, model, "send message " + name + " to process " + processId, () -> {
             adminService.sendMessage(processId, name, jsonValue);
             success(response, model, HtmxResponseSupport.PROCESS_DETAILS_CHANGED, "Message sent");
@@ -197,12 +209,14 @@ public class ProcessesAdminController {
      * @param jsonValue variable value as JSON
      */
     @PostMapping("/htmx/processes/{processId}/variables")
-    public String setVariable(@PathVariable UUID processId,
-                              @RequestParam String name,
-                              @RequestParam String jsonValue,
-                              HttpServletRequest request,
-                              HttpServletResponse response,
-                              Model model) {
+    public String setVariable(
+            @PathVariable UUID processId,
+            @RequestParam String name,
+            @RequestParam String jsonValue,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Model model
+    ) {
         return statusLine(request, response, model, "set variable " + name + " of process " + processId, () -> {
             adminService.setVariable(processId, name, jsonValue);
             success(response, model, HtmxResponseSupport.PROCESS_DETAILS_CHANGED, "Variable saved");
@@ -213,11 +227,13 @@ public class ProcessesAdminController {
      * Removes a process variable; a missing variable is reported as info, not as an error.
      */
     @DeleteMapping("/htmx/processes/{processId}/variables")
-    public String removeVariable(@PathVariable UUID processId,
-                                 @RequestParam String name,
-                                 HttpServletRequest request,
-                                 HttpServletResponse response,
-                                 Model model) {
+    public String removeVariable(
+            @PathVariable UUID processId,
+            @RequestParam String name,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Model model
+    ) {
         return statusLine(request, response, model, "remove variable " + name + " of process " + processId, () -> {
             var removed = adminService.removeVariable(processId, name);
             success(response,
@@ -230,17 +246,19 @@ public class ProcessesAdminController {
 
     private ProcessDetailsResponse findProcess(UUID processId) {
         return adminService.process(processId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Process not found: " + processId));
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Process not found: " + processId));
     }
 
     /**
      * Runs an action as described in the class Javadoc.
      */
-    private static String statusLine(HttpServletRequest request,
-                                     HttpServletResponse response,
-                                     Model model,
-                                     String description,
-                                     Runnable action) {
+    private static String statusLine(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Model model,
+            String description,
+            Runnable action
+    ) {
         var user = request.getUserPrincipal() == null ? "anonymous" : request.getUserPrincipal().getName();
         try {
             action.run();

@@ -1,7 +1,7 @@
 package io.github.neherim.ruslo.spring.definition;
 
-import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
+import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
@@ -27,10 +27,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class SpringProcessDefinitionTest {
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(
-            DataSourceAutoConfiguration.class,
-            DataSourceTransactionManagerAutoConfiguration.class,
-            TransactionAutoConfiguration.class,
-            ProcessEngineAutoConfiguration.class))
+                DataSourceAutoConfiguration.class,
+                DataSourceTransactionManagerAutoConfiguration.class,
+                TransactionAutoConfiguration.class,
+                ProcessEngineAutoConfiguration.class))
         .withUserConfiguration(TestConfiguration.class)
         .withPropertyValues("ruslo.dispatcher.enabled=false");
 
@@ -58,7 +58,8 @@ class SpringProcessDefinitionTest {
     }
 
     enum State implements ProcessState {
-        INIT, FINISH
+        INIT,
+        FINISH
     }
 
     static class CountingStep implements ProcessStep {

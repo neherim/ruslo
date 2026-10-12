@@ -1,9 +1,9 @@
 package io.github.neherim.ruslo.core.metrics;
 
-import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
+import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,9 +63,13 @@ public final class FailSafeProcessEngineMetrics implements ProcessEngineMetrics 
     }
 
     @Override
-    public void registerWorkerMetrics(String workerId, int capacity, Supplier<Integer> activeTasksSupplier,
-                                      Supplier<Long> readyProcessesSupplier,
-                                      Supplier<Duration> lagSupplier) {
+    public void registerWorkerMetrics(
+            String workerId,
+            int capacity,
+            Supplier<Integer> activeTasksSupplier,
+            Supplier<Long> readyProcessesSupplier,
+            Supplier<Duration> lagSupplier
+    ) {
         safely("registerWorkerMetrics", () -> delegate.registerWorkerMetrics(workerId, capacity,
                 activeTasksSupplier, readyProcessesSupplier, lagSupplier));
     }

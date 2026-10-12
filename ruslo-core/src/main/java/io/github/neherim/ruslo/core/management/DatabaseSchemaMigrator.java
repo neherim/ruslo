@@ -21,14 +21,18 @@ import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 
-/** Applies the built-in SQL migrations of the ruslo schema. */
+/**
+ * Applies the built-in SQL migrations of the ruslo schema.
+ */
 public class DatabaseSchemaMigrator {
     private static final Logger log = LoggerFactory.getLogger(DatabaseSchemaMigrator.class);
     private static final int VERSION_ROW_ID = 1;
     private static final String MIGRATIONS_BASE_PATH = "db/migration";
     private static final Pattern MIGRATION_FILE_PATTERN = Pattern.compile("V(\\d+)__([A-Za-z0-9_-]+)\\.sql");
 
-    /** Applies the built-in migrations, detecting the dialect from the data source. */
+    /**
+     * Applies the built-in migrations, detecting the dialect from the data source.
+     */
     public static void update(DataSource dataSource) {
         DatabaseDialect dialect;
         try {
@@ -70,17 +74,17 @@ public class DatabaseSchemaMigrator {
 
     private static void initializeSchemaVersion(Connection connection, DatabaseDialect dialect) throws SQLException {
         execute(connection, """
-            create table if not exists xs_schema_version (
-                id int not null primary key,
-                version int not null
-            )
-            """);
+                create table if not exists xs_schema_version (
+                    id int not null primary key,
+                    version int not null
+                )
+                """);
         execute(connection, insertInitialVersionSql(dialect));
     }
 
     private static int lockAndReadVersion(Connection connection) throws SQLException {
-        try (var statement = connection.prepareStatement(
-            "select version from xs_schema_version where id = ? for update")) {
+        var selectVersionSql = "select version from xs_schema_version where id = ? for update";
+        try (var statement = connection.prepareStatement(selectVersionSql)) {
             statement.setInt(1, VERSION_ROW_ID);
             try (var resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
@@ -91,8 +95,7 @@ public class DatabaseSchemaMigrator {
         }
     }
 
-    private static void applyMigration(Connection connection, Migration migration)
-        throws SQLException {
+    private static void applyMigration(Connection connection, Migration migration) throws SQLException {
         log.info("Applying database migration V{}", migration.version());
         for (var statement : loadStatements(migration)) {
             execute(connection, statement);
@@ -115,11 +118,13 @@ public class DatabaseSchemaMigrator {
     private static String loadMigrationSql(Migration migration) {
         try (var stream = DatabaseSchemaMigrator.class.getClassLoader().getResourceAsStream(migration.resourcePath())) {
             if (stream == null) {
-                throw new DatabaseMigrationException("Database migration resource not found: " + migration.resourcePath());
+                throw new DatabaseMigrationException("Database migration resource not found: "
+                        + migration.resourcePath());
             }
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new DatabaseMigrationException("Error reading database migration resource: " + migration.resourcePath(), e);
+            throw new DatabaseMigrationException(
+                    "Error reading database migration resource: " + migration.resourcePath(), e);
         }
     }
 
@@ -225,10 +230,10 @@ public class DatabaseSchemaMigrator {
         return switch (dialect) {
             case POSTGRESQL -> "insert into xs_schema_version (id, version) values (1, 0) on conflict (id) do nothing";
             case H2 -> """
-                insert into xs_schema_version (id, version)
-                select 1, 0
-                where not exists (select 1 from xs_schema_version where id = 1)
-                """;
+                    insert into xs_schema_version (id, version)
+                    select 1, 0
+                    where not exists (select 1 from xs_schema_version where id = 1)
+                    """;
         };
     }
 

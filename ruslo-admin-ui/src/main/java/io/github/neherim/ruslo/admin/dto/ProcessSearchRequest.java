@@ -26,7 +26,8 @@ public record ProcessSearchRequest(
         String variablesLike,
         Integer limit,
         Integer offset,
-        String timeZone) {
+        String timeZone
+) {
     private static final int DEFAULT_LIMIT = 50;
     private static final int MAX_LIMIT = 100;
 

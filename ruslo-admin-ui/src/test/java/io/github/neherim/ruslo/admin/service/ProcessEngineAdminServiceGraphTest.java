@@ -5,15 +5,15 @@ import io.github.neherim.ruslo.admin.dto.DefinitionResponse;
 import io.github.neherim.ruslo.admin.dto.ProcessGraphResponse.Edge;
 import io.github.neherim.ruslo.admin.dto.ProcessGraphResponse.Node;
 import io.github.neherim.ruslo.admin.dto.StateHistoryResponse;
-import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
+import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
+import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
-import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.management.DatabaseSchemaMigrator;
 import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
 import org.h2.jdbcx.JdbcDataSource;
@@ -39,16 +39,19 @@ class ProcessEngineAdminServiceGraphTest {
 
     @Test
     void graphShouldUseStateDescriptionsAndLabelTransitions() {
-        ProcessDefinition definition = builder -> builder.type("GRAPH").initialState(State.CHECK)
-                .step(State.CHECK, context -> Outcome.OK, routes -> routes
-                        .on(Outcome.OK, State.WAIT).on(Outcome.FAIL, State.DONE))
-                .await(State.WAIT, await -> await
-                        .message(MessageType.of("approve", String.class), (context, message) -> { }, State.DONE)
-                        .every(Duration.ofSeconds(30), context -> Outcome.FAIL, routes -> routes
-                                .on(Outcome.OK, State.DONE).on(Outcome.FAIL, State.WAIT))
-                        .timeout(Duration.ofMinutes(90), State.DONE))
-                .terminal(State.DONE)
-                .build();
+        ProcessDefinition definition = builder -> builder.type("GRAPH")
+            .initialState(State.CHECK)
+            .step(State.CHECK, context -> Outcome.OK, routes -> routes
+                .on(Outcome.OK, State.WAIT)
+                .on(Outcome.FAIL, State.DONE))
+            .await(State.WAIT, await -> await
+                .message(MessageType.of("approve", String.class), (context, message) -> {}, State.DONE)
+                .every(Duration.ofSeconds(30), context -> Outcome.FAIL, routes -> routes
+                    .on(Outcome.OK, State.DONE)
+                    .on(Outcome.FAIL, State.WAIT))
+                .timeout(Duration.ofMinutes(90), State.DONE))
+            .terminal(State.DONE)
+            .build();
         var service = new ProcessEngineAdminService(engine(definition), new ProcessEngineAdmin(engine));
 
         var graph = service.graph("GRAPH").orElseThrow();
@@ -67,19 +70,21 @@ class ProcessEngineAdminServiceGraphTest {
                 new Edge("WAIT", "DONE", "TIMEOUT", "timeout 1h30m"));
         assertThat(service.graph("UNKNOWN")).isEmpty();
         assertThat(service.statesFor("GRAPH", "CHECK"))
-                .extracting(DefinitionResponse.StateResponse::name, DefinitionResponse.StateResponse::description)
-                .containsExactly(tuple("CHECK", "Check"), tuple("DONE", "Done"), tuple("WAIT", null));
+            .extracting(DefinitionResponse.StateResponse::name, DefinitionResponse.StateResponse::description)
+            .containsExactly(tuple("CHECK", "Check"), tuple("DONE", "Done"), tuple("WAIT", null));
     }
 
     @Test
     void processDetailsShouldDescribeStateAndMarkUndeclaredTransitionsAsManual() {
-        ProcessDefinition definition = builder -> builder.type("HISTORY").initialState(State.CHECK)
-                .step(State.CHECK, context -> Outcome.OK, routes -> routes
-                        .on(Outcome.OK, State.WAIT).on(Outcome.FAIL, State.DONE))
-                .await(State.WAIT, await -> await
-                        .message(MessageType.of("approve", String.class), (context, message) -> { }, State.DONE))
-                .terminal(State.DONE)
-                .build();
+        ProcessDefinition definition = builder -> builder.type("HISTORY")
+            .initialState(State.CHECK)
+            .step(State.CHECK, context -> Outcome.OK, routes -> routes
+                .on(Outcome.OK, State.WAIT)
+                .on(Outcome.FAIL, State.DONE))
+            .await(State.WAIT, await -> await
+                .message(MessageType.of("approve", String.class), (context, message) -> {}, State.DONE))
+            .terminal(State.DONE)
+            .build();
         var service = new ProcessEngineAdminService(engine(definition), new ProcessEngineAdmin(engine));
         var processId = service.startProcess("HISTORY", null, "{}");
         new ProcessEngineEmulator(engine).runOneStep(processId);
@@ -91,18 +96,20 @@ class ProcessEngineAdminServiceGraphTest {
         assertThat(waiting.stateDescription()).isNull();
         assertThat(moved.stateDescription()).isEqualTo("Check");
         assertThat(moved.stateHistory())
-                .extracting(StateHistoryResponse::state, StateHistoryResponse::manual)
-                .containsExactly(tuple("CHECK", false), tuple("WAIT", false), tuple("CHECK", true));
+            .extracting(StateHistoryResponse::state, StateHistoryResponse::manual)
+            .containsExactly(tuple("CHECK", false), tuple("WAIT", false), tuple("CHECK", true));
         assertThat(moved.version()).isNotEqualTo(waiting.version());
     }
 
     @Test
     void dashboardShouldCountIncompleteProcessesByTypeInBrowserZone() {
-        ProcessDefinition definition = builder -> builder.type("COUNTED").initialState(State.CHECK)
-                .step(State.CHECK, context -> Outcome.OK, routes -> routes
-                        .on(Outcome.OK, State.DONE).on(Outcome.FAIL, State.DONE))
-                .terminal(State.DONE)
-                .build();
+        ProcessDefinition definition = builder -> builder.type("COUNTED")
+            .initialState(State.CHECK)
+            .step(State.CHECK, context -> Outcome.OK, routes -> routes
+                .on(Outcome.OK, State.DONE)
+                .on(Outcome.FAIL, State.DONE))
+            .terminal(State.DONE)
+            .build();
         var service = new ProcessEngineAdminService(engine(definition), new ProcessEngineAdmin(engine));
         service.startProcess("COUNTED", null, "{}");
         service.startProcess("COUNTED", null, "{}");
@@ -118,7 +125,8 @@ class ProcessEngineAdminServiceGraphTest {
         assertThat(dashboard.instances()).isEmpty();
         assertThat(dashboard.timeZone()).isEqualTo("Asia/Tokyo");
         var overdueAt = LocalDateTime.parse(dashboard.overdueAt()).atZone(zone).toInstant();
-        assertThat(overdueAt).isBetween(Instant.now().minus(Duration.ofMinutes(2)), Instant.now().minus(Duration.ofMinutes(1)));
+        assertThat(overdueAt).isBetween(Instant.now().minus(Duration.ofMinutes(2)),
+                Instant.now().minus(Duration.ofMinutes(1)));
     }
 
     private ProcessEngine engine(ProcessDefinition definition) {
@@ -128,19 +136,24 @@ class ProcessEngineAdminServiceGraphTest {
         dataSource.setPassword("");
         DatabaseSchemaMigrator.update(dataSource);
         engine = new ProcessEngineBuilder(new PlainJdbcDatabase(dataSource))
-                .withDispatcherEnabled(false)
-                .withDatabaseMigrationEnabled(false)
-                .registerWorker(WorkerSpec.builder(WorkerId.DEFAULT).transactional().build())
-                .addProcessDefinition(definition)
-                .build()
-                .start();
+            .withDispatcherEnabled(false)
+            .withDatabaseMigrationEnabled(false)
+            .registerWorker(WorkerSpec.builder(WorkerId.DEFAULT).transactional().build())
+            .addProcessDefinition(definition)
+            .build()
+            .start();
         return engine;
     }
 
-    private enum Outcome { OK, FAIL }
+    private enum Outcome {
+        OK,
+        FAIL
+    }
 
     private enum State implements ProcessState {
-        CHECK("Check"), WAIT(null), DONE("Done");
+        CHECK("Check"),
+        WAIT(null),
+        DONE("Done");
 
         private final String description;
 

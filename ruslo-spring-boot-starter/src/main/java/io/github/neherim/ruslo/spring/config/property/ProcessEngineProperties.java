@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.spring.config.property;
 
 import io.github.neherim.ruslo.core.api.DatabaseDialect;
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.HashMap;
@@ -54,9 +54,10 @@ public class ProcessEngineProperties {
     public List<WorkerSpec> getWorkerSpecs() {
         validateDefaultWorkerAlias();
 
-        return workers.entrySet().stream()
-                .map(entry -> entry.getValue().toWorkerSpec(canonicalWorkerId(entry.getKey())))
-                .toList();
+        return workers.entrySet()
+            .stream()
+            .map(entry -> entry.getValue().toWorkerSpec(canonicalWorkerId(entry.getKey())))
+            .toList();
     }
 
     private void validateDefaultWorkerAlias() {

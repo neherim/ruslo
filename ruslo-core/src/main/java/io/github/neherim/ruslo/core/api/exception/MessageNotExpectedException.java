@@ -13,18 +13,33 @@ public class MessageNotExpectedException extends ProcessEngineException {
     /**
      * @param expectedMessageNames messages the current state accepts
      */
-    public MessageNotExpectedException(UUID processId, String messageName, String currentState,
-                                       Set<String> expectedMessageNames) {
+    public MessageNotExpectedException(
+            UUID processId,
+            String messageName,
+            String currentState,
+            Set<String> expectedMessageNames
+    ) {
         super("Message " + messageName + " is not expected for process " + processId
-            + " in state " + currentState + "; expected: " + expectedMessageNames);
+                + " in state " + currentState + "; expected: " + expectedMessageNames);
         this.processId = processId;
         this.messageName = messageName;
         this.currentState = currentState;
         this.expectedMessageNames = Set.copyOf(expectedMessageNames);
     }
 
-    public UUID getProcessId() { return processId; }
-    public String getMessageName() { return messageName; }
-    public String getCurrentState() { return currentState; }
-    public Set<String> getExpectedMessageNames() { return expectedMessageNames; }
+    public UUID getProcessId() {
+        return processId;
+    }
+
+    public String getMessageName() {
+        return messageName;
+    }
+
+    public String getCurrentState() {
+        return currentState;
+    }
+
+    public Set<String> getExpectedMessageNames() {
+        return expectedMessageNames;
+    }
 }

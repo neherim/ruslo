@@ -51,11 +51,11 @@ public class PurchaseOrderDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.CONFIRMING)
-                .step(State.CONFIRMING, confirmOrderStep, State.CONFIRMED)
-                .terminal(State.CONFIRMED)
-                .build();
+            .type(TYPE)
+            .initialState(State.CONFIRMING)
+            .step(State.CONFIRMING, confirmOrderStep, State.CONFIRMED)
+            .terminal(State.CONFIRMED)
+            .build();
     }
 
     public enum State implements ProcessState {

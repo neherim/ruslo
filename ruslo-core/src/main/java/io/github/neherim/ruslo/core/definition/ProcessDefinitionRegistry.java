@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.core.definition;
 
 import io.github.neherim.ruslo.core.api.definition.*;
-import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo;
 import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessTypeException;
+import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -90,9 +90,10 @@ public class ProcessDefinitionRegistry {
     }
 
     private ProcessSpecInfo mapToInfo(ProcessSpec spec) {
-        var states = spec.getAllStateSpecs().stream()
-                .map(s -> mapStateToInfo(spec, s))
-                .collect(Collectors.toSet());
+        var states = spec.getAllStateSpecs()
+            .stream()
+            .map(s -> mapStateToInfo(spec, s))
+            .collect(Collectors.toSet());
         return new ProcessSpecInfo(spec.getType(), spec.getDescription(), spec.getInitialState(), states);
     }
 
@@ -100,41 +101,48 @@ public class ProcessDefinitionRegistry {
         var description = spec.getStateDescription(state.state());
         return switch (state) {
             case ProcessSpec.StepState step -> new ProcessSpecInfo.StateInfo(step.state(), description,
-                ProcessSpecInfo.StateKind.STEP, Optional.of(step.worker()), Set.of(), Optional.empty(),
-                Optional.empty(), transitions(ProcessSpecInfo.TransitionTrigger.STEP, null, step.exit()));
+                    ProcessSpecInfo.StateKind.STEP, Optional.of(step.worker()), Set.of(), Optional.empty(),
+                    Optional.empty(), transitions(ProcessSpecInfo.TransitionTrigger.STEP, null, step.exit()));
             case ProcessSpec.AwaitState await -> {
                 var transitions = new ArrayList<ProcessSpecInfo.TransitionInfo>();
-                await.messages().forEach(message -> transitions.addAll(transitions(
-                    ProcessSpecInfo.TransitionTrigger.MESSAGE, message.type().name(), message.exit())));
+                await.messages()
+                    .forEach(message -> transitions.addAll(transitions(
+                            ProcessSpecInfo.TransitionTrigger.MESSAGE, message.type().name(), message.exit())));
                 if (await.every() != null) {
-                    transitions.addAll(transitions(ProcessSpecInfo.TransitionTrigger.EVERY, null, await.every().exit()));
+                    transitions
+                        .addAll(transitions(ProcessSpecInfo.TransitionTrigger.EVERY, null, await.every().exit()));
                 }
                 if (await.timeout() != null) {
                     transitions.add(new ProcessSpecInfo.TransitionInfo(ProcessSpecInfo.TransitionTrigger.TIMEOUT,
-                        Optional.empty(), Optional.empty(), await.timeout().next()));
+                            Optional.empty(), Optional.empty(), await.timeout().next()));
                 }
                 yield new ProcessSpecInfo.StateInfo(await.state(), description, ProcessSpecInfo.StateKind.AWAIT,
-                    Optional.of(WorkerId.DEFAULT),
-                    await.messages().stream().map(e -> e.type().name()).collect(Collectors.toUnmodifiableSet()),
-                    Optional.ofNullable(await.timeout()).map(ProcessSpec.TimeoutEvent::delay),
-                    Optional.ofNullable(await.every()).map(ProcessSpec.EveryEvent::interval),
-                    List.copyOf(transitions));
+                        Optional.of(WorkerId.DEFAULT),
+                        await.messages().stream().map(e -> e.type().name()).collect(Collectors.toUnmodifiableSet()),
+                        Optional.ofNullable(await.timeout()).map(ProcessSpec.TimeoutEvent::delay),
+                        Optional.ofNullable(await.every()).map(ProcessSpec.EveryEvent::interval),
+                        List.copyOf(transitions));
             }
             case ProcessSpec.TerminalState terminal -> new ProcessSpecInfo.StateInfo(terminal.state(), description,
-                ProcessSpecInfo.StateKind.TERMINAL, Optional.empty(), Set.of(), Optional.empty(), Optional.empty(),
-                List.of());
+                    ProcessSpecInfo.StateKind.TERMINAL, Optional.empty(), Set.of(), Optional.empty(), Optional.empty(),
+                    List.of());
         };
     }
 
-    private static List<ProcessSpecInfo.TransitionInfo> transitions(ProcessSpecInfo.TransitionTrigger trigger,
-                                                                    String messageType, ProcessSpec.Exit exit) {
+    private static List<ProcessSpecInfo.TransitionInfo> transitions(
+            ProcessSpecInfo.TransitionTrigger trigger,
+            String messageType,
+            ProcessSpec.Exit exit
+    ) {
         return switch (exit) {
             case ProcessSpec.Target target -> List.of(new ProcessSpecInfo.TransitionInfo(trigger,
-                Optional.ofNullable(messageType), Optional.empty(), target.state()));
-            case ProcessSpec.Routes routes -> routes.routes().entrySet().stream()
+                    Optional.ofNullable(messageType), Optional.empty(), target.state()));
+            case ProcessSpec.Routes routes -> routes.routes()
+                .entrySet()
+                .stream()
                 .sorted(Comparator.comparingInt(route -> route.getKey().ordinal()))
                 .map(route -> new ProcessSpecInfo.TransitionInfo(trigger, Optional.ofNullable(messageType),
-                    Optional.of(route.getKey().name()), route.getValue()))
+                        Optional.of(route.getKey().name()), route.getValue()))
                 .toList();
         };
     }

@@ -49,7 +49,8 @@ class ProcessIngestionBenchmarkTest {
                         environment, threads, index < 0 ? WARMUP_COUNT : PROCESS_COUNT));
                 configurations.add(new ConfigurationResult(threads, iterations,
                         BenchmarkStatistics.throughputSummary(iterations.stream()
-                                .map(IterationResult::startsPerSecond).toList())));
+                            .map(IterationResult::startsPerSecond)
+                            .toList())));
             }
             BenchmarkReportWriter.write("process-ingestion", environment, Map.of(
                     "processCount", PROCESS_COUNT, "warmupProcessCount", WARMUP_COUNT,
@@ -62,8 +63,11 @@ class ProcessIngestionBenchmarkTest {
 
     private IterationResult runIteration(BenchmarkEnvironment environment, int threads, int count) {
         environment.truncateEngineTables();
-        ProcessDefinition definition = builder -> builder.type(TYPE).initialState(State.READY)
-                .step(State.READY, context -> { }, State.DONE).terminal(State.DONE).build();
+        ProcessDefinition definition = builder -> builder.type(TYPE)
+            .initialState(State.READY)
+            .step(State.READY, context -> {}, State.DONE)
+            .terminal(State.DONE)
+            .build();
         var metrics = new InMemoryProcessEngineMetrics();
         var engine = environment.createEngine("ingestion-" + threads, threads + 2, 1, false,
                 metrics, List.of(definition), builder -> {});
@@ -81,7 +85,8 @@ class ProcessIngestionBenchmarkTest {
             assertThat(ready.await(30, TimeUnit.SECONDS)).as("producers ready").isTrue();
             var startedAt = System.nanoTime();
             start.countDown();
-            for (var future : futures) samples.add(future.get(10, TimeUnit.MINUTES));
+            for (var future : futures)
+                samples.add(future.get(10, TimeUnit.MINUTES));
             durationNanos = samples.stream().mapToLong(ProducerResult::finishedAtNanos).max().orElseThrow() - startedAt;
         } catch (Exception ex) {
             throw new IllegalStateException("Process producer failed", ex);
@@ -91,17 +96,27 @@ class ProcessIngestionBenchmarkTest {
         var ids = samples.stream().flatMap(sample -> sample.ids().stream()).toList();
         var latencies = samples.stream().flatMap(sample -> sample.latencies().stream()).toList();
         assertThat(ids).hasSize(count).doesNotHaveDuplicates();
-        assertThat(environment.database().queryForObject("select count(*) from xs_process_instance",
-                rs -> rs.getLong(1)).orElseThrow()).isEqualTo(count);
-        assertThat(environment.database().queryForObject("select count(*) from xs_process_state_hist",
-                rs -> rs.getLong(1)).orElseThrow()).isEqualTo(count);
+        assertThat(environment.database()
+            .queryForObject("select count(*) from xs_process_instance",
+                    rs -> rs.getLong(1))
+            .orElseThrow()).isEqualTo(count);
+        assertThat(environment.database()
+            .queryForObject("select count(*) from xs_process_state_hist",
+                    rs -> rs.getLong(1))
+            .orElseThrow()).isEqualTo(count);
         assertThat(metrics.getTotalProcessesStarted()).isEqualTo(count);
         return new IterationResult(count, durationNanos / 1_000_000.0,
                 count * 1_000_000_000.0 / durationNanos, BenchmarkStatistics.latencyMillis(latencies));
     }
 
-    private static ProducerResult produce(ProcessEngine engine, int count, int producer, int threads,
-                                          CountDownLatch ready, CountDownLatch start) throws InterruptedException {
+    private static ProducerResult produce(
+            ProcessEngine engine,
+            int count,
+            int producer,
+            int threads,
+            CountDownLatch ready,
+            CountDownLatch start
+    ) throws InterruptedException {
         var ids = new ArrayList<UUID>();
         var latencies = new ArrayList<Long>();
         ready.countDown();
@@ -116,10 +131,26 @@ class ProcessIngestionBenchmarkTest {
         return new ProducerResult(ids, latencies, System.nanoTime());
     }
 
-    private enum State implements ProcessState { READY, DONE }
-    private record ProducerResult(List<UUID> ids, List<Long> latencies, long finishedAtNanos) {}
-    private record ConfigurationResult(int producerThreads, List<IterationResult> iterations,
-                                       Map<String, Object> throughput) {}
-    private record IterationResult(int processCount, double durationMillis, double startsPerSecond,
-                                   Map<String, Object> startLatencyMillis) {}
+    private enum State implements ProcessState {
+        READY,
+        DONE
+    }
+
+    private record ProducerResult(List<UUID> ids, List<Long> latencies, long finishedAtNanos) {
+    }
+
+    private record ConfigurationResult(
+            int producerThreads,
+            List<IterationResult> iterations,
+            Map<String, Object> throughput
+    ) {
+    }
+
+    private record IterationResult(
+            int processCount,
+            double durationMillis,
+            double startsPerSecond,
+            Map<String, Object> startLatencyMillis
+    ) {
+    }
 }

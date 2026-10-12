@@ -61,13 +61,13 @@ public class BonusAccrualDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.ACCRUING)
-                .step(State.ACCRUING, accrueBonusStep, routes -> routes
-                        .on(AccrueBonusStep.Batch.MORE, State.ACCRUING)
-                        .on(AccrueBonusStep.Batch.DONE, State.COMPLETED))
-                .terminal(State.COMPLETED)
-                .build();
+            .type(TYPE)
+            .initialState(State.ACCRUING)
+            .step(State.ACCRUING, accrueBonusStep, routes -> routes
+                .on(AccrueBonusStep.Batch.MORE, State.ACCRUING)
+                .on(AccrueBonusStep.Batch.DONE, State.COMPLETED))
+            .terminal(State.COMPLETED)
+            .build();
     }
 
     public enum State implements ProcessState {

@@ -69,16 +69,16 @@ public class CardPaymentDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .onError(ProcessErrorHandler.exponential(MAX_RETRIES, Duration.ofSeconds(5), Duration.ofMinutes(5)))
-                .initialState(State.CHARGING)
-                .step(State.CHARGING, chargeCardStep, routes -> routes
-                                .on(ChargeCardStep.Result.APPROVED, State.PAID)
-                                .on(ChargeCardStep.Result.DECLINED, State.DECLINED),
-                        options -> options.worker(IO_WORKER))
-                .terminal(State.PAID)
-                .terminal(State.DECLINED)
-                .build();
+            .type(TYPE)
+            .onError(ProcessErrorHandler.exponential(MAX_RETRIES, Duration.ofSeconds(5), Duration.ofMinutes(5)))
+            .initialState(State.CHARGING)
+            .step(State.CHARGING, chargeCardStep, routes -> routes
+                .on(ChargeCardStep.Result.APPROVED, State.PAID)
+                .on(ChargeCardStep.Result.DECLINED, State.DECLINED),
+                    options -> options.worker(IO_WORKER))
+            .terminal(State.PAID)
+            .terminal(State.DECLINED)
+            .build();
     }
 
     public enum State implements ProcessState {

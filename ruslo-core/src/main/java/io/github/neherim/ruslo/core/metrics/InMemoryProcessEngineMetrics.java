@@ -1,9 +1,8 @@
 package io.github.neherim.ruslo.core.metrics;
 
-import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
-
+import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -51,9 +50,9 @@ public class InMemoryProcessEngineMetrics implements ProcessEngineMetrics {
     public void recordStepExecuted(ProcessType processType, ProcessState processState, Duration stepDuration) {
         totalStepsExecuted.incrementAndGet();
         stepExecutionStats
-                .computeIfAbsent(ProcessType.of(processType.name()), k -> new ConcurrentHashMap<>())
-                .computeIfAbsent(ProcessState.of(processState.name()), k -> new StepExecutionMetrics())
-                .updateStats(stepDuration.toMillis());
+            .computeIfAbsent(ProcessType.of(processType.name()), k -> new ConcurrentHashMap<>())
+            .computeIfAbsent(ProcessState.of(processState.name()), k -> new StepExecutionMetrics())
+            .updateStats(stepDuration.toMillis());
     }
 
     @Override
@@ -72,9 +71,13 @@ public class InMemoryProcessEngineMetrics implements ProcessEngineMetrics {
     }
 
     @Override
-    public void registerWorkerMetrics(String workerId, int capacity, Supplier<Integer> activeTasksSupplier,
-                                      Supplier<Long> readyProcessesSupplier,
-                                      Supplier<Duration> lagSupplier) {
+    public void registerWorkerMetrics(
+            String workerId,
+            int capacity,
+            Supplier<Integer> activeTasksSupplier,
+            Supplier<Long> readyProcessesSupplier,
+            Supplier<Duration> lagSupplier
+    ) {
         workerMetrics.put(workerId, new WorkerMetrics(capacity, activeTasksSupplier, readyProcessesSupplier,
                 lagSupplier));
     }
@@ -107,7 +110,8 @@ public class InMemoryProcessEngineMetrics implements ProcessEngineMetrics {
     }
 
     public StepExecutionMetrics getStepExecutionMetrics(ProcessType processType, ProcessState processState) {
-        Map<ProcessStateId, StepExecutionMetrics> stateStats = stepExecutionStats.get(ProcessType.of(processType.name()));
+        Map<ProcessStateId, StepExecutionMetrics> stateStats = stepExecutionStats
+            .get(ProcessType.of(processType.name()));
         if (stateStats != null) {
             return stateStats.get(ProcessState.of(processState.name()));
         }
@@ -208,10 +212,12 @@ public class InMemoryProcessEngineMetrics implements ProcessEngineMetrics {
         }
     }
 
-    public record WorkerMetrics(int capacity,
-                                Supplier<Integer> activeTasksSupplier,
-                                Supplier<Long> readyProcessesSupplier,
-                                Supplier<Duration> lagSupplier) {
+    public record WorkerMetrics(
+            int capacity,
+            Supplier<Integer> activeTasksSupplier,
+            Supplier<Long> readyProcessesSupplier,
+            Supplier<Duration> lagSupplier
+    ) {
 
         public int getActiveTasks() {
             return activeTasksSupplier.get();

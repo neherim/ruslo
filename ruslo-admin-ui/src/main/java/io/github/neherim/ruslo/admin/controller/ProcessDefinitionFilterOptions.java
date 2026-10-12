@@ -10,11 +10,11 @@ final class ProcessDefinitionFilterOptions {
 
     static List<String> stateNames(List<DefinitionResponse> definitions, String typeName) {
         return definitions.stream()
-                .filter(definition -> typeName == null || typeName.isBlank() || definition.type().equals(typeName))
-                .flatMap(definition -> definition.states().stream())
-                .map(DefinitionResponse.StateResponse::name)
-                .distinct()
-                .sorted()
-                .toList();
+            .filter(definition -> typeName == null || typeName.isBlank() || definition.type().equals(typeName))
+            .flatMap(definition -> definition.states().stream())
+            .map(DefinitionResponse.StateResponse::name)
+            .distinct()
+            .sorted()
+            .toList();
     }
 }

@@ -32,11 +32,11 @@ public class FileImportPartDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.IMPORTING)
-                .step(State.IMPORTING, importPartStep, State.IMPORTED)
-                .terminal(State.IMPORTED)
-                .build();
+            .type(TYPE)
+            .initialState(State.IMPORTING)
+            .step(State.IMPORTING, importPartStep, State.IMPORTED)
+            .terminal(State.IMPORTED)
+            .build();
     }
 
     public enum State implements ProcessState {

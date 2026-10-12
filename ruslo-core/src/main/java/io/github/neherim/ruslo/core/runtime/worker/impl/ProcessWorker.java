@@ -45,14 +45,18 @@ public class ProcessWorker implements Worker {
     private final ProcessEngineMetrics metrics;
     private final BoundedExecutor executor;
 
-    public ProcessWorker(WorkerSpec spec, ExecutorService executorService, boolean shutdownExecutor,
-                         Database database,
-                         ProcessInstanceDao processInstanceDao,
-                         StepExecutor stepExecutor,
-                         StepErrorHandler stepErrorHandler,
-                         ProcessEngineMetrics metrics,
-                         LeaseReleaser leaseReleaser,
-                         Runnable completionHook) {
+    public ProcessWorker(
+            WorkerSpec spec,
+            ExecutorService executorService,
+            boolean shutdownExecutor,
+            Database database,
+            ProcessInstanceDao processInstanceDao,
+            StepExecutor stepExecutor,
+            StepErrorHandler stepErrorHandler,
+            ProcessEngineMetrics metrics,
+            LeaseReleaser leaseReleaser,
+            Runnable completionHook
+    ) {
         this.spec = Objects.requireNonNull(spec);
         this.database = Objects.requireNonNull(database);
         this.processInstanceDao = Objects.requireNonNull(processInstanceDao);
@@ -61,10 +65,10 @@ public class ProcessWorker implements Worker {
         this.leaseReleaser = Objects.requireNonNull(leaseReleaser);
         this.metrics = Objects.requireNonNull(metrics);
         this.executor = new BoundedExecutor(spec.maxConcurrency(), executorService, shutdownExecutor,
-            completionHook);
+                completionHook);
         metrics.registerWorkerMetrics(spec.workerId().name(), spec.maxConcurrency(), executor::getActiveTaskCount,
-            () -> processInstanceDao.countReadyForWorker(spec.workerId()),
-            () -> processInstanceDao.oldestReadyAgeForWorker(spec.workerId()));
+                () -> processInstanceDao.countReadyForWorker(spec.workerId()),
+                () -> processInstanceDao.oldestReadyAgeForWorker(spec.workerId()));
     }
 
     @Override
@@ -105,7 +109,7 @@ public class ProcessWorker implements Worker {
     private void executeSteps(ProcessLease lease) {
         if (spec.executionMode() == WorkerSpec.ExecutionMode.TRANSACTIONAL) {
             while (database.doInTransactionWithResult(() -> executeClaimedStep(
-                processInstanceDao.findClaimedWithLock(lease).orElseThrow(() -> leaseLost(lease))))) {
+                    processInstanceDao.findClaimedWithLock(lease).orElseThrow(() -> leaseLost(lease))))) {
                 // The transition is committed and the process is ready on this worker: continue under the same lease.
             }
         } else {
@@ -119,7 +123,7 @@ public class ProcessWorker implements Worker {
     private boolean executeClaimedStep(ClaimedProcess claimed) {
         var process = claimed.process();
         var retainLease = isRunnableHere(process) && stepExecutor.executeNextProcessStep(process)
-            && isRunnableHere(process);
+                && isRunnableHere(process);
         if (retainLease) {
             processInstanceDao.updateClaimed(claimed);
         } else {

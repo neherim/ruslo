@@ -59,8 +59,8 @@ public class ProcessEngineAdminUiAutoConfiguration implements WebMvcConfigurer {
             return;
         }
         registry.addResourceHandler(pattern)
-                .addResourceLocations(ASSETS_LOCATION)
-                .setCacheControl(CacheControl.noCache());
+            .addResourceLocations(ASSETS_LOCATION)
+            .setCacheControl(CacheControl.noCache());
     }
 
     /**
@@ -83,7 +83,10 @@ public class ProcessEngineAdminUiAutoConfiguration implements WebMvcConfigurer {
      * Returns the service behind the UI pages and the REST API.
      */
     @Bean
-    public ProcessEngineAdminService processEngineAdminService(ProcessEngine processEngine, ProcessEngineAdmin management) {
+    public ProcessEngineAdminService processEngineAdminService(
+            ProcessEngine processEngine,
+            ProcessEngineAdmin management
+    ) {
         return new ProcessEngineAdminService(processEngine, management);
     }
 

@@ -57,7 +57,8 @@ class FailAndResumeTest {
     @Test
     void retriesTemporaryFailureInsteadOfStopping() {
         doThrow(new IllegalStateException("Tax service is unavailable"))
-                .when(taxService).calculateTax(any(), any());
+            .when(taxService)
+            .calculateTax(any(), any());
         var processId = startInvoice("DE");
 
         var retrying = emulator.runUntilStop(processId);
@@ -69,10 +70,10 @@ class FailAndResumeTest {
 
     private UUID startInvoice(String country) {
         return processEngine.newProcess(InvoiceDefinition.TYPE)
-                .businessKey("order-" + UUID.randomUUID())
-                .variable(InvoiceDefinition.AMOUNT, new BigDecimal("100.00"))
-                .variable(InvoiceDefinition.COUNTRY, country)
-                .start();
+            .businessKey("order-" + UUID.randomUUID())
+            .variable(InvoiceDefinition.AMOUNT, new BigDecimal("100.00"))
+            .variable(InvoiceDefinition.COUNTRY, country)
+            .start();
     }
 
     private static List<UUID> ids(List<ProcessInstanceSummary> processes) {

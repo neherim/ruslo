@@ -1,7 +1,8 @@
 package io.github.neherim.ruslo.core.search;
 
-import java.time.Instant;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
+
+import java.time.Instant;
 import java.util.UUID;
 
 final class ProcessSearchCriteria {

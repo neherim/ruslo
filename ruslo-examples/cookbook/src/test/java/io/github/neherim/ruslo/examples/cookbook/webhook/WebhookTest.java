@@ -80,8 +80,8 @@ class WebhookTest {
 
     @Test
     void ignoresCallbackForUnknownApplication() {
-        assertDoesNotThrow(() ->
-                webhook.onCallback(new VerificationCallback(newApplicationId(), "evt-1", Status.APPROVED)));
+        assertDoesNotThrow(
+                () -> webhook.onCallback(new VerificationCallback(newApplicationId(), "evt-1", Status.APPROVED)));
     }
 
     @Test
@@ -97,9 +97,9 @@ class WebhookTest {
 
     private UUID startVerification(String applicationId) {
         return processEngine.newProcess(IdentityVerificationDefinition.TYPE)
-                .businessKey(applicationId)
-                .variable(IdentityVerificationDefinition.APPLICANT_EMAIL, EMAIL)
-                .start();
+            .businessKey(applicationId)
+            .variable(IdentityVerificationDefinition.APPLICANT_EMAIL, EMAIL)
+            .start();
     }
 
     private static String newApplicationId() {

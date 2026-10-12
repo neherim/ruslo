@@ -58,15 +58,15 @@ public class FileImportDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.SPLITTING)
-                .step(State.SPLITTING, splitFileStep, State.WAITING_FOR_PARTS)
-                .await(State.WAITING_FOR_PARTS, await -> await
-                        .message(PART_DONE, this::onPartDone, routes -> routes
-                                .on(Progress.WAIT, State.WAITING_FOR_PARTS)
-                                .on(Progress.ALL_DONE, State.COMPLETED)))
-                .terminal(State.COMPLETED)
-                .build();
+            .type(TYPE)
+            .initialState(State.SPLITTING)
+            .step(State.SPLITTING, splitFileStep, State.WAITING_FOR_PARTS)
+            .await(State.WAITING_FOR_PARTS, await -> await
+                .message(PART_DONE, this::onPartDone, routes -> routes
+                    .on(Progress.WAIT, State.WAITING_FOR_PARTS)
+                    .on(Progress.ALL_DONE, State.COMPLETED)))
+            .terminal(State.COMPLETED)
+            .build();
     }
 
     /** Counts a part report and reports whether all parts are done. */

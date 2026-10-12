@@ -39,8 +39,9 @@ class FanoutTest {
 
         var parts = partsOf(waiting);
         assertEquals(3, parts.size());
-        parts.forEach(part -> assertTrue(emulator.runUntilStop(part.id()).state()
-                .is(FileImportPartDefinition.State.IMPORTED)));
+        parts.forEach(part -> assertTrue(emulator.runUntilStop(part.id())
+            .state()
+            .is(FileImportPartDefinition.State.IMPORTED)));
 
         var completed = emulator.runUntilStop(parentId);
 
@@ -65,16 +66,16 @@ class FanoutTest {
 
     private UUID startImport(int rowCount) {
         return processEngine.newProcess(FileImportDefinition.TYPE)
-                .variable(FileImportDefinition.FILE_NAME, "customers.csv")
-                .variable(FileImportDefinition.ROW_COUNT, rowCount)
-                .start();
+            .variable(FileImportDefinition.FILE_NAME, "customers.csv")
+            .variable(FileImportDefinition.ROW_COUNT, rowCount)
+            .start();
     }
 
     /** Finds parts by the parent's correlation id: the split step passes it to every part. */
     private List<ProcessInstanceSummary> partsOf(ProcessInstanceDetails parent) {
         return processEngine.processes()
-                .byType(FileImportPartDefinition.TYPE)
-                .byCorrelationId(parent.correlationId())
-                .list();
+            .byType(FileImportPartDefinition.TYPE)
+            .byCorrelationId(parent.correlationId())
+            .list();
     }
 }

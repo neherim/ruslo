@@ -1,22 +1,22 @@
 package io.github.neherim.ruslo.spring.config;
 
-import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
+import io.github.neherim.ruslo.core.api.DatabaseDialect;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
-import io.github.neherim.ruslo.core.api.DatabaseDialect;
-import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
-import io.github.neherim.ruslo.core.api.definition.IncomingMessage;
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
+import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.api.definition.IncomingMessage;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
-import io.github.neherim.ruslo.core.api.definition.ProcessState;
+import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessStep;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
-import io.github.neherim.ruslo.spring.definitions.SimpleProcessDefinition;
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.spring.config.property.ProcessEngineProperties;
+import io.github.neherim.ruslo.spring.definitions.SimpleProcessDefinition;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,18 +30,18 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
-import java.time.Duration;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.function.Function;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ProcessEngineAutoConfigurationTest {
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(ProcessEngineAutoConfiguration.class));
+        .withConfiguration(AutoConfigurations.of(ProcessEngineAutoConfiguration.class));
 
     @Test
     void testApplicationContextStart() {
@@ -56,21 +56,21 @@ class ProcessEngineAutoConfigurationTest {
     @Test
     void databaseDialectPropertyShouldBeBound() {
         this.contextRunner.with(database())
-                .withUserConfiguration(EmptyConfiguration.class)
-                .withPropertyValues("ruslo.database-dialect=h2")
-                .run(context -> assertThat(context.getBean(ProcessEngineProperties.class).getDatabaseDialect())
-                        .isEqualTo(DatabaseDialect.H2));
+            .withUserConfiguration(EmptyConfiguration.class)
+            .withPropertyValues("ruslo.database-dialect=h2")
+            .run(context -> assertThat(context.getBean(ProcessEngineProperties.class).getDatabaseDialect())
+                .isEqualTo(DatabaseDialect.H2));
     }
 
     @Test
     void adminUiPropertiesShouldNotPreventEngineStartup() {
-        for (String enabled : new String[] { "true", "false" }) {
+        for (String enabled : new String[]{"true", "false"}) {
             this.contextRunner.with(database())
-                    .withUserConfiguration(EmptyConfiguration.class)
-                    .withPropertyValues(
-                            "ruslo.admin-ui.enabled=" + enabled,
-                            "ruslo.admin-ui.base-path=/processes")
-                    .run(context -> assertThat(context).hasNotFailed());
+                .withUserConfiguration(EmptyConfiguration.class)
+                .withPropertyValues(
+                        "ruslo.admin-ui.enabled=" + enabled,
+                        "ruslo.admin-ui.base-path=/processes")
+                .run(context -> assertThat(context).hasNotFailed());
         }
     }
 
@@ -86,42 +86,42 @@ class ProcessEngineAutoConfigurationTest {
     @Test
     void lowercaseDefaultWorkerPropertyShouldConfigureDefaultWorker() {
         this.contextRunner.with(database())
-                .withUserConfiguration(EmptyConfiguration.class)
-                .withPropertyValues(
-                        "ruslo.workers.default.execution-mode=transactional",
-                        "ruslo.workers.default.max-concurrency=3")
-                .run((context) -> {
-                    var processEngine = context.getBean(ProcessEngine.class);
-                    var workerSpecs = new ProcessEngineAdmin(processEngine).listWorkerSpecifications();
+            .withUserConfiguration(EmptyConfiguration.class)
+            .withPropertyValues(
+                    "ruslo.workers.default.execution-mode=transactional",
+                    "ruslo.workers.default.max-concurrency=3")
+            .run((context) -> {
+                var processEngine = context.getBean(ProcessEngine.class);
+                var workerSpecs = new ProcessEngineAdmin(processEngine).listWorkerSpecifications();
 
-                    assertThat(workerSpecs).singleElement().satisfies((workerSpec) -> {
-                        assertThat(workerSpec.workerId()).isEqualTo(WorkerId.DEFAULT);
-                        assertThat(workerSpec.maxConcurrency()).isEqualTo(3);
-                    });
+                assertThat(workerSpecs).singleElement().satisfies((workerSpec) -> {
+                    assertThat(workerSpec.workerId()).isEqualTo(WorkerId.DEFAULT);
+                    assertThat(workerSpec.maxConcurrency()).isEqualTo(3);
                 });
+            });
     }
 
     @Test
     void executionModePropertyShouldAcceptAnyCaseAndSeparator() {
         this.contextRunner.with(database())
-                .withUserConfiguration(EmptyConfiguration.class)
-                .withPropertyValues(
-                        "ruslo.workers.snake.execution-mode=non_transactional",
-                        "ruslo.workers.kebab.execution-mode=non-transactional",
-                        "ruslo.workers.upper.execution-mode=NON_TRANSACTIONAL")
-                .run(context -> assertThat(context.getBean(ProcessEngineAdmin.class).listWorkerSpecifications())
-                        .filteredOn(spec -> !spec.workerId().equals(WorkerId.DEFAULT))
-                        .hasSize(3)
-                        .allSatisfy(spec -> assertThat(spec.executionMode())
-                                .isEqualTo(WorkerSpec.ExecutionMode.NON_TRANSACTIONAL)));
+            .withUserConfiguration(EmptyConfiguration.class)
+            .withPropertyValues(
+                    "ruslo.workers.snake.execution-mode=non_transactional",
+                    "ruslo.workers.kebab.execution-mode=non-transactional",
+                    "ruslo.workers.upper.execution-mode=NON_TRANSACTIONAL")
+            .run(context -> assertThat(context.getBean(ProcessEngineAdmin.class).listWorkerSpecifications())
+                .filteredOn(spec -> !spec.workerId().equals(WorkerId.DEFAULT))
+                .hasSize(3)
+                .allSatisfy(spec -> assertThat(spec.executionMode())
+                    .isEqualTo(WorkerSpec.ExecutionMode.NON_TRANSACTIONAL)));
     }
 
     @Test
     void unknownExecutionModeShouldFailBinding() {
         this.contextRunner.with(database())
-                .withUserConfiguration(EmptyConfiguration.class)
-                .withPropertyValues("ruslo.workers.io.execution-mode=async")
-                .run(context -> assertThat(context).hasFailed());
+            .withUserConfiguration(EmptyConfiguration.class)
+            .withPropertyValues("ruslo.workers.io.execution-mode=async")
+            .run(context -> assertThat(context).hasFailed());
     }
 
     @Test
@@ -129,9 +129,9 @@ class ProcessEngineAutoConfigurationTest {
         var lifecycle = new EngineUsingLifecycle();
 
         this.contextRunner.with(database())
-                .withUserConfiguration(ProcessDefinitionConfiguration.class)
-                .withBean(EngineUsingLifecycle.class, () -> lifecycle)
-                .run(context -> assertThat(context).hasNotFailed());
+            .withUserConfiguration(ProcessDefinitionConfiguration.class)
+            .withBean(EngineUsingLifecycle.class, () -> lifecycle)
+            .run(context -> assertThat(context).hasNotFailed());
 
         assertThat(lifecycle.startedProcesses).hasValue(2);
     }
@@ -139,9 +139,9 @@ class ProcessEngineAutoConfigurationTest {
     @Test
     void removedWorkerPoolPropertyShouldFailBinding() {
         this.contextRunner.with(database())
-                .withUserConfiguration(EmptyConfiguration.class)
-                .withPropertyValues("ruslo.workers.default.thread-pool=fixed")
-                .run(context -> assertThat(context).hasFailed());
+            .withUserConfiguration(EmptyConfiguration.class)
+            .withPropertyValues("ruslo.workers.default.thread-pool=fixed")
+            .run(context -> assertThat(context).hasFailed());
     }
 
     @Test
@@ -171,138 +171,138 @@ class ProcessEngineAutoConfigurationTest {
     @Test
     void instanceLifecyclePropertiesShouldBeBound() {
         this.contextRunner.with(database())
-                .withUserConfiguration(EmptyConfiguration.class)
-                .withPropertyValues(
-                        "ruslo.dispatcher.instance-heartbeat-interval=20s",
-                        "ruslo.dispatcher.instance-timeout=90s")
-                .run((context) -> {
-                    var dispatcher = context.getBean(ProcessEngineProperties.class).getDispatcher();
+            .withUserConfiguration(EmptyConfiguration.class)
+            .withPropertyValues(
+                    "ruslo.dispatcher.instance-heartbeat-interval=20s",
+                    "ruslo.dispatcher.instance-timeout=90s")
+            .run((context) -> {
+                var dispatcher = context.getBean(ProcessEngineProperties.class).getDispatcher();
 
-                    assertThat(dispatcher.getInstanceHeartbeatInterval()).isEqualTo(Duration.ofSeconds(20));
-                    assertThat(dispatcher.getInstanceTimeout()).isEqualTo(Duration.ofSeconds(90));
-                });
+                assertThat(dispatcher.getInstanceHeartbeatInterval()).isEqualTo(Duration.ofSeconds(20));
+                assertThat(dispatcher.getInstanceTimeout()).isEqualTo(Duration.ofSeconds(90));
+            });
     }
 
     @Test
     void historyEnabledPropertyShouldBeAppliedToProcessEngine() {
         this.contextRunner.with(database())
-                .withUserConfiguration(EmptyConfiguration.class, ProcessDefinitionConfiguration.class)
-                .withPropertyValues("ruslo.history.enabled=false")
-                .run((context) -> {
-                    var processEngine = context.getBean(ProcessEngine.class);
+            .withUserConfiguration(EmptyConfiguration.class, ProcessDefinitionConfiguration.class)
+            .withPropertyValues("ruslo.history.enabled=false")
+            .run((context) -> {
+                var processEngine = context.getBean(ProcessEngine.class);
 
-                    processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
+                processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
 
-                    var jdbcTemplate = new JdbcTemplate(context.getBean(DataSource.class));
-                    var historyRows = jdbcTemplate.queryForObject(
-                            "select count(*) from xs_process_state_hist", Integer.class);
+                var jdbcTemplate = new JdbcTemplate(context.getBean(DataSource.class));
+                var historyRows = jdbcTemplate.queryForObject(
+                        "select count(*) from xs_process_state_hist", Integer.class);
 
-                    assertThat(historyRows).isZero();
-                });
+                assertThat(historyRows).isZero();
+            });
     }
 
     @Test
     void customLoggingMdcPropertiesShouldBeAppliedToProcessEngine() {
         this.contextRunner.with(database())
-                .withUserConfiguration(EmptyConfiguration.class, ProcessDefinitionConfiguration.class)
-                .withPropertyValues(
-                        "ruslo.logging.mdc.correlation-id-key=spring_correlation",
-                        "ruslo.logging.mdc.process-id-key=spring_process",
-                        "ruslo.logging.mdc.process-type-key=spring_type")
-                .run((context) -> {
-                    var processEngine = context.getBean(ProcessEngine.class);
-                    MDC.put("spring_correlation", "spring-correlation-id");
-                    try {
-                        var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
-                        var process = processEngine.processes().byId(processId).singleDetails().orElseThrow();
+            .withUserConfiguration(EmptyConfiguration.class, ProcessDefinitionConfiguration.class)
+            .withPropertyValues(
+                    "ruslo.logging.mdc.correlation-id-key=spring_correlation",
+                    "ruslo.logging.mdc.process-id-key=spring_process",
+                    "ruslo.logging.mdc.process-type-key=spring_type")
+            .run((context) -> {
+                var processEngine = context.getBean(ProcessEngine.class);
+                MDC.put("spring_correlation", "spring-correlation-id");
+                try {
+                    var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
+                    var process = processEngine.processes().byId(processId).singleDetails().orElseThrow();
 
-                        assertThat(process.correlationId()).isEqualTo("spring-correlation-id");
-                    } finally {
-                        MDC.clear();
-                    }
-        });
+                    assertThat(process.correlationId()).isEqualTo("spring-correlation-id");
+                } finally {
+                    MDC.clear();
+                }
+            });
     }
 
     @Test
     void processDefinitionsUseConstructorInjectedInstancesAndTypedHandlers() {
         this.contextRunner.with(database())
-                .withUserConfiguration(ConstructorInjectionConfiguration.class)
-                .withPropertyValues("ruslo.dispatcher.enabled=false")
-                .run(context -> {
-                    var processEngine = context.getBean(ProcessEngine.class);
-                    var emulator = new ProcessEngineEmulator(processEngine);
-                    var actionExecutions = context.getBean(ConstructorInjectedAction.class).executions;
-                    var handlers = context.getBean(ConstructorInjectedHandlers.class);
+            .withUserConfiguration(ConstructorInjectionConfiguration.class)
+            .withPropertyValues("ruslo.dispatcher.enabled=false")
+            .run(context -> {
+                var processEngine = context.getBean(ProcessEngine.class);
+                var emulator = new ProcessEngineEmulator(processEngine);
+                var actionExecutions = context.getBean(ConstructorInjectedAction.class).executions;
+                var handlers = context.getBean(ConstructorInjectedHandlers.class);
 
-                    var paymentProcess = processEngine.newProcess(ConstructorInjectedDefinition.TYPE).start();
-                    emulator.runUntilStop(paymentProcess);
-                    emulator.sendMessageAndRunUntilStop(paymentProcess,
-                            ConstructorInjectedDefinition.PAYMENT, new PaymentPayload("tx-1"));
+                var paymentProcess = processEngine.newProcess(ConstructorInjectedDefinition.TYPE).start();
+                emulator.runUntilStop(paymentProcess);
+                emulator.sendMessageAndRunUntilStop(paymentProcess,
+                        ConstructorInjectedDefinition.PAYMENT, new PaymentPayload("tx-1"));
 
-                    var cancellationProcess = processEngine.newProcess(ConstructorInjectedDefinition.TYPE).start();
-                    emulator.runUntilStop(cancellationProcess);
-                    emulator.sendMessageAndRunUntilStop(cancellationProcess,
-                            ConstructorInjectedDefinition.CANCELLATION, "customer-request");
+                var cancellationProcess = processEngine.newProcess(ConstructorInjectedDefinition.TYPE).start();
+                emulator.runUntilStop(cancellationProcess);
+                emulator.sendMessageAndRunUntilStop(cancellationProcess,
+                        ConstructorInjectedDefinition.CANCELLATION, "customer-request");
 
-                    assertThat(actionExecutions.get()).isEqualTo(2);
-                    assertThat(handlers.paymentExecutions.get()).isEqualTo(1);
-                    assertThat(handlers.cancellationExecutions.get()).isEqualTo(1);
-                    assertThat(processEngine.processes().byId(paymentProcess).single().orElseThrow().state().name())
-                            .isEqualTo(ConstructorInjectedState.COMPLETED.name());
-                    assertThat(processEngine.processes().byId(cancellationProcess).single().orElseThrow().state().name())
-                            .isEqualTo(ConstructorInjectedState.CANCELLED.name());
-                });
+                assertThat(actionExecutions.get()).isEqualTo(2);
+                assertThat(handlers.paymentExecutions.get()).isEqualTo(1);
+                assertThat(handlers.cancellationExecutions.get()).isEqualTo(1);
+                assertThat(processEngine.processes().byId(paymentProcess).single().orElseThrow().state().name())
+                    .isEqualTo(ConstructorInjectedState.COMPLETED.name());
+                assertThat(processEngine.processes().byId(cancellationProcess).single().orElseThrow().state().name())
+                    .isEqualTo(ConstructorInjectedState.CANCELLED.name());
+            });
     }
 
     @Test
     void processStepsMayDependOnProcessEngineWithoutCircularReferences() {
         this.contextRunner.with(database())
-                .withUserConfiguration(EngineAwareStepConfiguration.class)
-                .withPropertyValues("ruslo.dispatcher.enabled=false")
-                .run(context -> {
-                    assertThat(context).hasNotFailed();
-                    var processEngine = context.getBean(ProcessEngine.class);
-                    var emulator = new ProcessEngineEmulator(processEngine);
+            .withUserConfiguration(EngineAwareStepConfiguration.class)
+            .withPropertyValues("ruslo.dispatcher.enabled=false")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                var processEngine = context.getBean(ProcessEngine.class);
+                var emulator = new ProcessEngineEmulator(processEngine);
 
-                    var parentId = processEngine.newProcess(EngineAwareDefinition.PARENT).start();
-                    emulator.runUntilStop(parentId);
+                var parentId = processEngine.newProcess(EngineAwareDefinition.PARENT).start();
+                emulator.runUntilStop(parentId);
 
-                    var children = processEngine.processes().byType(EngineAwareDefinition.CHILD).list();
-                    assertThat(children).hasSize(1);
-                    assertThat(context.getBean(ChildStarter.class).processEngine).isSameAs(processEngine);
-                });
+                var children = processEngine.processes().byType(EngineAwareDefinition.CHILD).list();
+                assertThat(children).hasSize(1);
+                assertThat(context.getBean(ChildStarter.class).processEngine).isSameAs(processEngine);
+            });
     }
 
     @Test
     void applicationClockShouldNotReplaceEngineClock() {
         this.contextRunner.with(database())
-                .withUserConfiguration(ProcessDefinitionConfiguration.class, ApplicationClockConfiguration.class)
-                .withPropertyValues("ruslo.dispatcher.enabled=false")
-                .run(context -> {
-                    assertThat(context).hasNotFailed();
-                    assertThat(context.getBean(Clock.class)).isSameAs(ApplicationClockConfiguration.CLOCK);
-                    assertThat(context.getBean("processEngineClock", Clock.class))
-                            .isNotSameAs(ApplicationClockConfiguration.CLOCK);
+            .withUserConfiguration(ProcessDefinitionConfiguration.class, ApplicationClockConfiguration.class)
+            .withPropertyValues("ruslo.dispatcher.enabled=false")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBean(Clock.class)).isSameAs(ApplicationClockConfiguration.CLOCK);
+                assertThat(context.getBean("processEngineClock", Clock.class))
+                    .isNotSameAs(ApplicationClockConfiguration.CLOCK);
 
-                    var processEngine = context.getBean(ProcessEngine.class);
-                    var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
-                    var process = processEngine.processes().byId(processId).single().orElseThrow();
+                var processEngine = context.getBean(ProcessEngine.class);
+                var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
+                var process = processEngine.processes().byId(processId).single().orElseThrow();
 
-                    assertThat(process.createdAt()).isNotEqualTo(ApplicationClockConfiguration.CLOCK.instant());
-                });
+                assertThat(process.createdAt()).isNotEqualTo(ApplicationClockConfiguration.CLOCK.instant());
+            });
     }
 
     @Test
     void customProcessEngineBeanShouldNotReceiveDefinitionsAutomatically() {
         this.contextRunner.with(database())
-                .withUserConfiguration(CustomEngineConfiguration.class, ProcessDefinitionConfiguration.class)
-                .run(context -> {
-                    assertThat(context).hasNotFailed();
-                    var processEngine = context.getBean(ProcessEngine.class);
-                    assertThat(context).hasSingleBean(ProcessEngineInitializer.class);
-                    assertThat(processEngine.isStarted()).isTrue();
-                    assertThat(new ProcessEngineAdmin(processEngine).listProcessSpecifications()).isEmpty();
-                });
+            .withUserConfiguration(CustomEngineConfiguration.class, ProcessDefinitionConfiguration.class)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                var processEngine = context.getBean(ProcessEngine.class);
+                assertThat(context).hasSingleBean(ProcessEngineInitializer.class);
+                assertThat(processEngine.isStarted()).isTrue();
+                assertThat(new ProcessEngineAdmin(processEngine).listProcessSpecifications()).isEmpty();
+            });
     }
 
     /**
@@ -341,12 +341,14 @@ class ProcessEngineAutoConfigurationTest {
 
     static class CustomEngineConfiguration {
         @Bean
-        ProcessEngine customProcessEngine(DataSource dataSource,
-                                          org.springframework.transaction.PlatformTransactionManager tm) {
+        ProcessEngine customProcessEngine(
+                DataSource dataSource,
+                org.springframework.transaction.PlatformTransactionManager tm
+        ) {
             return new io.github.neherim.ruslo.core.api.ProcessEngineBuilder(
                     new io.github.neherim.ruslo.spring.integration.SpringJdbcDatabase(tm, dataSource))
-                    .withDispatcherEnabled(false)
-                    .build();
+                .withDispatcherEnabled(false)
+                .build();
         }
     }
 
@@ -388,10 +390,10 @@ class ProcessEngineAutoConfigurationTest {
         @Override
         public ProcessSpec define(ProcessSpecBuilder builder) {
             return builder.type(PARENT)
-                    .initialState(EngineAwareState.INIT)
-                    .step(EngineAwareState.INIT, step, EngineAwareState.DONE)
-                    .terminal(EngineAwareState.DONE)
-                    .build();
+                .initialState(EngineAwareState.INIT)
+                .step(EngineAwareState.INIT, step, EngineAwareState.DONE)
+                .terminal(EngineAwareState.DONE)
+                .build();
         }
     }
 
@@ -399,10 +401,10 @@ class ProcessEngineAutoConfigurationTest {
         @Override
         public ProcessSpec define(ProcessSpecBuilder builder) {
             return builder.type(EngineAwareDefinition.CHILD)
-                    .initialState(EngineAwareState.INIT)
-                    .step(EngineAwareState.INIT, context -> { }, EngineAwareState.DONE)
-                    .terminal(EngineAwareState.DONE)
-                    .build();
+                .initialState(EngineAwareState.INIT)
+                .step(EngineAwareState.INIT, context -> {}, EngineAwareState.DONE)
+                .terminal(EngineAwareState.DONE)
+                .build();
         }
     }
 
@@ -429,15 +431,16 @@ class ProcessEngineAutoConfigurationTest {
     }
 
     enum EngineAwareState implements ProcessState {
-        INIT, DONE
+        INIT,
+        DONE
     }
 
     private Function<ApplicationContextRunner, ApplicationContextRunner> database() {
         return (runner) -> runner
-                .withConfiguration(AutoConfigurations.of(
-                        DataSourceAutoConfiguration.class,
-                        TransactionAutoConfiguration.class,
-                        DataSourceTransactionManagerAutoConfiguration.class));
+            .withConfiguration(AutoConfigurations.of(
+                    DataSourceAutoConfiguration.class,
+                    TransactionAutoConfiguration.class,
+                    DataSourceTransactionManagerAutoConfiguration.class));
     }
 
     static class EmptyConfiguration {
@@ -474,8 +477,10 @@ class ProcessEngineAutoConfigurationTest {
         }
 
         @Bean
-        ProcessDefinition constructorInjectedDefinition(ConstructorInjectedAction action,
-                                                         ConstructorInjectedHandlers handlers) {
+        ProcessDefinition constructorInjectedDefinition(
+                ConstructorInjectedAction action,
+                ConstructorInjectedHandlers handlers
+        ) {
             return new ConstructorInjectedDefinition(action, handlers);
         }
     }
@@ -496,14 +501,14 @@ class ProcessEngineAutoConfigurationTest {
         @Override
         public ProcessSpec define(ProcessSpecBuilder builder) {
             return builder.type(TYPE)
-                    .initialState(ConstructorInjectedState.CREATED)
-                    .step(ConstructorInjectedState.CREATED, action, ConstructorInjectedState.WAITING)
-                    .await(ConstructorInjectedState.WAITING, await -> await
-                            .message(PAYMENT, handlers::onPayment, ConstructorInjectedState.COMPLETED)
-                            .message(CANCELLATION, handlers::onCancellation, ConstructorInjectedState.CANCELLED))
-                    .terminal(ConstructorInjectedState.COMPLETED)
-                    .terminal(ConstructorInjectedState.CANCELLED)
-                    .build();
+                .initialState(ConstructorInjectedState.CREATED)
+                .step(ConstructorInjectedState.CREATED, action, ConstructorInjectedState.WAITING)
+                .await(ConstructorInjectedState.WAITING, await -> await
+                    .message(PAYMENT, handlers::onPayment, ConstructorInjectedState.COMPLETED)
+                    .message(CANCELLATION, handlers::onCancellation, ConstructorInjectedState.CANCELLED))
+                .terminal(ConstructorInjectedState.COMPLETED)
+                .terminal(ConstructorInjectedState.CANCELLED)
+                .build();
         }
     }
 
@@ -533,7 +538,10 @@ class ProcessEngineAutoConfigurationTest {
     }
 
     enum ConstructorInjectedState implements ProcessState {
-        CREATED, WAITING, COMPLETED, CANCELLED
+        CREATED,
+        WAITING,
+        COMPLETED,
+        CANCELLED
     }
 
     static class OverrideDefaultWorker {
@@ -541,9 +549,9 @@ class ProcessEngineAutoConfigurationTest {
         @Bean
         public WorkerSpec defaultWorker() {
             return WorkerSpec.builder(WorkerId.DEFAULT)
-                    .transactional()
-                    .maxConcurrency(5)
-                    .build();
+                .transactional()
+                .maxConcurrency(5)
+                .build();
         }
     }
 
@@ -552,9 +560,9 @@ class ProcessEngineAutoConfigurationTest {
         @Bean
         public WorkerSpec reportGeneratorWorker() {
             return WorkerSpec.builder(new WorkerId("REPORT_GENERATOR"))
-                    .nonTransactional()
-                    .maxConcurrency(30)
-                    .build();
+                .nonTransactional()
+                .maxConcurrency(30)
+                .build();
         }
     }
 

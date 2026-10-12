@@ -13,7 +13,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class ErrorFallbackTest extends BaseTest {
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
 
-    @Test void fixedWithoutFallbackStateFailsAfterRetries() {
+    @Test
+    void fixedWithoutFallbackStateFailsAfterRetries() {
         var runs = new AtomicInteger();
         var info = runFailing(runs, builder -> builder.onError(ProcessErrorHandler.fixed(3, Duration.ZERO)), false);
         assertEquals(ProcessStatus.FAILED, info.status());
@@ -21,23 +22,26 @@ class ErrorFallbackTest extends BaseTest {
         assertEquals(4, runs.get());
     }
 
-    @Test void fixedWithFallbackStateMovesThereAfterRetries() {
+    @Test
+    void fixedWithFallbackStateMovesThereAfterRetries() {
         var runs = new AtomicInteger();
         var info = runFailing(runs,
-            builder -> builder.onError(ProcessErrorHandler.fixed(3, Duration.ZERO), State.FALLBACK), false);
+                builder -> builder.onError(ProcessErrorHandler.fixed(3, Duration.ZERO), State.FALLBACK), false);
         assertEquals(ProcessStatus.ACTIVE, info.status());
         assertEquals("FALLBACK", info.state().name());
         assertEquals(4, runs.get());
     }
 
-    @Test void noRetryWithFallbackStateMovesThereImmediately() {
+    @Test
+    void noRetryWithFallbackStateMovesThereImmediately() {
         var runs = new AtomicInteger();
         var info = runFailing(runs, builder -> builder.onError(ProcessErrorHandler.noRetry(), State.FALLBACK), false);
         assertEquals("FALLBACK", info.state().name());
         assertEquals(1, runs.get());
     }
 
-    @Test void fallbackInsideFallbackStateFailsWithoutLooping() {
+    @Test
+    void fallbackInsideFallbackStateFailsWithoutLooping() {
         var runs = new AtomicInteger();
         var info = runFailing(runs, builder -> builder.onError(ProcessErrorHandler.noRetry(), State.FALLBACK), true);
         assertEquals(ProcessStatus.FAILED, info.status());
@@ -45,17 +49,20 @@ class ErrorFallbackTest extends BaseTest {
         assertTrue(info.lastError().orElseThrow().contains("compensation failed"));
     }
 
-    @Test void messageHandlerErrorMovesToFallbackState() {
+    @Test
+    void messageHandlerErrorMovesToFallbackState() {
         var handled = new AtomicInteger();
         ProcessDefinition definition = builder -> builder.type("FALLBACK_MESSAGE")
-            .onError(ProcessErrorHandler.noRetry(), State.FALLBACK).initialState(State.START)
-            .step(State.START, context -> { }, State.WAIT)
+            .onError(ProcessErrorHandler.noRetry(), State.FALLBACK)
+            .initialState(State.START)
+            .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
                 handled.incrementAndGet();
                 throw new IllegalStateException("handler failed");
             }, State.DONE))
-            .step(State.FALLBACK, context -> { }, State.DONE)
-            .terminal(State.DONE).build();
+            .step(State.FALLBACK, context -> {}, State.DONE)
+            .terminal(State.DONE)
+            .build();
         var engine = newProcessEngineWith(definition);
         try {
             var id = engine.newProcess(ProcessType.of("FALLBACK_MESSAGE")).start();
@@ -65,10 +72,13 @@ class ErrorFallbackTest extends BaseTest {
             assertEquals("FALLBACK", info.state().name());
             assertEquals(ProcessStatus.ACTIVE, info.status());
             assertEquals(1, handled.get());
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void customHandlerChoosesResultByCauseAndAttemptOnAdministrativePath() {
+    @Test
+    void customHandlerChoosesResultByCauseAndAttemptOnAdministrativePath() {
         var engine = newProcessEngineWith(customDefinition());
         try {
             var id = engine.newProcess(ProcessType.of("CUSTOM_ERRORS")).start();
@@ -76,10 +86,13 @@ class ErrorFallbackTest extends BaseTest {
             assertEquals("START", retried.state().name());
             assertEquals(1, retried.attempt());
             assertEquals("FALLBACK", emulator(engine).runOneStep(id).state().name());
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void customHandlerRunsOnWorkerPath() {
+    @Test
+    void customHandlerRunsOnWorkerPath() {
         var definition = customDefinition();
         var fixture = WorkerTestFixture.with(database, definition);
         var process = fixture.insertNewProcess(ProcessType.of("CUSTOM_ERRORS"), "correlation");
@@ -89,28 +102,38 @@ class ErrorFallbackTest extends BaseTest {
         assertEquals(ProcessStatus.ACTIVE, stored.getStatus());
     }
 
-    @Test void runUntilStopContinuesAfterErrorWhenRetryAndFallbackLeadToStep() {
+    @Test
+    void runUntilStopContinuesAfterErrorWhenRetryAndFallbackLeadToStep() {
         var engine = newProcessEngineWith(customDefinition());
         try {
             var id = engine.newProcess(ProcessType.of("CUSTOM_ERRORS")).start();
             var info = emulator(engine).runUntilStop(id);
             assertEquals(ProcessStatus.COMPLETED, info.status());
             assertEquals("DONE", info.state().name());
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void runUntilStopStopsOnRetryWithDelay() {
+    @Test
+    void runUntilStopStopsOnRetryWithDelay() {
         ProcessDefinition definition = builder -> builder.type("DELAYED_RETRY")
-            .onError(ProcessErrorHandler.fixed(1, Duration.ofMinutes(1))).initialState(State.START)
-            .step(State.START, context -> { throw new IllegalStateException("boom"); }, State.DONE)
-            .terminal(State.DONE).build();
+            .onError(ProcessErrorHandler.fixed(1, Duration.ofMinutes(1)))
+            .initialState(State.START)
+            .step(State.START, context -> {
+                throw new IllegalStateException("boom");
+            }, State.DONE)
+            .terminal(State.DONE)
+            .build();
         var engine = newProcessEngineWith(definition);
         try {
             var id = engine.newProcess(ProcessType.of("DELAYED_RETRY")).start();
             var info = emulator(engine).runUntilStop(id);
             assertEquals(ProcessStatus.ACTIVE, info.status());
             assertEquals(1, info.attempt());
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
     /** Retries the first error, falls back on the second; an {@code IllegalArgumentException} fails the process. */
@@ -119,16 +142,23 @@ class ErrorFallbackTest extends BaseTest {
             if (error.cause() instanceof IllegalArgumentException) return ErrorResult.fail();
             return error.attempt() < 1 ? ErrorResult.retryAfter(Duration.ZERO) : ErrorResult.fallback();
         };
-        return builder -> builder.type("CUSTOM_ERRORS").onError(handler, State.FALLBACK).initialState(State.START)
-            .step(State.START, context -> { throw new IllegalStateException("boom"); }, State.DONE)
-            .step(State.FALLBACK, context -> { }, State.DONE)
-            .terminal(State.DONE).build();
+        return builder -> builder.type("CUSTOM_ERRORS")
+            .onError(handler, State.FALLBACK)
+            .initialState(State.START)
+            .step(State.START, context -> {
+                throw new IllegalStateException("boom");
+            }, State.DONE)
+            .step(State.FALLBACK, context -> {}, State.DONE)
+            .terminal(State.DONE)
+            .build();
     }
 
     /** Runs a process with a failing START (and a failing FALLBACK if {@code failFallback}) until it stops. */
     private io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails runFailing(
-            AtomicInteger runs, java.util.function.UnaryOperator<ProcessSpecBuilder.TypedBuilder> settings,
-            boolean failFallback) {
+            AtomicInteger runs,
+            java.util.function.UnaryOperator<ProcessSpecBuilder.TypedBuilder> settings,
+            boolean failFallback
+    ) {
         ProcessDefinition definition = builder -> settings.apply(builder.type("FALLBACK_STEP"))
             .initialState(State.START)
             .step(State.START, context -> {
@@ -138,18 +168,27 @@ class ErrorFallbackTest extends BaseTest {
             .step(State.FALLBACK, context -> {
                 if (failFallback) throw new IllegalStateException("compensation failed");
             }, State.DONE)
-            .terminal(State.DONE).build();
+            .terminal(State.DONE)
+            .build();
         var engine = newProcessEngineWith(definition);
         try {
             var id = engine.newProcess(ProcessType.of("FALLBACK_STEP")).start();
             var emulator = emulator(engine);
             for (var i = 0; i < 10 && emulator.runOneStep(id).status() == ProcessStatus.ACTIVE; i++) {
                 if (engine.processes().byId(id).singleDetails().orElseThrow().state().name().equals("FALLBACK")
-                        && !failFallback) break;
+                        && !failFallback)
+                    break;
             }
             return engine.processes().byId(id).singleDetails().orElseThrow();
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    private enum State implements ProcessState { START, WAIT, FALLBACK, DONE }
+    private enum State implements ProcessState {
+        START,
+        WAIT,
+        FALLBACK,
+        DONE
+    }
 }

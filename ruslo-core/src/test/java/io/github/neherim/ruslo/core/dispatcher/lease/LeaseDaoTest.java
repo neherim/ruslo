@@ -1,12 +1,12 @@
 package io.github.neherim.ruslo.core.dispatcher.lease;
 
 import io.github.neherim.ruslo.core.TestDatabases;
-import io.github.neherim.ruslo.core.spi.Database;
-import io.github.neherim.ruslo.core.spi.RowMapper;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
-import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
 import io.github.neherim.ruslo.core.management.DatabaseSchemaMigrator;
+import io.github.neherim.ruslo.core.spi.Database;
+import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
+import io.github.neherim.ruslo.core.spi.RowMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -53,7 +53,8 @@ class LeaseDaoTest {
         var claims = leaseDao.claimReadyForWorker(ownerId, TEST_WORKER, 3, NOW);
 
         assertEquals(List.of(uuid(1), uuid(2), uuid(3)), claims.stream()
-                .map(ProcessLease::processId).toList());
+            .map(ProcessLease::processId)
+            .toList());
         assertTrue(claims.stream().allMatch(lease -> ownerId.equals(lease.ownerId())));
         assertEquals(0L, rowVersion(uuid(1)));
         assertEquals(0L, rowVersion(uuid(2)));
@@ -140,11 +141,17 @@ class LeaseDaoTest {
             });
             var second = executor.submit(() -> {
                 start.await();
-                return secondDao.claimReadyForWorker(secondOwner, TEST_WORKER, 1, NOW).stream().findFirst().orElse(null);
+                return secondDao.claimReadyForWorker(secondOwner, TEST_WORKER, 1, NOW)
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
             });
             start.countDown();
-            assertEquals(1, java.util.Arrays.asList(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS)).stream()
-                    .filter(java.util.Objects::nonNull).count());
+            assertEquals(1,
+                    java.util.Arrays.asList(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS))
+                        .stream()
+                        .filter(java.util.Objects::nonNull)
+                        .count());
         }
     }
 
@@ -192,7 +199,8 @@ class LeaseDaoTest {
 
     private long rowVersion(UUID processId) {
         return database.queryForObject("select row_version from xs_process_instance where id = ?",
-                rs -> rs.getLong(1), processId).orElseThrow();
+                rs -> rs.getLong(1), processId)
+            .orElseThrow();
     }
 
     private static final class CountingDatabase extends PlainJdbcDatabase {

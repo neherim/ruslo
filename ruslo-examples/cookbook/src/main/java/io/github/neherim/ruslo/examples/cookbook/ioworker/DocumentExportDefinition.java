@@ -59,13 +59,13 @@ public class DocumentExportDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.VALIDATING)
-                .step(State.VALIDATING, validateDocumentStep, State.RENDERING)
-                .step(State.RENDERING, renderDocumentStep, State.COMPLETED,
-                        options -> options.worker(IO_WORKER))
-                .terminal(State.COMPLETED)
-                .build();
+            .type(TYPE)
+            .initialState(State.VALIDATING)
+            .step(State.VALIDATING, validateDocumentStep, State.RENDERING)
+            .step(State.RENDERING, renderDocumentStep, State.COMPLETED,
+                    options -> options.worker(IO_WORKER))
+            .terminal(State.COMPLETED)
+            .build();
     }
 
     public enum State implements ProcessState {

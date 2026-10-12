@@ -1,12 +1,15 @@
 package io.github.neherim.ruslo.core.api.definition;
 
 import org.junit.jupiter.api.Test;
+
 import java.util.List;
 import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class TypedKeysTest {
-    private record Items(List<String> values) {}
+    private record Items(List<String> values) {
+    }
 
     @Test
     void concreteRecordsSupportCollectionsAndBothFactories() {
@@ -33,7 +36,7 @@ class TypedKeysTest {
 
     @Test
     void namesAndClassesAreValidatedByConstructorsAndFactories() {
-        for (String name : new String[] { null, "", " " }) {
+        for (String name : new String[]{null, "", " "}) {
             assertThrows(IllegalArgumentException.class, () -> MessageType.of(name, String.class));
             assertThrows(IllegalArgumentException.class, () -> VariableType.of(name, String.class));
             assertThrows(IllegalArgumentException.class, () -> new VariableType<>(name, String.class));

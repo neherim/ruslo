@@ -1,16 +1,17 @@
 package io.github.neherim.ruslo.spring;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
+import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
-import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
-import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.spring.config.ProcessEngineInitializer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,7 +19,6 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -28,8 +28,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.awaitility.Awaitility.await;
 
-@SpringBootTest(classes = ProcessStartTest.TestConfiguration.class,
-        properties = "ruslo.dispatcher.enabled=true")
+@SpringBootTest(
+        classes = ProcessStartTest.TestConfiguration.class,
+        properties = "ruslo.dispatcher.enabled=true"
+)
 public class ProcessStartTest {
     private static final ProcessType TRANSACTIONAL_START_TYPE = ProcessType.of("TRANSACTIONAL_START");
     private static final ProcessType SYNC_MESSAGE_TYPE = ProcessType.of("SYNC_MESSAGE");
@@ -84,12 +86,16 @@ public class ProcessStartTest {
             Assertions.assertEquals(Thread.currentThread(), handlerThread.get());
             status.setRollbackOnly();
         });
-        Assertions.assertEquals("WAIT", processEngine.processes().byId(processId).single().orElseThrow()
-            .state().name());
+        Assertions.assertEquals("WAIT", processEngine.processes()
+            .byId(processId)
+            .single()
+            .orElseThrow()
+            .state()
+            .name());
 
         transaction.executeWithoutResult(status -> processEngine.sendMessageSync(processId, SYNC_SIGNAL, "committed"));
         Assertions.assertEquals(ProcessStatus.COMPLETED,
-            processEngine.processes().byId(processId).single().orElseThrow().status());
+                processEngine.processes().byId(processId).single().orElseThrow().status());
     }
 
     @Configuration
@@ -116,28 +122,33 @@ public class ProcessStartTest {
         @Bean
         public ProcessDefinition syncMessageDefinition(AtomicReference<Thread> handlerThread) {
             return builder -> builder.type(SYNC_MESSAGE_TYPE)
-                    .initialState(SyncMessageState.WAIT)
-                    .await(SyncMessageState.WAIT, await -> await.message(SYNC_SIGNAL,
+                .initialState(SyncMessageState.WAIT)
+                .await(SyncMessageState.WAIT, await -> await.message(SYNC_SIGNAL,
                         (context, message) -> handlerThread.set(Thread.currentThread()), SyncMessageState.DONE))
-                    .terminal(SyncMessageState.DONE).build();
+                .terminal(SyncMessageState.DONE)
+                .build();
         }
 
         @Bean
         public ProcessDefinition transactionalStartDefinition(AtomicInteger executions) {
             return builder -> builder.type(TRANSACTIONAL_START_TYPE)
-                    .initialState(TransactionalStartState.INIT)
-                    .step(TransactionalStartState.INIT, context -> {
-                        executions.incrementAndGet();
-                    }, TransactionalStartState.DONE).terminal(TransactionalStartState.DONE).build();
+                .initialState(TransactionalStartState.INIT)
+                .step(TransactionalStartState.INIT, context -> {
+                    executions.incrementAndGet();
+                }, TransactionalStartState.DONE)
+                .terminal(TransactionalStartState.DONE)
+                .build();
         }
     }
 
     enum TransactionalStartState implements ProcessState {
-        INIT, DONE
+        INIT,
+        DONE
     }
 
     enum SyncMessageState implements ProcessState {
-        WAIT, DONE
+        WAIT,
+        DONE
     }
 
 }

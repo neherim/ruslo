@@ -46,8 +46,8 @@ public class AdminUiDevResourcesConfiguration implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/ruslo/assets/**")
-                .addResourceLocations(ADMIN_UI_RESOURCES.resolve("ruslo-admin/assets/").toUri().toString())
-                .setCachePeriod(0);
+            .addResourceLocations(ADMIN_UI_RESOURCES.resolve("ruslo-admin/assets/").toUri().toString())
+            .setCachePeriod(0);
     }
 
     private static Path resolveAdminUiResources() {

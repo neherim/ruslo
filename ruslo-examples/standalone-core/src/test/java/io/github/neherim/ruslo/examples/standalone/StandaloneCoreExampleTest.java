@@ -55,11 +55,15 @@ class StandaloneCoreExampleTest {
         }
     }
 
-    private static ProcessInstanceDetails awaitState(StandaloneCoreExample example, UUID processId,
-                                                     ApprovalState state) {
-        return await().atMost(PROCESSING_TIMEOUT).until(
-                () -> example.engine().processes().byId(processId).singleDetails().orElseThrow(),
-                process -> process.state().is(state));
+    private static ProcessInstanceDetails awaitState(
+            StandaloneCoreExample example,
+            UUID processId,
+            ApprovalState state
+    ) {
+        return await().atMost(PROCESSING_TIMEOUT)
+            .until(
+                    () -> example.engine().processes().byId(processId).singleDetails().orElseThrow(),
+                    process -> process.state().is(state));
     }
 
     private static JdbcDataSource newDataSource() {

@@ -1,6 +1,5 @@
 package io.github.neherim.ruslo.core.runtime.worker;
 
-import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessError;
 import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
@@ -11,6 +10,7 @@ import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.DefaultProcessContext;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceDao;
+import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,8 +31,13 @@ public class StepErrorHandler {
     private final ProcessMdc processMdc;
     private final ProcessEngineMetrics metrics;
 
-    public StepErrorHandler(Clock clock, Database database, ProcessInstanceDao processInstanceDao,
-                            ProcessMdc processMdc, ProcessEngineMetrics metrics) {
+    public StepErrorHandler(
+            Clock clock,
+            Database database,
+            ProcessInstanceDao processInstanceDao,
+            ProcessMdc processMdc,
+            ProcessEngineMetrics metrics
+    ) {
         this.clock = clock;
         this.database = database;
         this.processInstanceDao = processInstanceDao;
@@ -61,7 +66,7 @@ public class StepErrorHandler {
     public void handleHandlerError(Throwable cause, ProcessLease lease) {
         database.doInTransaction(() -> {
             var claimed = processInstanceDao.findClaimedWithLock(lease)
-                    .orElseThrow(() -> new LeaseLostException(lease.processId()));
+                .orElseThrow(() -> new LeaseLostException(lease.processId()));
             var process = claimed.process();
             try (var ignored = processMdc.open(process)) {
                 log.error("Handle process step execution error", cause);
@@ -109,7 +114,7 @@ public class StepErrorHandler {
         ErrorResult result;
         try {
             result = Objects.requireNonNull(process.getProcessErrorHandler()
-                    .handle(new DefaultProcessContext(process), new ProcessError(cause, process.getAttempt())),
+                .handle(new DefaultProcessContext(process), new ProcessError(cause, process.getAttempt())),
                     "Process error handler returned null");
         } catch (RuntimeException ex) {
             log.error("Process error handler failed", ex);
@@ -121,7 +126,8 @@ public class StepErrorHandler {
             case ErrorResult.Fallback ignored -> {
                 var fallback = process.getProcessSpec().getFallbackState().orElse(null);
                 if (fallback != null && !process.getState().is(fallback)) process.enterState(fallback);
-                else markFailed(process, error);
+                else
+                    markFailed(process, error);
             }
         }
     }
@@ -135,8 +141,8 @@ public class StepErrorHandler {
         var className = ex.getClass().getSimpleName();
         var message = ex.getMessage();
         var value = message == null || message.isBlank()
-            ? className
-            : className + ": " + message;
+                ? className
+                : className + ": " + message;
         if (value.length() <= MAX_LAST_ERROR_LENGTH) {
             return value;
         }

@@ -1,7 +1,7 @@
 package io.github.neherim.ruslo.examples.cookbook.failandresume;
 
-import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
+import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceSummary;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
@@ -27,18 +27,18 @@ public class InvoiceOperations {
     /** Returns stopped processes: they wait for a fix and {@link #fixCountryAndResume}. */
     public List<ProcessInstanceSummary> findFailed() {
         return processEngine.processes()
-                .byType(InvoiceDefinition.TYPE)
-                .byStatus(ProcessStatus.FAILED)
-                .list();
+            .byType(InvoiceDefinition.TYPE)
+            .byStatus(ProcessStatus.FAILED)
+            .list();
     }
 
     /** Returns processes still retrying a failed step: an early sign of a problem. */
     public List<ProcessInstanceSummary> findRetrying() {
         return processEngine.processes()
-                .byType(InvoiceDefinition.TYPE)
-                .byStatus(ProcessStatus.ACTIVE)
-                .byAttempted()
-                .list();
+            .byType(InvoiceDefinition.TYPE)
+            .byStatus(ProcessStatus.ACTIVE)
+            .byAttempted()
+            .list();
     }
 
     /**

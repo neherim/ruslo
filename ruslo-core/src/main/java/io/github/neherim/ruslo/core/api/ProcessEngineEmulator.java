@@ -1,14 +1,14 @@
 package io.github.neherim.ruslo.core.api;
 
+import io.github.neherim.ruslo.core.api.definition.MessageType;
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
-import io.github.neherim.ruslo.core.api.definition.MessageType;
-import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.test.MutableClock;
-import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo.StateKind;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.runtime.ProcessRuntimeService;
 
@@ -16,8 +16,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Runs processes synchronously in the calling thread for tests. Each step runs directly: worker routing,
@@ -71,8 +71,8 @@ public class ProcessEngineEmulator {
             }
         }
         throw new IllegalStateException(
-            "Process " + processId + " did not stop after " + maxSteps + " steps. "
-                + "Possible infinite loop in process definition.");
+                "Process " + processId + " did not stop after " + maxSteps + " steps. "
+                        + "Possible infinite loop in process definition.");
     }
 
     /**
@@ -99,15 +99,15 @@ public class ProcessEngineEmulator {
             }
             if (!ready) {
                 throw new IllegalStateException(
-                    "Process " + processId + " stopped in state " + proc.state().name()
-                        + " before reaching state " + state.name() + ".");
+                        "Process " + processId + " stopped in state " + proc.state().name()
+                                + " before reaching state " + state.name() + ".");
             }
             ready = runtime.forceExecuteOneStep(processId);
             proc = findProcess(processId);
         }
         throw new IllegalStateException(
-            "Process " + processId + " did not reach state " + state.name()
-                + " after " + maxSteps + " steps. Possible infinite loop in process definition.");
+                "Process " + processId + " did not reach state " + state.name()
+                        + " after " + maxSteps + " steps. Possible infinite loop in process definition.");
     }
 
     /**
@@ -150,11 +150,13 @@ public class ProcessEngineEmulator {
             return mutableClock;
         }
         throw new IllegalStateException(
-            "Time can be changed only when the engine is created with MutableClock, but was " + clock);
+                "Time can be changed only when the engine is created with MutableClock, but was " + clock);
     }
 
     private ProcessInstanceDetails findProcess(UUID processId) {
-        return processEngine.processes().byId(processId).singleDetails()
+        return processEngine.processes()
+            .byId(processId)
+            .singleDetails()
             .orElseThrow(() -> new ProcessNotFoundException(processId));
     }
 
@@ -163,16 +165,16 @@ public class ProcessEngineEmulator {
             return false;
         }
         return isAwait(process)
-            || process.scheduledAt().isPresent() && !process.scheduledAt().get().isAfter(clock.instant());
+                || process.scheduledAt().isPresent() && !process.scheduledAt().get().isAfter(clock.instant());
     }
 
     private boolean isAwait(ProcessInstanceDetails process) {
-        return processDefinitionRegistry.getProcessDefinitions().stream()
+        return processDefinitionRegistry.getProcessDefinitions()
+            .stream()
             .filter(spec -> spec.type().equals(process.type()))
             .flatMap(spec -> spec.states().stream())
             .anyMatch(state -> state.state().equals(process.state()) && state.kind() == StateKind.AWAIT);
     }
-
 
     /**
      * Runs every {@code ACTIVE} process as {@link #runUntilStop(UUID)}; useful when processes interact.
@@ -180,7 +182,8 @@ public class ProcessEngineEmulator {
     public List<ProcessInstanceDetails> runAll() {
         return processEngine.processes()
             .byStatus(ProcessStatus.ACTIVE)
-            .list().stream()
+            .list()
+            .stream()
             .map(p -> runUntilStop(p.id()))
             .toList();
     }

@@ -17,11 +17,17 @@ import java.util.concurrent.TimeUnit;
 
 /** Saves raw JSON and rebuilds the single Markdown report of the current Maven run. */
 public final class BenchmarkReportWriter {
-    private BenchmarkReportWriter() {}
+    private BenchmarkReportWriter() {
+    }
 
     /** Saves the result of a verified scenario and rebuilds performance-report.md. */
-    public static Path write(String benchmark, BenchmarkEnvironment environment, Map<String, Object> workload,
-                             Object iterations, Logger log) {
+    public static Path write(
+            String benchmark,
+            BenchmarkEnvironment environment,
+            Map<String, Object> workload,
+            Object iterations,
+            Logger log
+    ) {
         var directory = Path.of(System.getProperty("ruslo.perf.output-directory"));
         var output = directory.resolve(benchmark + ".json");
         var report = new LinkedHashMap<String, Object>();

@@ -53,8 +53,8 @@ public class InvoiceDefinition implements ProcessDefinition {
     public static final VariableType<BigDecimal> TAX = VariableType.of("tax", BigDecimal.class);
 
     static final int MAX_RETRIES = 3;
-    private static final ProcessErrorHandler BACKOFF =
-            ProcessErrorHandler.exponential(MAX_RETRIES, Duration.ofSeconds(10), Duration.ofMinutes(5));
+    private static final ProcessErrorHandler BACKOFF = ProcessErrorHandler.exponential(MAX_RETRIES,
+            Duration.ofSeconds(10), Duration.ofMinutes(5));
 
     private final IssueInvoiceStep issueInvoiceStep;
 
@@ -66,12 +66,12 @@ public class InvoiceDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .onError(this::onError)
-                .initialState(State.ISSUING)
-                .step(State.ISSUING, issueInvoiceStep, State.ISSUED)
-                .terminal(State.ISSUED)
-                .build();
+            .type(TYPE)
+            .onError(this::onError)
+            .initialState(State.ISSUING)
+            .step(State.ISSUING, issueInvoiceStep, State.ISSUED)
+            .terminal(State.ISSUED)
+            .build();
     }
 
     /** Stops the process on bad data; retries transient errors. */

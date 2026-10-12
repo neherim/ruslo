@@ -45,15 +45,15 @@ public class ReviewDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.PREPARING)
-                .step(State.PREPARING, prepareReviewStep, State.WAITING_FOR_REVIEW)
-                .await(State.WAITING_FOR_REVIEW, await -> await
-                        .message(APPROVED, reviewHandlers::onApproved, State.PUBLISHED)
-                        .timeout(REVIEW_DEADLINE, State.EXPIRED))
-                .terminal(State.PUBLISHED)
-                .terminal(State.EXPIRED)
-                .build();
+            .type(TYPE)
+            .initialState(State.PREPARING)
+            .step(State.PREPARING, prepareReviewStep, State.WAITING_FOR_REVIEW)
+            .await(State.WAITING_FOR_REVIEW, await -> await
+                .message(APPROVED, reviewHandlers::onApproved, State.PUBLISHED)
+                .timeout(REVIEW_DEADLINE, State.EXPIRED))
+            .terminal(State.PUBLISHED)
+            .terminal(State.EXPIRED)
+            .build();
     }
 
     public enum State implements ProcessState {

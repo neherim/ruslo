@@ -1,31 +1,31 @@
 package io.github.neherim.ruslo.core.api;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
-import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchScheduler;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
+import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceDao;
+import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceLifecycle;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseDao;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseDispatcher;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseReleaser;
-import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceDao;
-import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceLifecycle;
-import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.management.ManagementService;
-import io.github.neherim.ruslo.core.spi.DatabaseDialectResolver;
 import io.github.neherim.ruslo.core.metrics.FailSafeProcessEngineMetrics;
-import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.runtime.ProcessRuntimeService;
-import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceDao;
-import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceFactory;
 import io.github.neherim.ruslo.core.runtime.logging.MdcKeys;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
+import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceDao;
+import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceFactory;
 import io.github.neherim.ruslo.core.runtime.worker.StepErrorHandler;
 import io.github.neherim.ruslo.core.runtime.worker.StepExecutor;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerFactory;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
 import io.github.neherim.ruslo.core.search.ProcessSearchService;
+import io.github.neherim.ruslo.core.spi.Database;
+import io.github.neherim.ruslo.core.spi.DatabaseDialectResolver;
+import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.*;
 import tools.jackson.databind.ObjectMapper;
 
@@ -56,7 +56,8 @@ public class ProcessEngineBuilder {
     private Duration instanceHeartbeatInterval = DEFAULT_INSTANCE_HEARTBEAT_INTERVAL;
     private Duration instanceTimeout = DEFAULT_INSTANCE_TIMEOUT;
     private DatabaseDialect databaseDialect;
-    private ProcessEngineMetrics metrics = new ProcessEngineMetrics() {};
+    private ProcessEngineMetrics metrics = new ProcessEngineMetrics() {
+    };
     private boolean saveProcessHistory = true;
     private String correlationIdMdcKey;
     private String processIdMdcKey;
@@ -69,8 +70,8 @@ public class ProcessEngineBuilder {
 
     private void registerDefaultWorker() {
         registerWorker(WorkerSpec.builder(WorkerId.DEFAULT)
-                .transactional()
-                .build());
+            .transactional()
+            .build());
     }
 
     /**
@@ -97,7 +98,7 @@ public class ProcessEngineBuilder {
     /** Adds definitions registered and validated by {@link #build()}. */
     public ProcessEngineBuilder addProcessDefinitions(Collection<? extends ProcessDefinition> processDefinitions) {
         Objects.requireNonNull(processDefinitions, "ProcessDefinitions must not be null")
-                .forEach(this::addProcessDefinition);
+            .forEach(this::addProcessDefinition);
         return this;
     }
 
@@ -236,7 +237,8 @@ public class ProcessEngineBuilder {
         var dispatcher = new LeaseDispatcher(applicationInstanceLifecycle::ownerId,
                 leaseDao, leaseReleaser, workerRegistry, effectiveMetrics, clock);
 
-        var processDispatchScheduler = new ProcessDispatchScheduler(minProcessDispatchInterval, maxProcessDispatchInterval,
+        var processDispatchScheduler = new ProcessDispatchScheduler(minProcessDispatchInterval,
+                maxProcessDispatchInterval,
                 dispatcher, dispatchSignal, clock);
         var processRuntimeService = new ProcessRuntimeService(clock, database, processInstanceDao,
                 processInstanceFactory, dispatchSignal, effectiveMetrics, processMdc, stepExecutor, stepErrorHandler);

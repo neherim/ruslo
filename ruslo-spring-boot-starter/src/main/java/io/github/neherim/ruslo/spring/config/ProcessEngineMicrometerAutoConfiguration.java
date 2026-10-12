@@ -19,7 +19,8 @@ import org.springframework.context.annotation.Bean;
  */
 @AutoConfiguration(
         after = {MetricsAutoConfiguration.class, CompositeMeterRegistryAutoConfiguration.class},
-        before = ProcessEngineAutoConfiguration.class)
+        before = ProcessEngineAutoConfiguration.class
+)
 @ConditionalOnClass(MeterRegistry.class)
 @ConditionalOnBean(MeterRegistry.class)
 public class ProcessEngineMicrometerAutoConfiguration {

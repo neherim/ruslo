@@ -62,10 +62,12 @@ public class OrderFulfillmentDefinition implements ProcessDefinition {
     private final ScheduleDeliveryStep scheduleDeliveryStep;
     private final CompensateStep compensateStep;
 
-    public OrderFulfillmentDefinition(ReserveStockStep reserveStockStep,
-                                      ChargePaymentStep chargePaymentStep,
-                                      ScheduleDeliveryStep scheduleDeliveryStep,
-                                      CompensateStep compensateStep) {
+    public OrderFulfillmentDefinition(
+            ReserveStockStep reserveStockStep,
+            ChargePaymentStep chargePaymentStep,
+            ScheduleDeliveryStep scheduleDeliveryStep,
+            CompensateStep compensateStep
+    ) {
         this.reserveStockStep = reserveStockStep;
         this.chargePaymentStep = chargePaymentStep;
         this.scheduleDeliveryStep = scheduleDeliveryStep;
@@ -76,19 +78,19 @@ public class OrderFulfillmentDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .onError(ProcessErrorHandler.exponential(MAX_RETRIES, Duration.ofSeconds(1), Duration.ofMinutes(1)),
-                        State.COMPENSATING)
-                .initialState(State.RESERVING_STOCK)
-                .step(State.RESERVING_STOCK, reserveStockStep, State.CHARGING)
-                .step(State.CHARGING, chargePaymentStep, routes -> routes
-                        .on(ChargePaymentStep.Result.CHARGED, State.SCHEDULING_DELIVERY)
-                        .on(ChargePaymentStep.Result.DECLINED, State.COMPENSATING))
-                .step(State.SCHEDULING_DELIVERY, scheduleDeliveryStep, State.COMPLETED)
-                .step(State.COMPENSATING, compensateStep, State.CANCELLED)
-                .terminal(State.COMPLETED)
-                .terminal(State.CANCELLED)
-                .build();
+            .type(TYPE)
+            .onError(ProcessErrorHandler.exponential(MAX_RETRIES, Duration.ofSeconds(1), Duration.ofMinutes(1)),
+                    State.COMPENSATING)
+            .initialState(State.RESERVING_STOCK)
+            .step(State.RESERVING_STOCK, reserveStockStep, State.CHARGING)
+            .step(State.CHARGING, chargePaymentStep, routes -> routes
+                .on(ChargePaymentStep.Result.CHARGED, State.SCHEDULING_DELIVERY)
+                .on(ChargePaymentStep.Result.DECLINED, State.COMPENSATING))
+            .step(State.SCHEDULING_DELIVERY, scheduleDeliveryStep, State.COMPLETED)
+            .step(State.COMPENSATING, compensateStep, State.CANCELLED)
+            .terminal(State.COMPLETED)
+            .terminal(State.CANCELLED)
+            .build();
     }
 
     public enum State implements ProcessState {

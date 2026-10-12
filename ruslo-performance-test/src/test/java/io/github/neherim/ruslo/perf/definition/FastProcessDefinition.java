@@ -1,12 +1,12 @@
 package io.github.neherim.ruslo.perf.definition;
 
+import io.github.neherim.ruslo.core.api.WorkerSpec.ExecutionMode;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
-import io.github.neherim.ruslo.core.api.WorkerSpec.ExecutionMode;
 
 /** Five fast steps, each transition committed; measures execution throughput. */
 public final class FastProcessDefinition implements ProcessDefinition {
@@ -40,17 +40,24 @@ public final class FastProcessDefinition implements ProcessDefinition {
     /** Declares five empty steps and a terminal state to measure engine overhead. */
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
-        return builder.type(type).defaultWorker(workerId).initialState(State.STEP_1)
-                .step(State.STEP_1, context -> { }, State.STEP_2)
-                .step(State.STEP_2, context -> { }, State.STEP_3)
-                .step(State.STEP_3, context -> { }, State.STEP_4)
-                .step(State.STEP_4, context -> { }, State.STEP_5)
-                .step(State.STEP_5, context -> { }, State.DONE)
-                .terminal(State.DONE)
-                .build();
+        return builder.type(type)
+            .defaultWorker(workerId)
+            .initialState(State.STEP_1)
+            .step(State.STEP_1, context -> {}, State.STEP_2)
+            .step(State.STEP_2, context -> {}, State.STEP_3)
+            .step(State.STEP_3, context -> {}, State.STEP_4)
+            .step(State.STEP_4, context -> {}, State.STEP_5)
+            .step(State.STEP_5, context -> {}, State.DONE)
+            .terminal(State.DONE)
+            .build();
     }
 
     public enum State implements ProcessState {
-        STEP_1, STEP_2, STEP_3, STEP_4, STEP_5, DONE
+        STEP_1,
+        STEP_2,
+        STEP_3,
+        STEP_4,
+        STEP_5,
+        DONE
     }
 }

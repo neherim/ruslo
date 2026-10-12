@@ -71,7 +71,7 @@ public final class TestDatabases {
 
         private static PostgreSQLContainer start() {
             var container = new PostgreSQLContainer("postgres:18.4-alpine")
-                    .withCommand("postgres", "-c", "max_connections=300", "-c", "fsync=off");
+                .withCommand("postgres", "-c", "max_connections=300", "-c", "fsync=off");
             container.start();
             return container;
         }

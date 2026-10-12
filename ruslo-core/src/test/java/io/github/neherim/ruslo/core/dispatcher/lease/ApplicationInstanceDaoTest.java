@@ -1,7 +1,7 @@
 package io.github.neherim.ruslo.core.dispatcher.lease;
 
-import io.github.neherim.ruslo.core.TestDatabases;
 import io.github.neherim.ruslo.core.BaseTest;
+import io.github.neherim.ruslo.core.TestDatabases;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import org.junit.jupiter.api.Test;
 
@@ -131,25 +131,30 @@ class ApplicationInstanceDaoTest extends BaseTest {
     }
 
     private void insertReady(UUID id) {
-        database.update("""
-                insert into xs_process_instance
-                    (id, create_at, state, worker_id, status, type, scheduled_at, available_at)
-                values (?, current_timestamp, 'STARTED', ?, 'ACTIVE', 'heartbeat_test', current_timestamp, current_timestamp)
-                """, id, WORKER.name());
+        database.update(
+                """
+                        insert into xs_process_instance
+                            (id, create_at, state, worker_id, status, type, scheduled_at, available_at)
+                        values (?, current_timestamp, 'STARTED', ?, 'ACTIVE', 'heartbeat_test', current_timestamp, current_timestamp)
+                        """,
+                id, WORKER.name());
     }
 
     private UUID owner(UUID id) {
         return database.queryForObject("select lease_owner from xs_process_instance where id = ?",
-                rs -> rs.getObject(1, UUID.class), id).orElse(null);
+                rs -> rs.getObject(1, UUID.class), id)
+            .orElse(null);
     }
 
     private long processVersion(UUID id) {
         return database.queryForObject("select row_version from xs_process_instance where id = ?",
-                rs -> rs.getLong(1), id).orElseThrow();
+                rs -> rs.getLong(1), id)
+            .orElseThrow();
     }
 
     private Instant expiry(UUID id) {
         return database.queryForObject("select expires_at from xs_application_instance where id = ?",
-                rs -> rs.getTimestamp(1).toInstant(), id).orElseThrow();
+                rs -> rs.getTimestamp(1).toInstant(), id)
+            .orElseThrow();
     }
 }

@@ -26,13 +26,13 @@ public class SplitFileStep implements ProcessStep {
         for (int i = 0; i < parts; i++) {
             int fromRow = i * PART_SIZE + 1;
             processEngine.newProcess(FileImportPartDefinition.TYPE)
-                    // Parts get the parent's correlation id, so logs show the whole job together
-                    .correlationId(context.correlationId())
-                    .variable(FileImportPartDefinition.PARENT_ID, context.processId())
-                    .variable(FileImportPartDefinition.FILE_NAME, context.getVariable(FileImportDefinition.FILE_NAME))
-                    .variable(FileImportPartDefinition.FROM_ROW, fromRow)
-                    .variable(FileImportPartDefinition.TO_ROW, Math.min(fromRow + PART_SIZE - 1, rowCount))
-                    .start();
+                // Parts get the parent's correlation id, so logs show the whole job together
+                .correlationId(context.correlationId())
+                .variable(FileImportPartDefinition.PARENT_ID, context.processId())
+                .variable(FileImportPartDefinition.FILE_NAME, context.getVariable(FileImportDefinition.FILE_NAME))
+                .variable(FileImportPartDefinition.FROM_ROW, fromRow)
+                .variable(FileImportPartDefinition.TO_ROW, Math.min(fromRow + PART_SIZE - 1, rowCount))
+                .start();
         }
         context.setVariable(FileImportDefinition.REMAINING_PARTS, parts);
         context.setVariable(FileImportDefinition.IMPORTED_ROWS, 0);

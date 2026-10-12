@@ -28,7 +28,7 @@ public abstract class SpringProcessDefinition implements ProcessDefinition, Appl
     protected <T> T bean(Class<T> type) {
         if (applicationContext == null) {
             throw new IllegalStateException("Process definition " + getClass().getName()
-                + " is not a Spring bean: application context is not set");
+                    + " is not a Spring bean: application context is not set");
         }
         return applicationContext.getBean(type);
     }

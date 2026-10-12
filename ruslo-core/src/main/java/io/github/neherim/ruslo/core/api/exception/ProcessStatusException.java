@@ -18,6 +18,11 @@ public class ProcessStatusException extends ProcessEngineException {
         this.status = status;
     }
 
-    public UUID getProcessId() { return processId; }
-    public ProcessStatus getStatus() { return status; }
+    public UUID getProcessId() {
+        return processId;
+    }
+
+    public ProcessStatus getStatus() {
+        return status;
+    }
 }

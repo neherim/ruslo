@@ -25,13 +25,15 @@ public class WorkerFactory {
      *
      * @param completionHook called when a worker frees capacity
      */
-    public WorkerFactory(Database database,
-                         ProcessInstanceDao processInstanceDao,
-                         StepExecutor stepExecutor,
-                         StepErrorHandler stepErrorHandler,
-                         ProcessEngineMetrics processEngineMetrics,
-                         LeaseReleaser leaseReleaser,
-                         Runnable completionHook) {
+    public WorkerFactory(
+            Database database,
+            ProcessInstanceDao processInstanceDao,
+            StepExecutor stepExecutor,
+            StepErrorHandler stepErrorHandler,
+            ProcessEngineMetrics processEngineMetrics,
+            LeaseReleaser leaseReleaser,
+            Runnable completionHook
+    ) {
         this.database = Objects.requireNonNull(database);
         this.processInstanceDao = Objects.requireNonNull(processInstanceDao);
         this.stepExecutor = Objects.requireNonNull(stepExecutor);
@@ -47,8 +49,10 @@ public class WorkerFactory {
      */
     public Worker build(WorkerSpec spec) {
         var customExecutor = spec.customExecutor();
-        var executorService = customExecutor != null ? customExecutor : Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("process-worker-" + spec.workerId().name() + "-", 0).factory());
+        var executorService = customExecutor != null
+                ? customExecutor
+                : Executors.newThreadPerTaskExecutor(
+                        Thread.ofVirtual().name("process-worker-" + spec.workerId().name() + "-", 0).factory());
         return new ProcessWorker(spec, executorService, customExecutor == null, database, processInstanceDao,
                 stepExecutor, stepErrorHandler, processEngineMetrics, leaseReleaser, completionHook);
     }

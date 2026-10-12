@@ -1,9 +1,9 @@
 package io.github.neherim.ruslo.core.utils;
 
+import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessError;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
-import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 
 import java.time.Duration;
 import java.util.Objects;

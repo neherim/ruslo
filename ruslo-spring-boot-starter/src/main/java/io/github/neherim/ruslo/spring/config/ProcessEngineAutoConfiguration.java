@@ -1,15 +1,17 @@
 package io.github.neherim.ruslo.spring.config;
 
-import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
+import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
-import io.github.neherim.ruslo.core.spi.Database;
-import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
-import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
+import io.github.neherim.ruslo.core.spi.Database;
+import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.spring.config.property.ProcessEngineProperties;
 import io.github.neherim.ruslo.spring.integration.SpringJdbcDatabase;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -17,8 +19,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -28,11 +28,13 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 
-@AutoConfiguration(after = {
-    DataSourceAutoConfiguration.class,
-    DataSourceTransactionManagerAutoConfiguration.class,
-    TransactionAutoConfiguration.class
-})
+@AutoConfiguration(
+        after = {
+                DataSourceAutoConfiguration.class,
+                DataSourceTransactionManagerAutoConfiguration.class,
+                TransactionAutoConfiguration.class
+        }
+)
 @ConditionalOnClass({ProcessEngine.class, DataSource.class, PlatformTransactionManager.class})
 @EnableConfigurationProperties({ProcessEngineProperties.class})
 public class ProcessEngineAutoConfiguration {
@@ -72,11 +74,13 @@ public class ProcessEngineAutoConfiguration {
     static class ProcessEngineConfiguration {
 
         @Bean
-        public ProcessEngine processEngine(@Qualifier("processEngineClock") Clock processEngineClock,
-                                           Database database,
-                                           List<WorkerSpec> workerSpecs,
-                                           ProcessEngineProperties props,
-                                           ProcessEngineMetrics metrics) {
+        public ProcessEngine processEngine(
+                @Qualifier("processEngineClock") Clock processEngineClock,
+                Database database,
+                List<WorkerSpec> workerSpecs,
+                ProcessEngineProperties props,
+                ProcessEngineMetrics metrics
+        ) {
             var effectiveWorkerSpecs = new ArrayList<>(workerSpecs);
             // Specs from properties go after @Bean specs, so they take precedence.
             effectiveWorkerSpecs.addAll(props.getWorkerSpecs());
@@ -103,8 +107,10 @@ public class ProcessEngineAutoConfiguration {
          */
         @Bean
         @ConditionalOnMissingBean
-        public ProcessEngineInitializer processEngineInitializer(ProcessEngine processEngine,
-                                                                 ObjectProvider<ProcessDefinition> processDefinitions) {
+        public ProcessEngineInitializer processEngineInitializer(
+                ProcessEngine processEngine,
+                ObjectProvider<ProcessDefinition> processDefinitions
+        ) {
             return new ProcessEngineInitializer(processEngine, processDefinitions);
         }
     }
@@ -134,6 +140,7 @@ public class ProcessEngineAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public ProcessEngineMetrics noOpProcessEngineMetrics() {
-        return new ProcessEngineMetrics() {};
+        return new ProcessEngineMetrics() {
+        };
     }
 }

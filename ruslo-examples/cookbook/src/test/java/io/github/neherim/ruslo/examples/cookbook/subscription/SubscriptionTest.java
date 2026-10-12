@@ -99,11 +99,11 @@ class SubscriptionTest {
 
     private UUID startSubscription(String subscriptionId, String cardToken) {
         var processId = processEngine.newProcess(SubscriptionDefinition.TYPE)
-                .businessKey(subscriptionId)
-                .variable(SubscriptionDefinition.CARD_TOKEN, cardToken)
-                .variable(SubscriptionDefinition.PRICE, PRICE)
-                .variable(SubscriptionDefinition.PAID_PERIODS, 1)
-                .start();
+            .businessKey(subscriptionId)
+            .variable(SubscriptionDefinition.CARD_TOKEN, cardToken)
+            .variable(SubscriptionDefinition.PRICE, PRICE)
+            .variable(SubscriptionDefinition.PAID_PERIODS, 1)
+            .start();
         emulator.runUntilStop(processId);
         return processId;
     }

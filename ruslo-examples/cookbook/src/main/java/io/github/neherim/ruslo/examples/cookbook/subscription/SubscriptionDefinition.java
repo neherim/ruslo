@@ -66,8 +66,7 @@ public class SubscriptionDefinition implements ProcessDefinition {
     public static final VariableType<String> CARD_TOKEN = VariableType.of("cardToken", String.class);
     public static final VariableType<BigDecimal> PRICE = VariableType.of("price", BigDecimal.class);
     public static final VariableType<Integer> PAID_PERIODS = VariableType.of("paidPeriods", Integer.class);
-    public static final VariableType<String> CANCELLATION_REASON =
-            VariableType.of("cancellationReason", String.class);
+    public static final VariableType<String> CANCELLATION_REASON = VariableType.of("cancellationReason", String.class);
     public static final MessageType<String> CARD_UPDATED = MessageType.of("cardUpdated", String.class);
     public static final MessageType<String> CANCEL = MessageType.of("cancel", String.class);
 
@@ -81,23 +80,23 @@ public class SubscriptionDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .onError(ProcessErrorHandler.exponential(5, Duration.ofMinutes(1), Duration.ofHours(1)))
-                .initialState(State.ACTIVE)
-                .await(State.ACTIVE, await -> await
-                        .every(BILLING_PERIOD, billingHandlers::charge, routes -> routes
-                                .on(BillingHandlers.Billing.PAID, State.ACTIVE)
-                                .on(BillingHandlers.Billing.DECLINED, State.PAST_DUE))
-                        .message(CANCEL, billingHandlers::onCancel, State.CANCELLED))
-                .await(State.PAST_DUE, await -> await
-                        .message(CARD_UPDATED, billingHandlers::onCardUpdated, routes -> routes
-                                .on(BillingHandlers.Billing.PAID, State.ACTIVE)
-                                .on(BillingHandlers.Billing.DECLINED, State.PAST_DUE))
-                        .message(CANCEL, billingHandlers::onCancel, State.CANCELLED)
-                        .timeout(GRACE_PERIOD, State.SUSPENDED))
-                .terminal(State.CANCELLED)
-                .terminal(State.SUSPENDED)
-                .build();
+            .type(TYPE)
+            .onError(ProcessErrorHandler.exponential(5, Duration.ofMinutes(1), Duration.ofHours(1)))
+            .initialState(State.ACTIVE)
+            .await(State.ACTIVE, await -> await
+                .every(BILLING_PERIOD, billingHandlers::charge, routes -> routes
+                    .on(BillingHandlers.Billing.PAID, State.ACTIVE)
+                    .on(BillingHandlers.Billing.DECLINED, State.PAST_DUE))
+                .message(CANCEL, billingHandlers::onCancel, State.CANCELLED))
+            .await(State.PAST_DUE, await -> await
+                .message(CARD_UPDATED, billingHandlers::onCardUpdated, routes -> routes
+                    .on(BillingHandlers.Billing.PAID, State.ACTIVE)
+                    .on(BillingHandlers.Billing.DECLINED, State.PAST_DUE))
+                .message(CANCEL, billingHandlers::onCancel, State.CANCELLED)
+                .timeout(GRACE_PERIOD, State.SUSPENDED))
+            .terminal(State.CANCELLED)
+            .terminal(State.SUSPENDED)
+            .build();
     }
 
     public enum State implements ProcessState {

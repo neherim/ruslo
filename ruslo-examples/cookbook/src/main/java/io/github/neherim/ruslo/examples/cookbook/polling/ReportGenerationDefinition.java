@@ -1,12 +1,6 @@
 package io.github.neherim.ruslo.examples.cookbook.polling;
 
-import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
-import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
-import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
-import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
-import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.definition.ProcessType;
-import io.github.neherim.ruslo.core.api.definition.VariableType;
+import io.github.neherim.ruslo.core.api.definition.*;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -64,25 +58,28 @@ public class ReportGenerationDefinition implements ProcessDefinition {
         this.reportJobHandlers = reportJobHandlers;
     }
 
-    /** Describes a report order: submit the job and poll its status until ready or the deadline. */
+    /**
+     * Describes a report order: submit the job and poll its status until ready or the deadline.
+     */
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .onError(ProcessErrorHandler.fixed(3, Duration.ofSeconds(30)))
-                .initialState(State.REQUESTING)
-                .step(State.REQUESTING, requestReportStep, State.WAITING_FOR_REPORT)
-                .await(State.WAITING_FOR_REPORT, await -> await
-                        .every(POLL_INTERVAL, reportJobHandlers::check, routes -> routes
-                                        .on(ReportJobHandlers.Check.IN_PROGRESS, State.WAITING_FOR_REPORT)
-                                        .on(ReportJobHandlers.Check.READY, State.COMPLETED)
-                                        .on(ReportJobHandlers.Check.FAILED, State.REPORT_FAILED),
-                                options -> options.initialDelay(FIRST_CHECK_DELAY))
-                        .timeout(REPORT_DEADLINE, reportJobHandlers::cancel, State.TIMED_OUT))
-                .terminal(State.COMPLETED)
-                .terminal(State.REPORT_FAILED)
-                .terminal(State.TIMED_OUT)
-                .build();
+            .type(TYPE)
+            .onError(ProcessErrorHandler.fixed(3, Duration.ofSeconds(30)))
+            .initialState(State.REQUESTING)
+            .step(State.REQUESTING, requestReportStep, State.WAITING_FOR_REPORT)
+            .await(State.WAITING_FOR_REPORT, await -> await
+                .every(POLL_INTERVAL, reportJobHandlers::check,
+                        routes -> routes
+                            .on(ReportJobHandlers.Check.IN_PROGRESS, State.WAITING_FOR_REPORT)
+                            .on(ReportJobHandlers.Check.READY, State.COMPLETED)
+                            .on(ReportJobHandlers.Check.FAILED, State.REPORT_FAILED),
+                        options -> options.initialDelay(FIRST_CHECK_DELAY))
+                .timeout(REPORT_DEADLINE, reportJobHandlers::cancel, State.TIMED_OUT))
+            .terminal(State.COMPLETED)
+            .terminal(State.REPORT_FAILED)
+            .terminal(State.TIMED_OUT)
+            .build();
     }
 
     public enum State implements ProcessState {

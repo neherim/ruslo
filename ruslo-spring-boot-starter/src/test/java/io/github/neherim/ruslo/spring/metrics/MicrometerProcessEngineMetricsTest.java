@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.spring.metrics;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
@@ -31,9 +31,13 @@ class MicrometerProcessEngineMetricsTest {
         assertEquals(1.0, registry.get("ruslo.processes.completed").tag("type", "ORDER").counter().count());
         assertEquals(1.0, registry.get("ruslo.processes.failed").tag("type", "ORDER").counter().count());
         assertEquals(2L, registry.get("ruslo.processes.steps.duration")
-                .tags("type", "ORDER", "state", "PAY", "outcome", "success").timer().count());
+            .tags("type", "ORDER", "state", "PAY", "outcome", "success")
+            .timer()
+            .count());
         assertEquals(1L, registry.get("ruslo.processes.steps.duration")
-                .tags("type", "ORDER", "state", "PAY", "outcome", "error").timer().count());
+            .tags("type", "ORDER", "state", "PAY", "outcome", "error")
+            .timer()
+            .count());
         assertEquals(1.0, registry.get("ruslo.system.errors").counter().count());
     }
 
@@ -62,9 +66,13 @@ class MicrometerProcessEngineMetricsTest {
         assertEquals(8.0, registry.get("ruslo.worker.capacity").tag("worker", "DEFAULT").gauge().value());
         assertEquals(2.0, registry.get("ruslo.worker.active").tag("worker", "DEFAULT").gauge().value());
         assertEquals(5.0, registry.get("ruslo.worker.ready").tag("worker", "DEFAULT").gauge().value());
-        assertEquals(4.0, registry.get("ruslo.worker.lag").tag("worker", "DEFAULT").timeGauge()
-                .value(TimeUnit.SECONDS));
+        assertEquals(4.0, registry.get("ruslo.worker.lag")
+            .tag("worker", "DEFAULT")
+            .timeGauge()
+            .value(TimeUnit.SECONDS));
     }
 
-    private enum State implements ProcessState { PAY }
+    private enum State implements ProcessState {
+        PAY
+    }
 }

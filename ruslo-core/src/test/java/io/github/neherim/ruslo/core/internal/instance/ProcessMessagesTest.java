@@ -14,7 +14,8 @@ class ProcessMessagesTest {
     private static final MessageType<String> FIRST = MessageType.of("FIRST", String.class);
     private static final MessageType<String> SECOND = MessageType.of("SECOND", String.class);
 
-    @Test void storesFifoAcrossTypesAndRoundTripsJson() {
+    @Test
+    void storesFifoAcrossTypesAndRoundTripsJson() {
         var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
         var firstId = UUID.randomUUID();
         var secondId = UUID.randomUUID();
@@ -32,7 +33,8 @@ class ProcessMessagesTest {
         assertEquals("[]", restored.serializeToString());
     }
 
-    @Test void acceptsNullAndDuplicateSignals() {
+    @Test
+    void acceptsNullAndDuplicateSignals() {
         var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
         var now = Instant.now();
         messages.append(FIRST, null, UUID.randomUUID(), now);
@@ -43,7 +45,8 @@ class ProcessMessagesTest {
         assertFalse(messages.isEmpty());
     }
 
-    @Test void equalReceptionTimesKeepAppendOrderAcrossReload() {
+    @Test
+    void equalReceptionTimesKeepAppendOrderAcrossReload() {
         var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
         var received = Instant.parse("2026-09-24T10:15:00Z");
         var largerId = new UUID(0, 2);
@@ -51,13 +54,14 @@ class ProcessMessagesTest {
         messages.append(FIRST, "first", largerId, received);
         messages.append(SECOND, "second", smallerId, received);
         var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER,
-            messages.serializeToString());
+                messages.serializeToString());
         assertEquals(largerId, restored.peekFirst().orElseThrow().id());
         restored.remove(largerId);
         assertEquals(smallerId, restored.peekFirst().orElseThrow().id());
     }
 
-    @Test void rejectsRemovingAbsentSignal() {
+    @Test
+    void rejectsRemovingAbsentSignal() {
         var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
         assertThrows(IllegalStateException.class, () -> messages.remove(UUID.randomUUID()));
     }

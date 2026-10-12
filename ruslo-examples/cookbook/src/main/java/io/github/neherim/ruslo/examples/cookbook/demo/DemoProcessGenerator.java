@@ -66,9 +66,11 @@ public class DemoProcessGenerator implements ApplicationRunner {
     private final PurchaseOrderService purchaseOrderService;
     private final LoyaltyAccountRepository loyaltyAccountRepository;
 
-    public DemoProcessGenerator(ProcessEngine processEngine,
-                                PurchaseOrderService purchaseOrderService,
-                                LoyaltyAccountRepository loyaltyAccountRepository) {
+    public DemoProcessGenerator(
+            ProcessEngine processEngine,
+            PurchaseOrderService purchaseOrderService,
+            LoyaltyAccountRepository loyaltyAccountRepository
+    ) {
         this.processEngine = processEngine;
         this.purchaseOrderService = purchaseOrderService;
         this.loyaltyAccountRepository = loyaltyAccountRepository;
@@ -106,9 +108,9 @@ public class DemoProcessGenerator implements ApplicationRunner {
 
     private void startLoanApplication(String applicant, long amount) {
         processEngine.newProcess(LoanApplicationDefinition.TYPE)
-                .variable(LoanApplicationDefinition.APPLICANT, applicant)
-                .variable(LoanApplicationDefinition.AMOUNT, amount)
-                .start();
+            .variable(LoanApplicationDefinition.APPLICANT, applicant)
+            .variable(LoanApplicationDefinition.AMOUNT, amount)
+            .start();
     }
 
     /** {@code retries}: the gateway rejects a recipient without {@code @}; the notification goes to fallback. */
@@ -120,9 +122,9 @@ public class DemoProcessGenerator implements ApplicationRunner {
 
     private void startNotification(String recipient) {
         processEngine.newProcess(NotificationDefinition.TYPE)
-                .variable(NotificationDefinition.RECIPIENT, recipient)
-                .variable(NotificationDefinition.TEXT, "Your order has shipped")
-                .start();
+            .variable(NotificationDefinition.RECIPIENT, recipient)
+            .variable(NotificationDefinition.TEXT, "Your order has shipped")
+            .start();
     }
 
     /** {@code failandresume}: there is no rate for country {@code XX}; the invoice stops in {@code FAILED}. */
@@ -134,18 +136,18 @@ public class DemoProcessGenerator implements ApplicationRunner {
 
     private void startInvoice(String orderId, String country) {
         processEngine.newProcess(InvoiceDefinition.TYPE)
-                .businessKey(orderId)
-                .variable(InvoiceDefinition.AMOUNT, new BigDecimal("100.00"))
-                .variable(InvoiceDefinition.COUNTRY, country)
-                .start();
+            .businessKey(orderId)
+            .variable(InvoiceDefinition.AMOUNT, new BigDecimal("100.00"))
+            .variable(InvoiceDefinition.COUNTRY, country)
+            .start();
     }
 
     /** {@code ioworker}: rendering runs on {@code io-worker}. */
     private void startDocumentExports() {
-        for (var documentId : new String[] {"contract-7", "invoice-42"}) {
+        for (var documentId : new String[]{"contract-7", "invoice-42"}) {
             processEngine.newProcess(DocumentExportDefinition.TYPE)
-                    .variable(DocumentExportDefinition.DOCUMENT_ID, documentId)
-                    .start();
+                .variable(DocumentExportDefinition.DOCUMENT_ID, documentId)
+                .start();
         }
     }
 
@@ -157,52 +159,52 @@ public class DemoProcessGenerator implements ApplicationRunner {
 
     /** {@code deadline}: reservations wait 15 minutes for payment, then are released. */
     private void startSeatReservations() {
-        for (var seat : new String[] {"A-1", "A-2"}) {
+        for (var seat : new String[]{"A-1", "A-2"}) {
             processEngine.newProcess(SeatReservationDefinition.TYPE)
-                    .variable(SeatReservationDefinition.SEAT, seat)
-                    .start();
+                .variable(SeatReservationDefinition.SEAT, seat)
+                .start();
         }
     }
 
     /** {@code webhook}: applications wait for a callback with the verification result. */
     private void startIdentityVerifications() {
         processEngine.newProcess(IdentityVerificationDefinition.TYPE)
-                .businessKey("application-501")
-                .variable(IdentityVerificationDefinition.APPLICANT_EMAIL, "ada@example.com")
-                .start();
+            .businessKey("application-501")
+            .variable(IdentityVerificationDefinition.APPLICANT_EMAIL, "ada@example.com")
+            .start();
     }
 
     /** {@code fanout}: a 250-row file is split into three parts. */
     private void startFileImports() {
         processEngine.newProcess(FileImportDefinition.TYPE)
-                .variable(FileImportDefinition.FILE_NAME, "customers.csv")
-                .variable(FileImportDefinition.ROW_COUNT, 250)
-                .start();
+            .variable(FileImportDefinition.FILE_NAME, "customers.csv")
+            .variable(FileImportDefinition.ROW_COUNT, 250)
+            .start();
     }
 
     /** {@code testing}: the document waits three days for the reviewer's decision. */
     private void startReviews() {
         processEngine.newProcess(ReviewDefinition.TYPE)
-                .variable(ReviewDefinition.DOCUMENT_ID, "doc-1")
-                .start();
+            .variable(ReviewDefinition.DOCUMENT_ID, "doc-1")
+            .start();
     }
 
     /** {@code polling}: the report service stub has the report ready by the third status check. */
     private void startReportGenerations() {
-        for (var period : new String[] {"2026-08", "2026-09"}) {
+        for (var period : new String[]{"2026-08", "2026-09"}) {
             processEngine.newProcess(ReportGenerationDefinition.TYPE)
-                    .variable(ReportGenerationDefinition.PERIOD, period)
-                    .start();
+                .variable(ReportGenerationDefinition.PERIOD, period)
+                .start();
         }
     }
 
     /** {@code externalcall}: the bank declines amounts over 1000. */
     private void startCardPayments() {
-        for (var amount : new String[] {"50.00", "5000.00"}) {
+        for (var amount : new String[]{"50.00", "5000.00"}) {
             processEngine.newProcess(CardPaymentDefinition.TYPE)
-                    .variable(CardPaymentDefinition.CARD_TOKEN, "tok_visa")
-                    .variable(CardPaymentDefinition.AMOUNT, new BigDecimal(amount))
-                    .start();
+                .variable(CardPaymentDefinition.CARD_TOKEN, "tok_visa")
+                .variable(CardPaymentDefinition.AMOUNT, new BigDecimal(amount))
+                .start();
         }
     }
 
@@ -210,8 +212,8 @@ public class DemoProcessGenerator implements ApplicationRunner {
     private void startBonusAccrual() {
         LongStream.rangeClosed(1, 1000).forEach(loyaltyAccountRepository::insert);
         processEngine.newProcess(BonusAccrualDefinition.TYPE)
-                .variable(BonusAccrualDefinition.BONUS_POINTS, 10)
-                .start();
+            .variable(BonusAccrualDefinition.BONUS_POINTS, 10)
+            .start();
     }
 
     /** {@code saga}: the bank declines amounts over 1000; there is no delivery to Antarctica. */
@@ -223,39 +225,39 @@ public class DemoProcessGenerator implements ApplicationRunner {
 
     private void startOrderFulfillment(String orderId, String amount, String address) {
         processEngine.newProcess(OrderFulfillmentDefinition.TYPE)
-                .businessKey(orderId)
-                .variable(OrderFulfillmentDefinition.ITEM, "Keyboard")
-                .variable(OrderFulfillmentDefinition.AMOUNT, new BigDecimal(amount))
-                .variable(OrderFulfillmentDefinition.ADDRESS, address)
-                .start();
+            .businessKey(orderId)
+            .variable(OrderFulfillmentDefinition.ITEM, "Keyboard")
+            .variable(OrderFulfillmentDefinition.AMOUNT, new BigDecimal(amount))
+            .variable(OrderFulfillmentDefinition.ADDRESS, address)
+            .start();
     }
 
     /** {@code approval}: the report waits for alice's decision; without one it goes to the manager after 60 hours. */
     private void startExpenseApprovals() {
         processEngine.newProcess(ExpenseApprovalDefinition.TYPE)
-                .businessKey("expense-301")
-                .variable(ExpenseApprovalDefinition.APPROVER, "alice")
-                .start();
+            .businessKey("expense-301")
+            .variable(ExpenseApprovalDefinition.APPROVER, "alice")
+            .start();
     }
 
     /** {@code subscription}: the first period is paid; the next charge is in 30 days. */
     private void startSubscriptions() {
-        for (var subscriptionId : new String[] {"subscription-401", "subscription-402"}) {
+        for (var subscriptionId : new String[]{"subscription-401", "subscription-402"}) {
             processEngine.newProcess(SubscriptionDefinition.TYPE)
-                    .businessKey(subscriptionId)
-                    .variable(SubscriptionDefinition.CARD_TOKEN, "tok_visa")
-                    .variable(SubscriptionDefinition.PRICE, new BigDecimal("9.99"))
-                    .variable(SubscriptionDefinition.PAID_PERIODS, 1)
-                    .start();
+                .businessKey(subscriptionId)
+                .variable(SubscriptionDefinition.CARD_TOKEN, "tok_visa")
+                .variable(SubscriptionDefinition.PRICE, new BigDecimal("9.99"))
+                .variable(SubscriptionDefinition.PAID_PERIODS, 1)
+                .start();
         }
     }
 
     /** {@code cancellation}: orders wait for payment and can be cancelled until handover to the courier. */
     private void startOrderDeliveries() {
-        for (var orderId : new String[] {"order-3001", "order-3002"}) {
+        for (var orderId : new String[]{"order-3001", "order-3002"}) {
             processEngine.newProcess(OrderDeliveryDefinition.TYPE)
-                    .businessKey(orderId)
-                    .start();
+                .businessKey(orderId)
+                .start();
         }
     }
 }

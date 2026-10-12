@@ -20,9 +20,9 @@ class ReviewHandlersTest {
     @Test
     void storesReviewerOfApprovedDocument() {
         var context = TestProcessContext.builder()
-                .state(ReviewDefinition.State.WAITING_FOR_REVIEW)
-                .variable(ReviewDefinition.DOCUMENT_ID, "doc-1")
-                .build();
+            .state(ReviewDefinition.State.WAITING_FOR_REVIEW)
+            .variable(ReviewDefinition.DOCUMENT_ID, "doc-1")
+            .build();
         var message = new IncomingMessage<>(UUID.randomUUID(), ReviewDefinition.APPROVED, "alice", Instant.now());
 
         reviewHandlers.onApproved(context, message);

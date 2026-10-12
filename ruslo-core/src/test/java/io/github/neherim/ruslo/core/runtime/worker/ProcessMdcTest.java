@@ -1,16 +1,16 @@
 package io.github.neherim.ruslo.core.runtime.worker;
 
 import io.github.neherim.ruslo.core.BaseTest;
-import io.github.neherim.ruslo.core.runtime.logging.MdcKeys;
 import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessError;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
-import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
+import io.github.neherim.ruslo.core.runtime.logging.MdcKeys;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
@@ -30,8 +30,8 @@ class ProcessMdcTest extends BaseTest {
         var observedMdc = new AtomicReference<Map<String, String>>();
         var processEngine = newProcessEngineWith(new MdcObservingDefinition(observedCorrelationId, observedMdc));
         var processId = processEngine.newProcess(MdcObservingDefinition.TYPE)
-                .correlationId("correlation-ctx")
-                .start();
+            .correlationId("correlation-ctx")
+            .start();
 
         emulator(processEngine).runUntilStop(processId);
 
@@ -92,8 +92,9 @@ class ProcessMdcTest extends BaseTest {
         var fixture = WorkerTestFixture.with(database, definition);
         var process = fixture.insertNewProcess(ErrorDefinition.TYPE, "error-correlation");
 
-        fixture.stepErrorHandler().handleHandlerError(
-                new IllegalStateException("boom"), fixture.task(process));
+        fixture.stepErrorHandler()
+            .handleHandlerError(
+                    new IllegalStateException("boom"), fixture.task(process));
 
         assertEquals("error-correlation", observedMdc.get().get("correlation_id"));
         assertEquals(process.getId().toString(), observedMdc.get().get("process_id"));
@@ -102,37 +103,42 @@ class ProcessMdcTest extends BaseTest {
     }
 
     private io.github.neherim.ruslo.core.runtime.process.ProcessInstance process(
-            String correlationId, ProcessType type) {
+            String correlationId,
+            ProcessType type
+    ) {
         return WorkerTestFixture.with(database,
                 new MdcObservingDefinition(new AtomicReference<>(), new AtomicReference<>()),
                 new ErrorDefinition(new AtomicReference<>()))
-                .newProcess(type, correlationId);
+            .newProcess(type, correlationId);
     }
 
-    private record MdcObservingDefinition(AtomicReference<String> observedCorrelationId,
-                                          AtomicReference<Map<String, String>> observedMdc)
+    private record MdcObservingDefinition(
+            AtomicReference<String> observedCorrelationId,
+            AtomicReference<Map<String, String>> observedMdc
+    )
             implements ProcessDefinition {
         private static final ProcessType TYPE = ProcessType.of("MDC_OBSERVING");
 
         @Override
         public ProcessSpec define(ProcessSpecBuilder builder) {
             return builder.type(TYPE)
-                    .initialState(State.INIT)
-                    .step(State.INIT, ctx -> {
-                        observedCorrelationId.set(ctx.correlationId());
-                        var mdc = new HashMap<String, String>();
-                        mdc.put("correlation_id", MDC.get("correlation_id"));
-                        mdc.put("process_id", MDC.get("process_id"));
-                        mdc.put("process_type", MDC.get("process_type"));
-                        mdc.put("process_state", MDC.get("process_state"));
-                        observedMdc.set(mdc);
-                    }, State.DONE)
-                    .terminal(State.DONE)
-                    .build();
+                .initialState(State.INIT)
+                .step(State.INIT, ctx -> {
+                    observedCorrelationId.set(ctx.correlationId());
+                    var mdc = new HashMap<String, String>();
+                    mdc.put("correlation_id", MDC.get("correlation_id"));
+                    mdc.put("process_id", MDC.get("process_id"));
+                    mdc.put("process_type", MDC.get("process_type"));
+                    mdc.put("process_state", MDC.get("process_state"));
+                    observedMdc.set(mdc);
+                }, State.DONE)
+                .terminal(State.DONE)
+                .build();
         }
 
         private enum State implements ProcessState {
-            INIT, DONE
+            INIT,
+            DONE
         }
     }
 
@@ -142,11 +148,11 @@ class ProcessMdcTest extends BaseTest {
         @Override
         public ProcessSpec define(ProcessSpecBuilder builder) {
             return builder.type(TYPE)
-                    .onError(errorHandler(), State.DONE)
-                    .initialState(State.INIT)
-                    .step(State.INIT, ctx -> { }, State.DONE)
-                    .terminal(State.DONE)
-                    .build();
+                .onError(errorHandler(), State.DONE)
+                .initialState(State.INIT)
+                .step(State.INIT, ctx -> {}, State.DONE)
+                .terminal(State.DONE)
+                .build();
         }
 
         private ProcessErrorHandler errorHandler() {
@@ -160,7 +166,8 @@ class ProcessMdcTest extends BaseTest {
         }
 
         private enum State implements ProcessState {
-            INIT, DONE
+            INIT,
+            DONE
         }
     }
 }

@@ -63,16 +63,16 @@ public class SeatReservationDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.RESERVING)
-                .step(State.RESERVING, reserveSeatStep, State.WAITING_FOR_PAYMENT)
-                .await(State.WAITING_FOR_PAYMENT, await -> await
-                        .message(PAYMENT_RECEIVED, SeatReservationDefinition::onPayment, State.CONFIRMED)
-                        .timeout(PAYMENT_DEADLINE, State.RELEASING))
-                .step(State.RELEASING, releaseSeatStep, State.EXPIRED)
-                .terminal(State.CONFIRMED)
-                .terminal(State.EXPIRED)
-                .build();
+            .type(TYPE)
+            .initialState(State.RESERVING)
+            .step(State.RESERVING, reserveSeatStep, State.WAITING_FOR_PAYMENT)
+            .await(State.WAITING_FOR_PAYMENT, await -> await
+                .message(PAYMENT_RECEIVED, SeatReservationDefinition::onPayment, State.CONFIRMED)
+                .timeout(PAYMENT_DEADLINE, State.RELEASING))
+            .step(State.RELEASING, releaseSeatStep, State.EXPIRED)
+            .terminal(State.CONFIRMED)
+            .terminal(State.EXPIRED)
+            .build();
     }
 
     /** Stores the payment that confirmed the reservation. */

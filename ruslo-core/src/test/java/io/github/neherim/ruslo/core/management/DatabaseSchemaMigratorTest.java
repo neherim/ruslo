@@ -1,12 +1,12 @@
 package io.github.neherim.ruslo.core.management;
 
+import io.github.neherim.ruslo.core.TestDatabases;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
-import io.github.neherim.ruslo.core.TestDatabases;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import javax.sql.DataSource;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
@@ -44,9 +44,9 @@ class DatabaseSchemaMigratorTest {
         var database = new PlainJdbcDatabase(dataSource());
 
         var processEngine = new ProcessEngineBuilder(database)
-                .withDispatcherEnabled(false)
-                .build()
-                .start();
+            .withDispatcherEnabled(false)
+            .build()
+            .start();
 
         assertEquals(1, schemaVersion(database));
         processEngine.close();
@@ -69,12 +69,12 @@ class DatabaseSchemaMigratorTest {
 
     private static int schemaVersion(PlainJdbcDatabase database) {
         return database.queryForObject("select version from xs_schema_version where id = 1", rs -> rs.getInt(1))
-                .orElseThrow();
+            .orElseThrow();
     }
 
     private static int tableRowCount(PlainJdbcDatabase database, String tableName) {
         return database.queryForObject("select count(*) from " + tableName, rs -> rs.getInt(1))
-                .orElseThrow();
+            .orElseThrow();
     }
 
     private static int columnCount(PlainJdbcDatabase database, String columnName) {

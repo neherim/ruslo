@@ -2,8 +2,8 @@ package io.github.neherim.ruslo.core.search;
 
 import io.github.neherim.ruslo.core.BaseTest;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
-import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
+import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.api.exception.TooManyRowsException;
 import io.github.neherim.ruslo.core.definitions.SimpleOneStepProcessDefinition;
@@ -136,7 +136,9 @@ class ProcessSearchTest extends BaseTest {
         processEngine.newProcess(ONE_STEP_TYPE).start();
         emulator(processEngine).runUntilStop(completedId);
 
-        var result = processEngine.processes().byStatus(io.github.neherim.ruslo.core.api.view.ProcessStatus.COMPLETED).list();
+        var result = processEngine.processes()
+            .byStatus(io.github.neherim.ruslo.core.api.view.ProcessStatus.COMPLETED)
+            .list();
 
         assertEquals(1, result.size());
         assertEquals(completedId, result.get(0).id());
@@ -150,7 +152,9 @@ class ProcessSearchTest extends BaseTest {
         var runningId = processEngine.newProcess(ONE_STEP_TYPE).start();
         emulator(processEngine).runUntilStop(completedId);
 
-        var result = processEngine.processes().byStatus(io.github.neherim.ruslo.core.api.view.ProcessStatus.ACTIVE).list();
+        var result = processEngine.processes()
+            .byStatus(io.github.neherim.ruslo.core.api.view.ProcessStatus.ACTIVE)
+            .list();
 
         assertEquals(1, result.size());
         assertEquals(runningId, result.get(0).id());
@@ -220,8 +224,8 @@ class ProcessSearchTest extends BaseTest {
     void singleDetailsReturnsProcessWithDetails() {
         var processEngine = simpleProcessEngine();
         var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE)
-                .businessKey("test-key")
-                .start();
+            .businessKey("test-key")
+            .start();
 
         var result = processEngine.processes().byId(processId).singleDetails();
 
@@ -238,12 +242,13 @@ class ProcessSearchTest extends BaseTest {
     void variablesAreStoredAsSingleJsonObject() {
         var processEngine = simpleProcessEngine();
         var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE)
-                .variable("key", "value")
-                .variable("amount", 42)
-                .start();
+            .variable("key", "value")
+            .variable("amount", 42)
+            .start();
 
         String stored = database.queryForObject("select variables from xs_process_instance where id = ?",
-                rs -> rs.getString(1), processId).orElseThrow();
+                rs -> rs.getString(1), processId)
+            .orElseThrow();
         var details = processEngine.processes().byId(processId).singleDetails().orElseThrow();
 
         assertTrue(stored.contains("\"key\":\"value\""), stored);
@@ -256,8 +261,8 @@ class ProcessSearchTest extends BaseTest {
     void detailsReadVariablesTyped() {
         var processEngine = simpleProcessEngine();
         var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE)
-                .variable("amount", 42)
-                .start();
+            .variable("amount", 42)
+            .start();
 
         var variables = processEngine.processes().byId(processId).singleDetails().orElseThrow().variables();
 
@@ -270,8 +275,8 @@ class ProcessSearchTest extends BaseTest {
     void findByVariablesLikeMatchesStringVariable() {
         var processEngine = simpleProcessEngine();
         var matchedProcessId = processEngine.newProcess(SimpleProcessDefinition.TYPE)
-                .variable("key", "value")
-                .start();
+            .variable("key", "value")
+            .start();
         processEngine.newProcess(SimpleProcessDefinition.TYPE).variable("key", "other").start();
 
         var result = processEngine.processes().byVariablesLike("%\"key\":\"value\"%").list();
@@ -309,8 +314,13 @@ class ProcessSearchTest extends BaseTest {
             var after = Instant.now();
 
             setJvmTimeZone(TimeZone.getTimeZone("America/New_York"));
-            var changedAt = processEngine.processes().byId(processId).singleDetails().orElseThrow()
-                    .stateHistory().get(0).changedAt();
+            var changedAt = processEngine.processes()
+                .byId(processId)
+                .singleDetails()
+                .orElseThrow()
+                .stateHistory()
+                .get(0)
+                .changedAt();
 
             assertFalse(changedAt.isBefore(before), changedAt + " is before " + before);
             assertFalse(changedAt.isAfter(after), changedAt + " is after " + after);
@@ -339,9 +349,9 @@ class ProcessSearchTest extends BaseTest {
                 Timestamp.from(matchedCreatedAt), matchedProcessId);
 
         var result = processEngine.processes()
-                .byCreatedAtFrom(Instant.parse("2026-05-02T00:00:00Z"))
-                .byCreatedAtTo(Instant.parse("2026-05-02T23:59:59Z"))
-                .list();
+            .byCreatedAtFrom(Instant.parse("2026-05-02T00:00:00Z"))
+            .byCreatedAtTo(Instant.parse("2026-05-02T23:59:59Z"))
+            .list();
 
         assertEquals(1, result.size());
         assertEquals(matchedProcessId, result.get(0).id());

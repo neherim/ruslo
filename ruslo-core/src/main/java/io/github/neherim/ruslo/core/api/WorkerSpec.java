@@ -1,9 +1,9 @@
 package io.github.neherim.ruslo.core.api;
 
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -37,7 +37,8 @@ public record WorkerSpec(
      * {@code NON_TRANSACTIONAL} runs the step outside it, so a step may run more than once.
      */
     public enum ExecutionMode {
-        TRANSACTIONAL, NON_TRANSACTIONAL
+        TRANSACTIONAL,
+        NON_TRANSACTIONAL
     }
 
     /** Defaults: {@code TRANSACTIONAL}, {@code maxConcurrency} 10, virtual threads. */

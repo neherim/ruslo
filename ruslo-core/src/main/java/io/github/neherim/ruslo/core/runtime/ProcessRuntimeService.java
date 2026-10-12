@@ -1,11 +1,11 @@
 package io.github.neherim.ruslo.core.runtime;
 
+import io.github.neherim.ruslo.core.api.ProcessStartBuilder;
+import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.exception.ProcessEngineException;
 import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
-import io.github.neherim.ruslo.core.api.definition.*;
-import io.github.neherim.ruslo.core.api.ProcessStartBuilder;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.api.view.ProcessTypeCounts;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
@@ -49,15 +49,17 @@ public class ProcessRuntimeService {
     private final StepExecutor stepExecutor;
     private final StepErrorHandler stepErrorHandler;
 
-    public ProcessRuntimeService(Clock clock,
-                                 Database database,
-                                 ProcessInstanceDao processInstanceDao,
-                                 ProcessInstanceFactory processInstanceFactory,
-                                 ProcessDispatchSignal dispatchSignal,
-                                 ProcessEngineMetrics metrics,
-                                 ProcessMdc processMdc,
-                                 StepExecutor stepExecutor,
-                                 StepErrorHandler stepErrorHandler) {
+    public ProcessRuntimeService(
+            Clock clock,
+            Database database,
+            ProcessInstanceDao processInstanceDao,
+            ProcessInstanceFactory processInstanceFactory,
+            ProcessDispatchSignal dispatchSignal,
+            ProcessEngineMetrics metrics,
+            ProcessMdc processMdc,
+            StepExecutor stepExecutor,
+            StepErrorHandler stepErrorHandler
+    ) {
         this.clock = clock;
         this.database = database;
         this.processInstanceDao = processInstanceDao;
@@ -85,7 +87,8 @@ public class ProcessRuntimeService {
         doInTransactionOrReject(() -> {
             var process = findProcessWithLock(processId);
             if (!process.resume()) {
-                return new ProcessStatusException(processId, process.getStatus(), "only a FAILED process can be resumed");
+                return new ProcessStatusException(processId, process.getStatus(),
+                        "only a FAILED process can be resumed");
             }
             processInstanceDao.update(process);
             database.doAfterCommit(dispatchSignal::wakeUp);
@@ -134,7 +137,8 @@ public class ProcessRuntimeService {
     public void sendAdminMessage(UUID processId, String name, Object jsonPayload) {
         database.doInTransaction(() -> {
             var process = findProcessWithLock(processId);
-            var event = process.getProcessSpec().getMessageEvent(name, process.getState())
+            var event = process.getProcessSpec()
+                .getMessageEvent(name, process.getState())
                 .orElseThrow(() -> messageNotExpected(process, name));
             appendMessage(process, event, process.getMessages().normalizePayload(jsonPayload, event.type().clazz()));
         });
@@ -157,7 +161,7 @@ public class ProcessRuntimeService {
                 if (event.isEmpty()) return messageNotExpected(process, type.name());
                 if (process.getStatus() == ProcessStatus.FAILED) {
                     return new ProcessStatusException(processId, ProcessStatus.FAILED,
-                        "resume the process before handling a message synchronously");
+                            "resume the process before handling a message synchronously");
                 }
                 stepExecutor.executeMessage(process, event.get(), message);
                 processInstanceDao.update(process);
@@ -186,10 +190,11 @@ public class ProcessRuntimeService {
                 var process = findProcessWithLock(processId);
                 executedState.set(process.getState());
                 if (process.getStatus() != ProcessStatus.ACTIVE) {
-                    throw new ProcessStatusException(processId, process.getStatus(), "only an ACTIVE process runs steps");
+                    throw new ProcessStatusException(processId, process.getStatus(),
+                            "only an ACTIVE process runs steps");
                 }
                 if (process.getStateSpec() instanceof ProcessSpec.AwaitState
-                    && process.getAvailableAt().map(time -> time.isAfter(clock.instant())).orElse(true)) {
+                        && process.getAvailableAt().map(time -> time.isAfter(clock.instant())).orElse(true)) {
                     return false;
                 }
                 stepExecutor.executeNextProcessStep(process);
@@ -243,13 +248,17 @@ public class ProcessRuntimeService {
         return processInstanceDao.countIncompleteByType(overdueAt);
     }
 
-    private UUID startProcess(ProcessType type, @Nullable String businessKey,
-                              @Nullable String correlationId, Map<String, Object> variables) {
+    private UUID startProcess(
+            ProcessType type,
+            @Nullable String businessKey,
+            @Nullable String correlationId,
+            Map<String, Object> variables
+    ) {
         var effectiveCorrelationId = correlationId != null && !correlationId.isBlank()
-            ? correlationId
-            : processMdc.getOrCreateCorrelationId();
+                ? correlationId
+                : processMdc.getOrCreateCorrelationId();
         var process = processInstanceFactory.newInstance(type, clock.instant(), businessKey,
-            effectiveCorrelationId, variables);
+                effectiveCorrelationId, variables);
 
         return database.doInTransactionWithResult(() -> {
             processInstanceDao.insert(process);
@@ -275,14 +284,14 @@ public class ProcessRuntimeService {
     private Optional<ProcessSpec.MessageEvent<?>> expectedMessageEvent(ProcessInstance process, MessageType<?> type) {
         if (!process.getProcessSpec().declaresMessage(type)) {
             throw new IllegalArgumentException("Message " + type.name() + " with payload " + type.clazz().getName()
-                + " is not declared in process " + process.getProcessSpec().getType().name());
+                    + " is not declared in process " + process.getProcessSpec().getType().name());
         }
         return process.expectedMessageEvent(type);
     }
 
     private static MessageNotExpectedException messageNotExpected(ProcessInstance process, String messageName) {
         return new MessageNotExpectedException(process.getId(), messageName, process.getState().name(),
-            process.getProcessSpec().getApplicableMessageTypeNames(process.getState()));
+                process.getProcessSpec().getApplicableMessageTypeNames(process.getState()));
     }
 
     /**

@@ -20,17 +20,19 @@ class ApplicationInstanceLifecycleTest extends BaseTest {
     @Test
     void engineShouldRegisterOnlyWhenDispatcherStartsAndCleanUpOnShutdown() {
         var disabled = new ProcessEngineBuilder(database)
-                .withDatabaseMigrationEnabled(false)
-                .withDispatcherEnabled(false)
-                .build().start();
+            .withDatabaseMigrationEnabled(false)
+            .withDispatcherEnabled(false)
+            .build()
+            .start();
         assertEquals(0, instanceCount());
         disabled.close();
 
         var enabled = new ProcessEngineBuilder(database)
-                .withDatabaseMigrationEnabled(false)
-                .withInstanceHeartbeatInterval(Duration.ofMillis(50))
-                .withInstanceTimeout(Duration.ofMillis(200))
-                .build().start();
+            .withDatabaseMigrationEnabled(false)
+            .withInstanceHeartbeatInterval(Duration.ofMillis(50))
+            .withInstanceTimeout(Duration.ofMillis(200))
+            .build()
+            .start();
         assertEquals(1, instanceCount());
 
         enabled.close();
@@ -129,11 +131,12 @@ class ApplicationInstanceLifecycleTest extends BaseTest {
 
     private boolean isRegistered(java.util.UUID instanceId) {
         return database.queryForObject("select count(*) from xs_application_instance where id = ?",
-                rs -> rs.getInt(1), instanceId).orElseThrow() == 1;
+                rs -> rs.getInt(1), instanceId)
+            .orElseThrow() == 1;
     }
 
     private int instanceCount() {
         return database.queryForObject("select count(*) from xs_application_instance", rs -> rs.getInt(1))
-                .orElseThrow();
+            .orElseThrow();
     }
 }

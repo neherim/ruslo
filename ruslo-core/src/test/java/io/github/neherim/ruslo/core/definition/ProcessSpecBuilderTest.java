@@ -14,20 +14,24 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ProcessSpecBuilderTest {
     private static final ProcessType TYPE = ProcessType.of("TEST");
-    private static final ProcessStep STEP = context -> { };
+    private static final ProcessStep STEP = context -> {};
     private static final BranchingStep<Outcome> BRANCHING = context -> Outcome.A;
     private static final MessageType<String> MESSAGE = MessageType.of("MESSAGE", String.class);
-    private static final ProcessMessageHandler<String> ON_MESSAGE = (context, message) -> { };
-    private static final ProcessTimerHandler ON_TIMER = context -> { };
+    private static final ProcessMessageHandler<String> ON_MESSAGE = (context, message) -> {};
+    private static final ProcessTimerHandler ON_TIMER = context -> {};
 
-    @Test void buildsStepAwaitAndTerminal() {
-        var spec = new ProcessSpecBuilder().type(TYPE).defaultWorker(new WorkerId("DEFAULT_WORKER"))
+    @Test
+    void buildsStepAwaitAndTerminal() {
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .defaultWorker(new WorkerId("DEFAULT_WORKER"))
             .initialState(State.START)
             .step(State.START, STEP, State.WAIT)
             .step(State.OTHER, STEP, State.DONE, options -> options.worker(new WorkerId("OWN_WORKER")))
             .await(State.WAIT, await -> await.message(MESSAGE, ON_MESSAGE, State.WAIT)
-                .every(Duration.ofSeconds(1), ON_TIMER, State.WAIT).timeout(Duration.ofSeconds(2), State.DONE))
-            .terminal(State.DONE).build();
+                .every(Duration.ofSeconds(1), ON_TIMER, State.WAIT)
+                .timeout(Duration.ofSeconds(2), State.DONE))
+            .terminal(State.DONE)
+            .build();
         assertInstanceOf(StepState.class, spec.getStateSpec(State.START));
         assertInstanceOf(AwaitState.class, spec.getStateSpec(State.WAIT));
         assertInstanceOf(TerminalState.class, spec.getStateSpec(State.DONE));
@@ -43,33 +47,45 @@ class ProcessSpecBuilderTest {
         assertEquals(Duration.ofSeconds(2), await.timeout().delay());
     }
 
-    @Test void setsEveryInitialDelay() {
-        var spec = new ProcessSpecBuilder().type(TYPE).initialState(State.WAIT)
+    @Test
+    void setsEveryInitialDelay() {
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.WAIT)
             .await(State.WAIT, await -> await.every(Duration.ofMinutes(5), ON_TIMER,
-                State.DONE, options -> options.initialDelay(Duration.ZERO)))
+                    State.DONE, options -> options.initialDelay(Duration.ZERO)))
             .await(State.OTHER, await -> await.every(Duration.ofMinutes(5),
-                context -> Outcome.A, routes -> routes.on(Outcome.A, State.DONE)
-                    .on(Outcome.B, State.WAIT), options -> options.initialDelay(Duration.ofSeconds(10))))
-            .terminal(State.DONE).build();
+                    context -> Outcome.A, routes -> routes.on(Outcome.A, State.DONE)
+                        .on(Outcome.B, State.WAIT),
+                    options -> options.initialDelay(Duration.ofSeconds(10))))
+            .terminal(State.DONE)
+            .build();
         assertEquals(Duration.ZERO, ((AwaitState) spec.getStateSpec(State.WAIT)).every().initialDelay());
         assertEquals(Duration.ofSeconds(10), ((AwaitState) spec.getStateSpec(State.OTHER)).every().initialDelay());
     }
 
-    @Test void acceptsInitialAwaitAndAllHandlerForms() {
-        var spec = new ProcessSpecBuilder().type(TYPE).initialState(State.WAIT)
+    @Test
+    void acceptsInitialAwaitAndAllHandlerForms() {
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.WAIT)
             .await(State.WAIT, await -> await
                 .message(MESSAGE, ON_MESSAGE, State.START)
                 .message(MessageType.of("BRANCH", String.class), (context, message) -> message.payload().isEmpty()
-                    ? Outcome.B : Outcome.A, routes -> routes
-                    .on(Outcome.A, State.START).on(Outcome.B, State.WAIT))
+                        ? Outcome.B
+                        : Outcome.A,
+                        routes -> routes
+                            .on(Outcome.A, State.START)
+                            .on(Outcome.B, State.WAIT))
                 .every(Duration.ofMinutes(1), ON_TIMER, State.WAIT))
             .step(State.START, BRANCHING, routes -> routes
-                .on(Outcome.A, State.DONE).on(Outcome.B, State.WAIT))
-            .terminal(State.DONE).build();
+                .on(Outcome.A, State.DONE)
+                .on(Outcome.B, State.WAIT))
+            .terminal(State.DONE)
+            .build();
         assertEquals(State.WAIT.id(), spec.getInitialState());
     }
 
-    @Test void buildsTypicalSmallLinearProcess() {
+    @Test
+    void buildsTypicalSmallLinearProcess() {
         var spec = new ProcessSpecBuilder().type("USER_REGISTRATION")
             .description("User registration with email confirmation")
             .onError(ProcessErrorHandler.fixed(3, Duration.ofSeconds(1)))
@@ -85,82 +101,119 @@ class ProcessSpecBuilderTest {
         assertEquals(5, spec.getAllStateSpecs().size());
     }
 
-    @Test void takesStateDescriptionFromDeclaration() {
-        var spec = new ProcessSpecBuilder().type(TYPE).initialState(DescribedState.START)
+    @Test
+    void takesStateDescriptionFromDeclaration() {
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .initialState(DescribedState.START)
             .step(DescribedState.START, STEP, ProcessState.of("DONE"))
-            .terminal(ProcessState.of("DONE")).build();
+            .terminal(ProcessState.of("DONE"))
+            .build();
         assertEquals("Start", spec.getStateDescription(ProcessState.of("START")));
         assertEquals("DONE", spec.getStateDescription(DescribedState.DONE));
     }
 
-    @Test void rejectsBlankStateDescription() {
+    @Test
+    void rejectsBlankStateDescription() {
         assertRejected("Description of state BLANK", () -> new ProcessSpecBuilder().type(TYPE)
-            .initialState(DescribedState.BLANK).step(DescribedState.BLANK, STEP, DescribedState.DONE));
+            .initialState(DescribedState.BLANK)
+            .step(DescribedState.BLANK, STEP, DescribedState.DONE));
     }
 
-    @Test void rejectsInvalidDefinitions() {
-        assertRejected("already defined", () -> new ProcessSpecBuilder().type(TYPE).initialState(State.START)
-            .step(State.START, STEP, State.DONE).step(State.START, STEP, State.DONE));
+    @Test
+    void rejectsInvalidDefinitions() {
+        assertRejected("already defined", () -> new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.START)
+            .step(State.START, STEP, State.DONE)
+            .step(State.START, STEP, State.DONE));
         assertRejected("must be a declared step or await", () -> start().terminal(State.START).build());
         assertRejected("must be a declared step or await", () -> new ProcessSpecBuilder().type(TYPE)
-            .initialState(State.DONE).terminal(State.DONE).build());
+            .initialState(State.DONE)
+            .terminal(State.DONE)
+            .build());
         assertRejected("is not declared", () -> start().step(State.START, STEP, State.OTHER).build());
         assertRejected("is not declared", () -> start().step(State.START, BRANCHING, routes -> routes
-            .on(Outcome.A, State.DONE).on(Outcome.B, State.OTHER)).build());
+            .on(Outcome.A, State.DONE)
+            .on(Outcome.B, State.OTHER)).build());
         assertRejected("is not declared", () -> startWithStep().await(State.WAIT,
-            await -> await.timeout(Duration.ofSeconds(1), State.OTHER)).build());
-        assertRejected("at least one on", () -> start().step(State.START, BRANCHING, routes -> { }));
+                await -> await.timeout(Duration.ofSeconds(1), State.OTHER))
+            .build());
+        assertRejected("at least one on", () -> start().step(State.START, BRANCHING, routes -> {}));
         assertRejected("Duplicate outcome", () -> start().step(State.START, BRANCHING, routes -> routes
-            .on(Outcome.A, State.DONE).on(Outcome.A, State.DONE)));
+            .on(Outcome.A, State.DONE)
+            .on(Outcome.A, State.DONE)));
         assertRejected("do not cover all constants", () -> start().step(State.START, BRANCHING,
-            routes -> routes.on(Outcome.A, State.DONE)).terminal(State.DONE).build());
-        assertRejected("is a process state", () -> start().step(State.START, (BranchingStep<StateOutcome>) context ->
-            StateOutcome.X, routes -> routes.on(StateOutcome.X, State.DONE)));
+                routes -> routes.on(Outcome.A, State.DONE))
+            .terminal(State.DONE)
+            .build());
+        assertRejected("is a process state",
+                () -> start().step(State.START, (BranchingStep<StateOutcome>) context -> StateOutcome.X,
+                        routes -> routes.on(StateOutcome.X, State.DONE)));
         assertRejected("Duplicate message", () -> startWithStep().await(State.WAIT,
-            await -> await.message(MESSAGE, ON_MESSAGE, State.DONE).message(MESSAGE, ON_MESSAGE, State.DONE)));
+                await -> await.message(MESSAGE, ON_MESSAGE, State.DONE).message(MESSAGE, ON_MESSAGE, State.DONE)));
         assertRejected("Duplicate every", () -> startWithStep().await(State.WAIT, await -> await
-            .every(Duration.ofSeconds(1), ON_TIMER, State.DONE).every(Duration.ofSeconds(1), ON_TIMER, State.DONE)));
+            .every(Duration.ofSeconds(1), ON_TIMER, State.DONE)
+            .every(Duration.ofSeconds(1), ON_TIMER, State.DONE)));
         assertRejected("Duplicate timeout", () -> startWithStep().await(State.WAIT, await -> await
-            .timeout(Duration.ofSeconds(1), State.DONE).timeout(Duration.ofSeconds(1), State.DONE)));
-        assertRejected("no message, every or timeout", () -> startWithStep().await(State.WAIT, await -> { })
-            .terminal(State.DONE).build());
+            .timeout(Duration.ofSeconds(1), State.DONE)
+            .timeout(Duration.ofSeconds(1), State.DONE)));
+        assertRejected("no message, every or timeout", () -> startWithStep().await(State.WAIT, await -> {})
+            .terminal(State.DONE)
+            .build());
         assertRejected("no event leading to another state", () -> startWithStep().await(State.WAIT,
-            await -> await.message(MESSAGE, ON_MESSAGE, State.WAIT)).terminal(State.DONE).build());
+                await -> await.message(MESSAGE, ON_MESSAGE, State.WAIT))
+            .terminal(State.DONE)
+            .build());
         assertRejected("no event leading to another state", () -> startWithStep().await(State.WAIT,
-            await -> await.every(Duration.ofSeconds(1), context -> Outcome.A, routes -> routes
-                .on(Outcome.A, State.WAIT).on(Outcome.B, State.WAIT))).terminal(State.DONE).build());
+                await -> await.every(Duration.ofSeconds(1), context -> Outcome.A, routes -> routes
+                    .on(Outcome.A, State.WAIT)
+                    .on(Outcome.B, State.WAIT)))
+            .terminal(State.DONE)
+            .build());
         assertRejected("cannot target its own await state", () -> startWithStep().await(State.WAIT,
-            await -> await.timeout(Duration.ofSeconds(1), State.WAIT)));
+                await -> await.timeout(Duration.ofSeconds(1), State.WAIT)));
         assertRejected("must be positive", () -> startWithStep().await(State.WAIT,
-            await -> await.timeout(Duration.ZERO, State.DONE)));
+                await -> await.timeout(Duration.ZERO, State.DONE)));
         assertRejected("must be positive", () -> startWithStep().await(State.WAIT,
-            await -> await.every(Duration.ofSeconds(-1), ON_TIMER, State.DONE)));
+                await -> await.every(Duration.ofSeconds(-1), ON_TIMER, State.DONE)));
         assertRejected("cannot be negative", () -> startWithStep().await(State.WAIT,
-            await -> await.every(Duration.ofSeconds(1), ON_TIMER, State.DONE,
-                options -> options.initialDelay(Duration.ofSeconds(-1)))));
+                await -> await.every(Duration.ofSeconds(1), ON_TIMER, State.DONE,
+                        options -> options.initialDelay(Duration.ofSeconds(-1)))));
         assertRejected("conflicting payload classes", () -> startWithStep().await(State.WAIT, await -> await
-                .message(MESSAGE, ON_MESSAGE, State.WAIT).timeout(Duration.ofSeconds(1), State.DONE))
+            .message(MESSAGE, ON_MESSAGE, State.WAIT)
+            .timeout(Duration.ofSeconds(1), State.DONE))
             .await(State.OTHER, await -> await.message(MessageType.of("MESSAGE", Integer.class),
-                (context, message) -> { }, State.OTHER).timeout(Duration.ofSeconds(1), State.DONE))
-            .terminal(State.DONE).build());
+                    (context, message) -> {}, State.OTHER)
+                .timeout(Duration.ofSeconds(1), State.DONE))
+            .terminal(State.DONE)
+            .build());
     }
 
-    @Test void checksFallbackStateIsDeclared() {
+    @Test
+    void checksFallbackStateIsDeclared() {
         assertRejected("fallbackState", () -> new ProcessSpecBuilder().type(TYPE)
-            .onError(ProcessErrorHandler.noRetry(), State.OTHER).initialState(State.START)
-            .step(State.START, STEP, State.DONE).terminal(State.DONE).build());
-        var spec = new ProcessSpecBuilder().type(TYPE).onError(ProcessErrorHandler.noRetry(), State.DONE)
-            .initialState(State.START).step(State.START, STEP, State.DONE).terminal(State.DONE).build();
+            .onError(ProcessErrorHandler.noRetry(), State.OTHER)
+            .initialState(State.START)
+            .step(State.START, STEP, State.DONE)
+            .terminal(State.DONE)
+            .build());
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .onError(ProcessErrorHandler.noRetry(), State.DONE)
+            .initialState(State.START)
+            .step(State.START, STEP, State.DONE)
+            .terminal(State.DONE)
+            .build();
         assertEquals(State.DONE.id(), spec.getFallbackState().orElseThrow());
     }
 
-    @Test void validatesMessageTypeAndErrorResultArguments() {
+    @Test
+    void validatesMessageTypeAndErrorResultArguments() {
         assertThrows(IllegalArgumentException.class, () -> MessageType.of(" ", String.class));
         assertThrows(NullPointerException.class, () -> MessageType.of("x", (Class<String>) null));
         assertThrows(IllegalArgumentException.class, () -> ErrorResult.retryAfter(Duration.ofSeconds(-1)));
     }
 
-    @Test void invokesHandlersPassedToTheDsl() {
+    @Test
+    void invokesHandlersPassedToTheDsl() {
         var calls = new ArrayList<String>();
         ProcessStep linear = context -> calls.add("linear");
         BranchingStep<Outcome> branching = context -> {
@@ -170,7 +223,8 @@ class ProcessSpecBuilderTest {
         ProcessMessageHandler<String> messageHandler = (context, message) -> calls.add("message");
         ProcessTimerHandler timerHandler = context -> calls.add("timer");
 
-        var spec = new ProcessSpecBuilder().type(TYPE).initialState(State.START)
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.START)
             .step(State.START, linear, State.WAIT)
             .step(State.OTHER, branching, routes -> routes.on(Outcome.A, State.DONE).on(Outcome.B, State.WAIT))
             .await(State.WAIT, await -> await.message(MESSAGE, messageHandler, State.DONE)
@@ -189,11 +243,13 @@ class ProcessSpecBuilderTest {
         assertEquals(new Target(State.WAIT.id()), await.every().exit());
     }
 
-    @Test void routesDifferentPayloadTypesToMethodsOfTheSameHandlerObject() {
+    @Test
+    void routesDifferentPayloadTypesToMethodsOfTheSameHandlerObject() {
         var handlers = new MultiMessageHandlers();
         var paymentType = MessageType.of("PAYMENT", Payment.class);
         var cancellationType = MessageType.of("CANCELLATION", String.class);
-        var spec = new ProcessSpecBuilder().type(TYPE).initialState(State.WAIT)
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.WAIT)
             .await(State.WAIT, await -> await
                 .message(paymentType, handlers::payment, State.DONE)
                 .message(cancellationType, handlers::cancellation, State.DONE))
@@ -211,8 +267,9 @@ class ProcessSpecBuilderTest {
     private static <T> Enum<?> callMessage(MessageEvent<?> event, MessageType<T> type, T payload) {
         @SuppressWarnings("unchecked")
         var typed = (MessageEvent<T>) event;
-        return typed.handler().apply(null, new IncomingMessage<>(UUID.randomUUID(), type, payload,
-            java.time.Instant.now()));
+        return typed.handler()
+            .apply(null, new IncomingMessage<>(UUID.randomUUID(), type, payload,
+                    java.time.Instant.now()));
     }
 
     private static ProcessSpecBuilder.StatesBuilder start() {
@@ -243,14 +300,27 @@ class ProcessSpecBuilderTest {
     private record Payment(String transactionId) {
     }
 
-    private enum Outcome { A, B }
+    private enum Outcome {
+        A,
+        B
+    }
 
-    private enum StateOutcome implements ProcessState { X }
+    private enum StateOutcome implements ProcessState {
+        X
+    }
 
-    private enum State implements ProcessState { START, WAIT, OTHER, AFTER, DONE }
+    private enum State implements ProcessState {
+        START,
+        WAIT,
+        OTHER,
+        AFTER,
+        DONE
+    }
 
     private enum DescribedState implements ProcessState {
-        START("Start"), BLANK(" "), DONE("End");
+        START("Start"),
+        BLANK(" "),
+        DONE("End");
 
         private final String description;
 

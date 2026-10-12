@@ -67,7 +67,8 @@ class SagaTest {
     void deliveryFailureCompensatesAfterRetries() {
         var orderId = newOrderId();
         doThrow(new IllegalStateException("Delivery service is unavailable"))
-                .when(delivery).schedule(any(), any());
+            .when(delivery)
+            .schedule(any(), any());
         var processId = startOrder(orderId, AMOUNT);
 
         var cancelled = runThroughRetries(processId);
@@ -80,7 +81,8 @@ class SagaTest {
     void failedCompensationStopsForOperator() {
         var orderId = newOrderId();
         doThrow(new IllegalStateException("Warehouse is unavailable"))
-                .when(warehouse).release(any());
+            .when(warehouse)
+            .release(any());
         var processId = startOrder(orderId, TOO_MUCH);
 
         var failed = runThroughRetries(processId);
@@ -93,7 +95,7 @@ class SagaTest {
     /** Runs the process through all retries: 1, 2 and 4 seconds. */
     private ProcessInstanceDetails runThroughRetries(UUID processId) {
         var process = emulator.runUntilStop(processId);
-        for (var delay : new int[] {1, 2, 4}) {
+        for (var delay : new int[]{1, 2, 4}) {
             emulator.fastForwardTime(Duration.ofSeconds(delay));
             process = emulator.runUntilStop(processId);
         }
@@ -109,11 +111,11 @@ class SagaTest {
 
     private UUID startOrder(String orderId, BigDecimal amount) {
         return processEngine.newProcess(OrderFulfillmentDefinition.TYPE)
-                .businessKey(orderId)
-                .variable(OrderFulfillmentDefinition.ITEM, "Keyboard")
-                .variable(OrderFulfillmentDefinition.AMOUNT, amount)
-                .variable(OrderFulfillmentDefinition.ADDRESS, "Berlin")
-                .start();
+            .businessKey(orderId)
+            .variable(OrderFulfillmentDefinition.ITEM, "Keyboard")
+            .variable(OrderFulfillmentDefinition.AMOUNT, amount)
+            .variable(OrderFulfillmentDefinition.ADDRESS, "Berlin")
+            .start();
     }
 
     private static String newOrderId() {

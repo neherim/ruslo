@@ -35,8 +35,14 @@ public final class LeaseDispatcher implements ProcessDispatcher {
      *
      * @param ownerId supplies the current registration id of this instance
      */
-    public LeaseDispatcher(Supplier<UUID> ownerId, LeaseDao leaseDao, LeaseReleaser leaseReleaser,
-                           WorkerRegistry workerRegistry, ProcessEngineMetrics metrics, Clock clock) {
+    public LeaseDispatcher(
+            Supplier<UUID> ownerId,
+            LeaseDao leaseDao,
+            LeaseReleaser leaseReleaser,
+            WorkerRegistry workerRegistry,
+            ProcessEngineMetrics metrics,
+            Clock clock
+    ) {
         this.ownerId = Objects.requireNonNull(ownerId, "Lease owner id supplier must not be null");
         this.leaseDao = Objects.requireNonNull(leaseDao, "Lease DAO must not be null");
         this.leaseReleaser = Objects.requireNonNull(leaseReleaser, "Lease releaser must not be null");

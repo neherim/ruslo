@@ -1,11 +1,11 @@
 package io.github.neherim.ruslo.core.search;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails.StateHistoryEntry;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceSummary;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.utils.DateTimeUtils;
@@ -19,21 +19,21 @@ import java.util.*;
 /** Searches and filters process instances. */
 public class ProcessInstanceSearchDao {
     private static final String SELECT_SUMMARIES_SQL = """
-        select id, type, state, status, create_at, scheduled_at, business_key, attempt
-        from xs_process_instance where 1=1
-        """;
+            select id, type, state, status, create_at, scheduled_at, business_key, attempt
+            from xs_process_instance where 1=1
+            """;
 
     private static final String SELECT_DETAILS_SQL = """
-        select id, type, state, status, create_at, scheduled_at, business_key, attempt,
-               correlation_id, last_error, variables
-        from xs_process_instance where 1=1
-        """;
+            select id, type, state, status, create_at, scheduled_at, business_key, attempt,
+                   correlation_id, last_error, variables
+            from xs_process_instance where 1=1
+            """;
 
     private static final String SELECT_STATE_HIST_SQL = """
-        select state, changed_at from xs_process_state_hist
-        where link_process_instance = ?
-        order by changed_at, id
-        """;
+            select state, changed_at from xs_process_state_hist
+            where link_process_instance = ?
+            order by changed_at, id
+            """;
 
     private final Database database;
     private final ObjectMapper objectMapper;
@@ -49,8 +49,12 @@ public class ProcessInstanceSearchDao {
      *
      * @param lock locks the returned rows ({@code for update})
      */
-    public List<ProcessInstanceSummary> findSummaries(ProcessSearchCriteria criteria, Integer limit, Integer offset,
-                                                      boolean lock) {
+    public List<ProcessInstanceSummary> findSummaries(
+            ProcessSearchCriteria criteria,
+            Integer limit,
+            Integer offset,
+            boolean lock
+    ) {
         var sql = new StringBuilder(SELECT_SUMMARIES_SQL);
         var params = new ArrayList<>();
         appendFilterClauses(sql, params, criteria);
@@ -83,7 +87,6 @@ public class ProcessInstanceSearchDao {
 
         return database.queryForList(sql.toString(), this::mapDetailsRow, params.toArray());
     }
-
 
     private void appendFilterClauses(StringBuilder sql, List<Object> params, ProcessSearchCriteria filter) {
         if (filter.processId() != null) {
@@ -141,25 +144,25 @@ public class ProcessInstanceSearchDao {
         var state = ProcessState.of(rs.getString("state"));
         var stateHistory = database.queryForList(SELECT_STATE_HIST_SQL, this::mapStateHistoryRow, id);
         return new ProcessInstanceDetails(
-            id,
-            type,
-            state,
-            ProcessStatus.valueOf(rs.getString("status")),
-            DateTimeUtils.toInstant(rs.getTimestamp("create_at")),
-            Optional.ofNullable(DateTimeUtils.toInstant(rs.getTimestamp("scheduled_at"))),
-            Optional.ofNullable(rs.getString("business_key")),
-            rs.getString("correlation_id"),
-            rs.getInt("attempt"),
-            Optional.ofNullable(rs.getString("last_error")),
-            stateHistory,
-            new ProcessVariablesSnapshot(ProcessVariables.fromString(objectMapper, rs.getString("variables")))
+                id,
+                type,
+                state,
+                ProcessStatus.valueOf(rs.getString("status")),
+                DateTimeUtils.toInstant(rs.getTimestamp("create_at")),
+                Optional.ofNullable(DateTimeUtils.toInstant(rs.getTimestamp("scheduled_at"))),
+                Optional.ofNullable(rs.getString("business_key")),
+                rs.getString("correlation_id"),
+                rs.getInt("attempt"),
+                Optional.ofNullable(rs.getString("last_error")),
+                stateHistory,
+                new ProcessVariablesSnapshot(ProcessVariables.fromString(objectMapper, rs.getString("variables")))
         );
     }
 
     private StateHistoryEntry mapStateHistoryRow(ResultSet rs) throws SQLException {
         return new StateHistoryEntry(
-            ProcessState.of(rs.getString("state")),
-            rs.getTimestamp("changed_at").toInstant()
+                ProcessState.of(rs.getString("state")),
+                rs.getTimestamp("changed_at").toInstant()
         );
     }
 
@@ -167,13 +170,13 @@ public class ProcessInstanceSearchDao {
         var type = ProcessType.of(rs.getString("type"));
         var state = ProcessState.of(rs.getString("state"));
         return new ProcessInstanceSummary(
-            rs.getObject("id", UUID.class),
-            type,
-            state,
-            ProcessStatus.valueOf(rs.getString("status")),
-            DateTimeUtils.toInstant(rs.getTimestamp("create_at")),
-            Optional.ofNullable(DateTimeUtils.toInstant(rs.getTimestamp("scheduled_at"))),
-            Optional.ofNullable(rs.getString("business_key")),
-            rs.getInt("attempt"));
+                rs.getObject("id", UUID.class),
+                type,
+                state,
+                ProcessStatus.valueOf(rs.getString("status")),
+                DateTimeUtils.toInstant(rs.getTimestamp("create_at")),
+                Optional.ofNullable(DateTimeUtils.toInstant(rs.getTimestamp("scheduled_at"))),
+                Optional.ofNullable(rs.getString("business_key")),
+                rs.getInt("attempt"));
     }
 }

@@ -42,20 +42,20 @@ class ProcessEngineAdminUiHtmxControllersTest {
         assertThat(viewName).isEqualTo("ruslo-admin/dashboard/fragments :: dashboard");
         assertThat(service.zone).isEqualTo(ZoneId.of("Europe/Berlin"));
         assertThat(html)
-                .contains("href=\"processes?status=FAILED\"")
-                .contains("href=\"processes?status=ACTIVE&amp;scheduledAtTo=2026-10-11T10:15&amp;timeZone=Europe/Berlin\"")
-                .contains("href=\"processes?typeName=ORDER&amp;status=FAILED\"")
-                .contains("metric-value numeric is-failed")
-                .contains("<strong>4</strong> failed")
-                .contains("<strong>0</strong> active")
-                .contains("data-diagram-type=\"ORDER\"")
-                .contains("data-diagram-type=\"TICKET\"")
-                .contains("data-start-type=\"TICKET\"")
-                .contains("this node")
-                .contains("expires in 25s")
-                .contains("expired 3s ago")
-                .doesNotContain("Ready to start")
-                .doesNotContain("bpmn");
+            .contains("href=\"processes?status=FAILED\"")
+            .contains("href=\"processes?status=ACTIVE&amp;scheduledAtTo=2026-10-11T10:15&amp;timeZone=Europe/Berlin\"")
+            .contains("href=\"processes?typeName=ORDER&amp;status=FAILED\"")
+            .contains("metric-value numeric is-failed")
+            .contains("<strong>4</strong> failed")
+            .contains("<strong>0</strong> active")
+            .contains("data-diagram-type=\"ORDER\"")
+            .contains("data-diagram-type=\"TICKET\"")
+            .contains("data-start-type=\"TICKET\"")
+            .contains("this node")
+            .contains("expires in 25s")
+            .contains("expired 3s ago")
+            .doesNotContain("Ready to start")
+            .doesNotContain("bpmn");
     }
 
     @Test
@@ -174,8 +174,8 @@ class ProcessEngineAdminUiHtmxControllersTest {
         });
 
         assertThatThrownBy(() -> controller.processDetails(UUID.randomUUID(), null, new MockHttpServletResponse()))
-                .isInstanceOfSatisfying(ResponseStatusException.class,
-                        ex -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                    ex -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
     }
 
     @Test
@@ -194,8 +194,8 @@ class ProcessEngineAdminUiHtmxControllersTest {
         assertThat(model.getAttribute("error")).isEqualTo(false);
         assertThat(response.getStatus()).isEqualTo(200);
         assertThatTrigger(response)
-                .hasEvent("processDetailsChanged")
-                .hasToast("success", "Retry scheduled");
+            .hasEvent("processDetailsChanged")
+            .hasToast("success", "Retry scheduled");
     }
 
     @Test
@@ -212,8 +212,8 @@ class ProcessEngineAdminUiHtmxControllersTest {
         assertThat(model.getAttribute("error")).isEqualTo(true);
         assertThat(response.getStatus()).isEqualTo(422);
         assertThatTrigger(response)
-                .hasToast("error", "Process is completed")
-                .doesNotHaveEvent("processDetailsChanged");
+            .hasToast("error", "Process is completed")
+            .doesNotHaveEvent("processDetailsChanged");
     }
 
     @Test
@@ -224,7 +224,8 @@ class ProcessEngineAdminUiHtmxControllersTest {
         var response = new MockHttpServletResponse();
         var model = new ConcurrentModel();
 
-        var viewName = controller.setVariable(processId, "customer", "{\"name\":\"Ada\"}", new MockHttpServletRequest(), response, model);
+        var viewName = controller.setVariable(processId, "customer", "{\"name\":\"Ada\"}", new MockHttpServletRequest(),
+                response, model);
 
         assertThat(viewName).isEqualTo("ruslo-admin/shared/fragments :: statusLine");
         assertThat(adminService.variableProcessId).isEqualTo(processId);
@@ -234,8 +235,8 @@ class ProcessEngineAdminUiHtmxControllersTest {
         assertThat(model.getAttribute("error")).isEqualTo(false);
         assertThat(response.getStatus()).isEqualTo(200);
         assertThatTrigger(response)
-                .hasEvent("processDetailsChanged")
-                .hasToast("success", "Variable saved");
+            .hasEvent("processDetailsChanged")
+            .hasToast("success", "Variable saved");
     }
 
     @Test
@@ -245,15 +246,16 @@ class ProcessEngineAdminUiHtmxControllersTest {
         var response = new MockHttpServletResponse();
         var model = new ConcurrentModel();
 
-        var viewName = controller.setVariable(UUID.randomUUID(), "customer", "{bad", new MockHttpServletRequest(), response, model);
+        var viewName = controller.setVariable(UUID.randomUUID(), "customer", "{bad", new MockHttpServletRequest(),
+                response, model);
 
         assertThat(viewName).isEqualTo("ruslo-admin/shared/fragments :: statusLine");
         assertThat(model.getAttribute("status")).isEqualTo("Invalid JSON");
         assertThat(model.getAttribute("error")).isEqualTo(true);
         assertThat(response.getStatus()).isEqualTo(422);
         assertThatTrigger(response)
-                .hasToast("error", "Invalid JSON")
-                .doesNotHaveEvent("processDetailsChanged");
+            .hasToast("error", "Invalid JSON")
+            .doesNotHaveEvent("processDetailsChanged");
     }
 
     @Test
@@ -263,13 +265,14 @@ class ProcessEngineAdminUiHtmxControllersTest {
         var response = new MockHttpServletResponse();
         var model = new ConcurrentModel();
 
-        var viewName = controller.setVariable(UUID.randomUUID(), "customer", "{bad", new MockHttpServletRequest(), response, model);
+        var viewName = controller.setVariable(UUID.randomUUID(), "customer", "{bad", new MockHttpServletRequest(),
+                response, model);
 
         assertThat(viewName).isEqualTo("ruslo-admin/shared/fragments :: statusLine");
         assertThat(response.getHeader("HX-Trigger"))
-                .contains("\\\"JSON\\\"")
-                .contains("\\\\ value")
-                .contains("\\nline");
+            .contains("\\\"JSON\\\"")
+            .contains("\\\\ value")
+            .contains("\\nline");
     }
 
     @Test
@@ -289,8 +292,8 @@ class ProcessEngineAdminUiHtmxControllersTest {
         assertThat(model.getAttribute("error")).isEqualTo(false);
         assertThat(response.getStatus()).isEqualTo(200);
         assertThatTrigger(response)
-                .hasEvent("processDetailsChanged")
-                .hasToast("success", "Variable removed");
+            .hasEvent("processDetailsChanged")
+            .hasToast("success", "Variable removed");
     }
 
     @Test
@@ -299,15 +302,16 @@ class ProcessEngineAdminUiHtmxControllersTest {
         var response = new MockHttpServletResponse();
         var model = new ConcurrentModel();
 
-        var viewName = controller.removeVariable(UUID.randomUUID(), "customer", new MockHttpServletRequest(), response, model);
+        var viewName = controller.removeVariable(UUID.randomUUID(), "customer", new MockHttpServletRequest(), response,
+                model);
 
         assertThat(viewName).isEqualTo("ruslo-admin/shared/fragments :: statusLine");
         assertThat(model.getAttribute("status")).isEqualTo("Variable was not found");
         assertThat(model.getAttribute("error")).isEqualTo(false);
         assertThat(response.getStatus()).isEqualTo(200);
         assertThatTrigger(response)
-                .hasToast("info", "Variable was not found")
-                .doesNotHaveEvent("processDetailsChanged");
+            .hasToast("info", "Variable was not found")
+            .doesNotHaveEvent("processDetailsChanged");
     }
 
     private static TriggerAssert assertThatTrigger(MockHttpServletResponse response) {
@@ -335,8 +339,8 @@ class ProcessEngineAdminUiHtmxControllersTest {
             assertThat(trigger.get("toast")).isInstanceOf(Map.class);
             var toast = (Map<String, Object>) trigger.get("toast");
             assertThat(toast)
-                    .containsEntry("kind", kind)
-                    .containsEntry("text", text);
+                .containsEntry("kind", kind)
+                .containsEntry("text", text);
             return this;
         }
     }
@@ -447,8 +451,10 @@ class ProcessEngineAdminUiHtmxControllersTest {
 
     private static class DashboardAdminService extends DefinitionsAdminService {
         private static final List<DashboardResponse.InstanceResponse> INSTANCES = List.of(
-                new DashboardResponse.InstanceResponse(UUID.fromString("01a1280a-0e00-7000-8000-ec6504b28789"), 2, 25, true),
-                new DashboardResponse.InstanceResponse(UUID.fromString("01a1280a-0e00-7000-8000-000000000002"), 0, -3, false));
+                new DashboardResponse.InstanceResponse(UUID.fromString("01a1280a-0e00-7000-8000-ec6504b28789"), 2, 25,
+                        true),
+                new DashboardResponse.InstanceResponse(UUID.fromString("01a1280a-0e00-7000-8000-000000000002"), 0, -3,
+                        false));
 
         private final List<DashboardResponse.InstanceResponse> instances;
         private ZoneId zone;
@@ -466,7 +472,7 @@ class ProcessEngineAdminUiHtmxControllersTest {
             this.zone = zone;
             return new DashboardResponse(3, 4, 0, "2026-10-11T10:15", zone.getId(),
                     Map.of("TICKET", new DashboardResponse.TypeCounts(3, 0, 0),
-                        "ORDER", new DashboardResponse.TypeCounts(0, 4, 0)),
+                            "ORDER", new DashboardResponse.TypeCounts(0, 4, 0)),
                     instances);
         }
     }
@@ -484,16 +490,21 @@ class ProcessEngineAdminUiHtmxControllersTest {
                             "Order",
                             "CREATED",
                             List.of(
-                                    new DefinitionResponse.StateResponse("CREATED", null, "STEP", "default", List.of(), null),
-                                    new DefinitionResponse.StateResponse("PAID", null, "STEP", "default", List.of(), null),
-                                    new DefinitionResponse.StateResponse("CANCELLED", null, "STEP", "default", List.of(), null))),
+                                    new DefinitionResponse.StateResponse("CREATED", null, "STEP", "default", List.of(),
+                                            null),
+                                    new DefinitionResponse.StateResponse("PAID", null, "STEP", "default", List.of(),
+                                            null),
+                                    new DefinitionResponse.StateResponse("CANCELLED", null, "STEP", "default",
+                                            List.of(), null))),
                     new DefinitionResponse(
                             "TICKET",
                             "Ticket",
                             "WAITING",
                             List.of(
-                                    new DefinitionResponse.StateResponse("WAITING", null, "STEP", "default", List.of(), null),
-                                    new DefinitionResponse.StateResponse("CANCELLED", null, "STEP", "default", List.of(), null))));
+                                    new DefinitionResponse.StateResponse("WAITING", null, "STEP", "default", List.of(),
+                                            null),
+                                    new DefinitionResponse.StateResponse("CANCELLED", null, "STEP", "default",
+                                            List.of(), null))));
         }
     }
 

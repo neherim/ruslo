@@ -20,9 +20,9 @@ public class OrderService {
      */
     public UUID createOrder(String customerId) {
         return processEngine.newProcess(OrderProcessDefinition.TYPE)
-                .businessKey(customerId)
-                .variable(Constants.CUSTOMER_ID, customerId)
-                .start();
+            .businessKey(customerId)
+            .variable(Constants.CUSTOMER_ID, customerId)
+            .start();
     }
 
     /**

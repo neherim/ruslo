@@ -22,7 +22,8 @@ class ProcessDispatchSchedulerTest {
     void wakeUpShouldInterruptPollingDelayWithoutLosingSignal() {
         var dispatcher = new BacklogDispatcher(0);
         var signal = new ProcessDispatchSignal();
-        var scheduler = new ProcessDispatchScheduler(Duration.ofSeconds(30), Duration.ofSeconds(30), dispatcher, signal, Clock.systemUTC());
+        var scheduler = new ProcessDispatchScheduler(Duration.ofSeconds(30), Duration.ofSeconds(30), dispatcher, signal,
+                Clock.systemUTC());
         try {
             scheduler.start();
             await().atMost(Duration.ofSeconds(2)).until(() -> dispatcher.cycles.get() == 1);

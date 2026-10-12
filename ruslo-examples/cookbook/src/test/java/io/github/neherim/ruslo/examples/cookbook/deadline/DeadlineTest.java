@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.examples.cookbook.deadline;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
-import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
+import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.examples.cookbook.CookbookApplication;
 import io.github.neherim.ruslo.spring.test.ProcessEngineTest;
@@ -64,7 +64,7 @@ class DeadlineTest {
 
     private UUID startReservation() {
         return processEngine.newProcess(SeatReservationDefinition.TYPE)
-                .variable(SeatReservationDefinition.SEAT, "A-" + UUID.randomUUID())
-                .start();
+            .variable(SeatReservationDefinition.SEAT, "A-" + UUID.randomUUID())
+            .start();
     }
 }

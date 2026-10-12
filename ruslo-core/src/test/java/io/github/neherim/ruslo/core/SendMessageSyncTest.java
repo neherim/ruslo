@@ -31,7 +31,8 @@ class SendMessageSyncTest extends BaseTest {
     @BeforeEach
     void setUp() {
         ProcessDefinition definition = builder -> builder.type(TYPE.name())
-            .onError(ProcessErrorHandler.fixed(3, Duration.ofHours(1))).initialState(State.WAIT)
+            .onError(ProcessErrorHandler.fixed(3, Duration.ofHours(1)))
+            .initialState(State.WAIT)
             .await(State.WAIT, await -> await
                 .message(SIGNAL, (context, message) -> {
                     log.add(message.payload());
@@ -40,7 +41,8 @@ class SendMessageSyncTest extends BaseTest {
                 }, State.NEXT)
                 .message(NOTE, (context, message) -> log.add("note:" + message.payload()), State.WAIT))
             .step(State.NEXT, context -> log.add("next"), State.DONE)
-            .terminal(State.DONE).build();
+            .terminal(State.DONE)
+            .build();
         engine = newProcessEngineWith(definition);
     }
 
@@ -90,10 +92,12 @@ class SendMessageSyncTest extends BaseTest {
         var id = engine.newProcess(TYPE).start();
         engine.sendMessageSync(id, SIGNAL, "m");
 
-        var unexpected = assertThrows(MessageNotExpectedException.class, () -> engine.sendMessageSync(id, SIGNAL, "again"));
+        var unexpected = assertThrows(MessageNotExpectedException.class,
+                () -> engine.sendMessageSync(id, SIGNAL, "again"));
         assertEquals("NEXT", unexpected.getCurrentState());
         emulator(engine).runUntilStop(id);
-        var completed = assertThrows(MessageNotExpectedException.class, () -> engine.sendMessageSync(id, SIGNAL, "late"));
+        var completed = assertThrows(MessageNotExpectedException.class,
+                () -> engine.sendMessageSync(id, SIGNAL, "late"));
         assertEquals("DONE", completed.getCurrentState());
         assertEquals(List.of("m", "next"), log);
     }
@@ -153,13 +157,19 @@ class SendMessageSyncTest extends BaseTest {
 
     private String availableAt(UUID id) {
         return database.queryForObject("select available_at from xs_process_instance where id = ?",
-            rs -> rs.getString(1), id).orElseThrow();
+                rs -> rs.getString(1), id)
+            .orElseThrow();
     }
 
     private String messages(UUID id) {
         return database.queryForObject("select messages from xs_process_instance where id = ?",
-            rs -> rs.getString(1), id).orElseThrow();
+                rs -> rs.getString(1), id)
+            .orElseThrow();
     }
 
-    private enum State implements ProcessState { WAIT, NEXT, DONE }
+    private enum State implements ProcessState {
+        WAIT,
+        NEXT,
+        DONE
+    }
 }

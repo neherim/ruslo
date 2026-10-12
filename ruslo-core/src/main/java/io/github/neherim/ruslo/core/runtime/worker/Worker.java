@@ -1,7 +1,7 @@
 package io.github.neherim.ruslo.core.runtime.worker;
 
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
 
 /** Executes steps of processes routed to one {@link WorkerId}, in parallel up to its capacity. */

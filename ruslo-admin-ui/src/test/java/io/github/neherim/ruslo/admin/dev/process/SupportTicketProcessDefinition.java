@@ -1,10 +1,10 @@
 package io.github.neherim.ruslo.admin.dev.process;
 
-import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
-import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
+import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import org.springframework.stereotype.Component;
 
@@ -35,14 +35,14 @@ public class SupportTicketProcessDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .description("Sample support ticket processing")
-                .initialState(State.OPEN)
-                .step(State.OPEN, context -> { }, State.WAITING_FOR_AGENT)
-                .await(State.WAITING_FOR_AGENT, await -> await.message(
-                    MessageType.of("resolveTicket", String.class), (context, message) -> { },
+            .type(TYPE)
+            .description("Sample support ticket processing")
+            .initialState(State.OPEN)
+            .step(State.OPEN, context -> {}, State.WAITING_FOR_AGENT)
+            .await(State.WAITING_FOR_AGENT, await -> await.message(
+                    MessageType.of("resolveTicket", String.class), (context, message) -> {},
                     State.RESOLVED))
-                .terminal(State.RESOLVED)
-                .build();
+            .terminal(State.RESOLVED)
+            .build();
     }
 }

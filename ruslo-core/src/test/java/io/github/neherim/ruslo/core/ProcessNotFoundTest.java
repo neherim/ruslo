@@ -17,10 +17,10 @@ class ProcessNotFoundTest extends BaseTest {
         var processId = UUID.randomUUID();
 
         assertAll(
-            () -> assertThrows(ProcessNotFoundException.class,
-                () -> processEngine.resumeFailedProcess(processId)),
-            () -> assertThrows(ProcessNotFoundException.class,
-                () -> emulator(processEngine).runOneStep(processId))
+                () -> assertThrows(ProcessNotFoundException.class,
+                        () -> processEngine.resumeFailedProcess(processId)),
+                () -> assertThrows(ProcessNotFoundException.class,
+                        () -> emulator(processEngine).runOneStep(processId))
         );
     }
 
@@ -30,7 +30,7 @@ class ProcessNotFoundTest extends BaseTest {
         var emulator = emulator(newProcessEngine());
 
         var exception = assertThrows(ProcessNotFoundException.class,
-            () -> emulator.runUntilStop(processId));
+                () -> emulator.runUntilStop(processId));
 
         assertEquals("Process " + processId + " not found", exception.getMessage());
     }

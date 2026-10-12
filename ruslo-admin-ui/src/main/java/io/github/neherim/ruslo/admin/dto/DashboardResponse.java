@@ -15,7 +15,8 @@ public record DashboardResponse(
         String overdueAt,
         String timeZone,
         Map<String, TypeCounts> typeCounts,
-        List<InstanceResponse> instances) {
+        List<InstanceResponse> instances
+) {
     private static final TypeCounts NO_PROCESSES = new TypeCounts(0, 0, 0);
 
     /**

@@ -28,8 +28,8 @@ class IoWorkerTest {
     @Test
     void exportsDocumentAndStoresFileUrl() {
         var processId = processEngine.newProcess(DocumentExportDefinition.TYPE)
-                .variable(DocumentExportDefinition.DOCUMENT_ID, "invoice-42")
-                .start();
+            .variable(DocumentExportDefinition.DOCUMENT_ID, "invoice-42")
+            .start();
 
         var completed = emulator.runUntilStop(processId);
 

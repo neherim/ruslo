@@ -61,9 +61,10 @@ class BatchTest {
     void continuesFromCursorAfterFailure() {
         // The second batch fails: the first is already committed, the second is rolled back entirely
         doCallRealMethod()
-                .doThrow(new IllegalStateException("Lock timeout"))
-                .doCallRealMethod()
-                .when(accountRepository).addPoints(anyList(), anyInt());
+            .doThrow(new IllegalStateException("Lock timeout"))
+            .doCallRealMethod()
+            .when(accountRepository)
+            .addPoints(anyList(), anyInt());
         var processId = startAccrual();
 
         var failed = emulator.runUntilStop(processId);
@@ -84,8 +85,8 @@ class BatchTest {
 
     private UUID startAccrual() {
         return processEngine.newProcess(BonusAccrualDefinition.TYPE)
-                .variable(BonusAccrualDefinition.BONUS_POINTS, BONUS)
-                .start();
+            .variable(BonusAccrualDefinition.BONUS_POINTS, BONUS)
+            .start();
     }
 
     private List<Integer> distinctPoints() {
@@ -94,8 +95,8 @@ class BatchTest {
 
     private int countWithPoints(int points) {
         return jdbcClient.sql("select count(*) from loyalty_account where points = ?")
-                .param(points)
-                .query(Integer.class)
-                .single();
+            .param(points)
+            .query(Integer.class)
+            .single();
     }
 }

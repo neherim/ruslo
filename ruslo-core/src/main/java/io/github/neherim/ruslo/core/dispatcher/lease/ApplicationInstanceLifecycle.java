@@ -39,8 +39,12 @@ public final class ApplicationInstanceLifecycle implements AutoCloseable {
      * @param heartbeatInterval interval of heartbeat and recovery
      * @param instanceTimeout   time after which an instance without a heartbeat is considered dead
      */
-    public ApplicationInstanceLifecycle(Duration heartbeatInterval, Duration instanceTimeout,
-                                        ApplicationInstanceDao instanceDao, ProcessEngineMetrics metrics) {
+    public ApplicationInstanceLifecycle(
+            Duration heartbeatInterval,
+            Duration instanceTimeout,
+            ApplicationInstanceDao instanceDao,
+            ProcessEngineMetrics metrics
+    ) {
         this.heartbeatInterval = Objects.requireNonNull(heartbeatInterval, "Heartbeat interval must not be null");
         this.instanceTimeout = Objects.requireNonNull(instanceTimeout, "Instance timeout must not be null");
         this.instanceDao = Objects.requireNonNull(instanceDao, "Application instance DAO must not be null");
@@ -106,7 +110,7 @@ public final class ApplicationInstanceLifecycle implements AutoCloseable {
             var result = instanceDao.recover();
             if (result.removedInstances() > 0 || result.releasedLeases() > 0) {
                 log.warn("Removed {} expired application instances and released {} leases",
-                    result.removedInstances(), result.releasedLeases());
+                        result.removedInstances(), result.releasedLeases());
             }
         } catch (Throwable ex) {
             metrics.recordSystemError();

@@ -20,7 +20,6 @@ public interface ProcessType {
         return name().equals(typeName);
     }
 
-
     /** Returns the canonical type with the same name. */
     default ProcessTypeId id() {
         return new ProcessTypeId(name());

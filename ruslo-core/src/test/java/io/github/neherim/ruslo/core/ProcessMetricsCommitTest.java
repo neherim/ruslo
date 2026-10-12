@@ -20,16 +20,22 @@ class ProcessMetricsCommitTest extends BaseTest {
     private static final ProcessType FAILING = ProcessType.of("METRICS_FAILING");
     private static final MessageType<String> SIGNAL = MessageType.of("signal", String.class);
 
-    @Test void completionMetricIsRecordedOnlyAfterCommitWhileHandlerMetricCountsEveryCall() {
+    @Test
+    void completionMetricIsRecordedOnlyAfterCommitWhileHandlerMetricCountsEveryCall() {
         var metrics = new InMemoryProcessEngineMetrics();
-        ProcessDefinition definition = builder -> builder.type(TYPE).initialState(State.START)
-            .step(State.START, context -> { }, State.WAIT)
+        ProcessDefinition definition = builder -> builder.type(TYPE)
+            .initialState(State.START)
+            .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL,
-                (context, message) -> { }, State.DONE))
-            .terminal(State.DONE).build();
+                    (context, message) -> {}, State.DONE))
+            .terminal(State.DONE)
+            .build();
         var engine = new ProcessEngineBuilder(database).addProcessDefinition(definition)
-            .withMetrics(metrics).withDatabaseMigrationEnabled(false)
-            .withDispatcherEnabled(false).build().start();
+            .withMetrics(metrics)
+            .withDatabaseMigrationEnabled(false)
+            .withDispatcherEnabled(false)
+            .build()
+            .start();
         try {
             var id = engine.newProcess(TYPE).start();
             assertThrows(IllegalStateException.class, () -> database.doInTransaction(() -> {
@@ -61,19 +67,28 @@ class ProcessMetricsCommitTest extends BaseTest {
             new ProcessEngineAdmin(engine).moveProcessToState(moved, State.DONE);
             assertEquals(2, metrics.getProcessCompletedCount(TYPE));
             assertEquals(4, metrics.getTotalStepsExecuted());
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
-    @Test void handlerErrorIsRecordedAndGaugesFollowProcessStatus() {
+    @Test
+    void handlerErrorIsRecordedAndGaugesFollowProcessStatus() {
         var metrics = new InMemoryProcessEngineMetrics();
         var clock = new MutableClock(Instant.parse("2026-10-07T10:00:00Z"));
         ProcessDefinition definition = builder -> builder.type(FAILING)
-            .onError((context, error) -> ErrorResult.fail()).initialState(State.START)
+            .onError((context, error) -> ErrorResult.fail())
+            .initialState(State.START)
             .step(State.START, context -> fail(), State.DONE)
-            .terminal(State.DONE).build();
+            .terminal(State.DONE)
+            .build();
         var engine = new ProcessEngineBuilder(database).addProcessDefinition(definition)
-            .withMetrics(metrics).withClock(clock).withDatabaseMigrationEnabled(false)
-            .withDispatcherEnabled(false).build().start();
+            .withMetrics(metrics)
+            .withClock(clock)
+            .withDatabaseMigrationEnabled(false)
+            .withDispatcherEnabled(false)
+            .build()
+            .start();
         try {
             var worker = metrics.getWorkerMetrics(WorkerId.DEFAULT.name());
             var id = engine.newProcess(FAILING).start();
@@ -93,20 +108,45 @@ class ProcessMetricsCommitTest extends BaseTest {
             assertEquals(0, worker.getReadyProcesses());
             assertEquals(Duration.ZERO, worker.getLag());
             assertEquals(0, metrics.getSystemErrorCount());
-        } finally { engine.close(); }
+        } finally {
+            engine.close();
+        }
     }
 
     private static void fail() {
         throw new IllegalStateException("handler failed");
     }
 
-    private enum State implements ProcessState { START, WAIT, DONE }
+    private enum State implements ProcessState {
+        START,
+        WAIT,
+        DONE
+    }
+
     private static final class MutableClock extends Clock {
         private Instant now;
-        private MutableClock(Instant now) { this.now = now; }
-        void advance(Duration duration) { now = now.plus(duration); }
-        @Override public ZoneId getZone() { return ZoneId.of("UTC"); }
-        @Override public Clock withZone(ZoneId zone) { return this; }
-        @Override public Instant instant() { return now; }
+
+        private MutableClock(Instant now) {
+            this.now = now;
+        }
+
+        void advance(Duration duration) {
+            now = now.plus(duration);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneId.of("UTC");
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
     }
 }

@@ -36,8 +36,10 @@ public class ProcessEngineInitializer implements SmartLifecycle {
      *
      * @param processDefinitions definitions from the context; {@code null} to register none
      */
-    public ProcessEngineInitializer(ProcessEngine processEngine,
-                                    ObjectProvider<ProcessDefinition> processDefinitions) {
+    public ProcessEngineInitializer(
+            ProcessEngine processEngine,
+            ObjectProvider<ProcessDefinition> processDefinitions
+    ) {
         this.processEngine = Objects.requireNonNull(processEngine, "ProcessEngine must not be null");
         this.processDefinitions = processDefinitions;
     }

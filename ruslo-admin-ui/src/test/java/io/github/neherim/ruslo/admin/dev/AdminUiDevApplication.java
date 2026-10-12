@@ -26,23 +26,23 @@ public class AdminUiDevApplication {
     public ApplicationRunner adminUiDevData(ProcessEngine processEngine) {
         return args -> {
             processEngine.newProcess(OrderProcessDefinition.TYPE)
-                    .businessKey("order-1001")
-                    .variable("customer", Map.of("name", "Ada Lovelace", "tier", "gold"))
-                    .variable("amount", 12990)
-                    .start();
+                .businessKey("order-1001")
+                .variable("customer", Map.of("name", "Ada Lovelace", "tier", "gold"))
+                .variable("amount", 12990)
+                .start();
 
             processEngine.newProcess(OrderProcessDefinition.TYPE)
-                    .businessKey("order-1002")
-                    .variable("customer", Map.of("name", "Grace Hopper", "tier", "standard"))
-                    .variable("reason", "Manual approval required")
-                    .variable("error", true)
-                    .start();
+                .businessKey("order-1002")
+                .variable("customer", Map.of("name", "Grace Hopper", "tier", "standard"))
+                .variable("reason", "Manual approval required")
+                .variable("error", true)
+                .start();
 
             processEngine.newProcess(SupportTicketProcessDefinition.TYPE)
-                    .businessKey("ticket-2001")
-                    .variable("requester", Map.of("name", "Katherine Johnson", "plan", "enterprise"))
-                    .variable("priority", "high")
-                    .start();
+                .businessKey("ticket-2001")
+                .variable("requester", Map.of("name", "Katherine Johnson", "plan", "enterprise"))
+                .variable("priority", "high")
+                .start();
         };
     }
 }

@@ -16,10 +16,10 @@ public final class BenchmarkPostgres {
      */
     public static PostgreSQLContainer container() {
         return new PostgreSQLContainer(IMAGE)
-                .withDatabaseName("ruslo")
-                .withUsername("ruslo")
-                .withPassword("ruslo_test")
-                .withCommand("postgres", "-c", "fsync=on", "-c", "synchronous_commit=on",
-                        "-c", "full_page_writes=on");
+            .withDatabaseName("ruslo")
+            .withUsername("ruslo")
+            .withPassword("ruslo_test")
+            .withCommand("postgres", "-c", "fsync=on", "-c", "synchronous_commit=on",
+                    "-c", "full_page_writes=on");
     }
 }

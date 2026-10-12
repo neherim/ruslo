@@ -23,6 +23,7 @@ public class SimpleProcessDefinition implements ProcessDefinition {
     }
 
     public enum State implements ProcessState {
-        INIT, FINISH
+        INIT,
+        FINISH
     }
 }

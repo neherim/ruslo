@@ -93,8 +93,8 @@ class ExternalCallTest {
 
     private UUID startPayment(BigDecimal amount) {
         return processEngine.newProcess(CardPaymentDefinition.TYPE)
-                .variable(CardPaymentDefinition.CARD_TOKEN, "tok_visa")
-                .variable(CardPaymentDefinition.AMOUNT, amount)
-                .start();
+            .variable(CardPaymentDefinition.CARD_TOKEN, "tok_visa")
+            .variable(CardPaymentDefinition.AMOUNT, amount)
+            .start();
     }
 }

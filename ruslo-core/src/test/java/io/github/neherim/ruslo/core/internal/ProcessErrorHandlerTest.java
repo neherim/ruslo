@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.core.internal;
 
+import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessError;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
-import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -28,7 +28,7 @@ class ProcessErrorHandlerTest {
     @Test
     void exponentialFallsBackWhenRetriesAreExhausted() {
         var handler = ProcessErrorHandler.exponential(
-            3, Duration.ofSeconds(1), Duration.ofMinutes(1));
+                3, Duration.ofSeconds(1), Duration.ofMinutes(1));
 
         var result = handler.handle(null, error(3));
 
@@ -40,7 +40,8 @@ class ProcessErrorHandlerTest {
         var handler = ProcessErrorHandler.fixed(2, Duration.ofSeconds(1));
 
         assertEquals(Duration.ofSeconds(1), assertInstanceOf(ErrorResult.RetryAfter.class,
-            handler.handle(null, error(1))).delay());
+                handler.handle(null, error(1)))
+            .delay());
         assertInstanceOf(ErrorResult.Fallback.class, handler.handle(null, error(2)));
     }
 
@@ -52,17 +53,17 @@ class ProcessErrorHandlerTest {
     @Test
     void exponentialRejectsInvalidArguments() {
         assertThrows(IllegalArgumentException.class, () -> ProcessErrorHandler.exponential(
-            -1, Duration.ofSeconds(1), Duration.ofMinutes(1)));
+                -1, Duration.ofSeconds(1), Duration.ofMinutes(1)));
         assertThrows(NullPointerException.class, () -> ProcessErrorHandler.exponential(
-            3, null, Duration.ofMinutes(1)));
+                3, null, Duration.ofMinutes(1)));
         assertThrows(NullPointerException.class, () -> ProcessErrorHandler.exponential(
-            3, Duration.ofSeconds(1), null));
+                3, Duration.ofSeconds(1), null));
         assertThrows(IllegalArgumentException.class, () -> ProcessErrorHandler.exponential(
-            3, Duration.ofSeconds(-1), Duration.ofMinutes(1)));
+                3, Duration.ofSeconds(-1), Duration.ofMinutes(1)));
         assertThrows(IllegalArgumentException.class, () -> ProcessErrorHandler.exponential(
-            3, Duration.ofSeconds(1), Duration.ofSeconds(-1)));
+                3, Duration.ofSeconds(1), Duration.ofSeconds(-1)));
         assertThrows(IllegalArgumentException.class, () -> ProcessErrorHandler.exponential(
-            3, Duration.ofSeconds(2), Duration.ofSeconds(1)));
+                3, Duration.ofSeconds(2), Duration.ofSeconds(1)));
     }
 
     private Duration retryDelay(int attempt, Duration initialDelay, Duration maxDelay) {

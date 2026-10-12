@@ -29,10 +29,10 @@ public class OrderCancellation {
      */
     public Result cancel(String orderId, String reason) {
         var process = processEngine.processes()
-                .byType(OrderDeliveryDefinition.TYPE)
-                .byBusinessKey(orderId)
-                .single()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown order: " + orderId));
+            .byType(OrderDeliveryDefinition.TYPE)
+            .byBusinessKey(orderId)
+            .single()
+            .orElseThrow(() -> new IllegalArgumentException("Unknown order: " + orderId));
         try {
             processEngine.sendMessageSync(process.id(), OrderDeliveryDefinition.CANCEL, reason);
             return Result.ACCEPTED;

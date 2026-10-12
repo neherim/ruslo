@@ -1,6 +1,5 @@
 package io.github.neherim.ruslo.core.api.definition;
 
-
 /**
  * Named, typed process variable.
  *

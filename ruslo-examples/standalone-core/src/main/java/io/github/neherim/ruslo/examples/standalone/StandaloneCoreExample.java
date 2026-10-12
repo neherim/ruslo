@@ -1,9 +1,9 @@
 package io.github.neherim.ruslo.examples.standalone;
 
-import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
+import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
 import org.h2.jdbcx.JdbcDataSource;
 
@@ -28,8 +28,8 @@ public class StandaloneCoreExample implements AutoCloseable {
     /** Builds and starts the engine; on return the dispatcher already runs processes in the background. */
     public static StandaloneCoreExample start(DataSource dataSource) {
         var engine = new ProcessEngineBuilder(new PlainJdbcDatabase(dataSource))
-                .addProcessDefinition(new ApprovalProcessDefinition())
-                .build();
+            .addProcessDefinition(new ApprovalProcessDefinition())
+            .build();
         engine.start();
         return new StandaloneCoreExample(engine);
     }
@@ -41,10 +41,10 @@ public class StandaloneCoreExample implements AutoCloseable {
     /** Starts a document approval. */
     public UUID startApproval(String documentId, long amount) {
         return engine.newProcess(ApprovalProcessDefinition.TYPE)
-                .businessKey(documentId)
-                .variable(ApprovalProcess.DOCUMENT_ID, documentId)
-                .variable(ApprovalProcess.AMOUNT, amount)
-                .start();
+            .businessKey(documentId)
+            .variable(ApprovalProcess.DOCUMENT_ID, documentId)
+            .variable(ApprovalProcess.AMOUNT, amount)
+            .start();
     }
 
     /**

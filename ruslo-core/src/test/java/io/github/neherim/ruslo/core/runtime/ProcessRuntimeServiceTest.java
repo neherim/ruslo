@@ -1,17 +1,17 @@
 package io.github.neherim.ruslo.core.runtime;
 
 import io.github.neherim.ruslo.core.BaseTest;
-import io.github.neherim.ruslo.core.runtime.logging.MdcKeys;
-import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
-import io.github.neherim.ruslo.core.definitions.SimpleProcessDefinition;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
+import io.github.neherim.ruslo.core.definitions.SimpleProcessDefinition;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
+import io.github.neherim.ruslo.core.runtime.logging.MdcKeys;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceDao;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceFactory;
 import io.github.neherim.ruslo.core.runtime.worker.StepErrorHandler;
 import io.github.neherim.ruslo.core.runtime.worker.StepExecutor;
 import io.github.neherim.ruslo.core.search.ProcessSearchService;
+import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 
@@ -23,10 +23,10 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ProcessRuntimeServiceTest extends BaseTest {
     private static final Clock CLOCK = Clock.systemUTC();
@@ -83,13 +83,23 @@ class ProcessRuntimeServiceTest extends BaseTest {
 
         var searchService = new ProcessSearchService(database, JsonUtils.DEFAULT_OBJECT_MAPPER);
         var states = searchService
-                .processes().byId(processId).singleDetails().orElseThrow().stateHistory().stream()
-                .map(entry -> entry.state().name())
-                .toList();
+            .processes()
+            .byId(processId)
+            .singleDetails()
+            .orElseThrow()
+            .stateHistory()
+            .stream()
+            .map(entry -> entry.state().name())
+            .toList();
         var repeatedStates = searchService
-                .processes().byId(processId).singleDetails().orElseThrow().stateHistory().stream()
-                .map(entry -> entry.state().name())
-                .toList();
+            .processes()
+            .byId(processId)
+            .singleDetails()
+            .orElseThrow()
+            .stateHistory()
+            .stream()
+            .map(entry -> entry.state().name())
+            .toList();
 
         assertEquals(states, repeatedStates);
         assertEquals(Set.of("INIT", "FINISH"), Set.copyOf(states));
@@ -103,8 +113,10 @@ class ProcessRuntimeServiceTest extends BaseTest {
         var registry = new ProcessDefinitionRegistry(List.of(new SimpleProcessDefinition()));
         var factory = new ProcessInstanceFactory(clock, JsonUtils.DEFAULT_OBJECT_MAPPER, registry);
         var dao = new ProcessInstanceDao(database, clock, factory, true,
-                new io.github.neherim.ruslo.core.spi.ProcessEngineMetrics() {});
-        ProcessEngineMetrics metrics = new ProcessEngineMetrics() {};
+                new io.github.neherim.ruslo.core.spi.ProcessEngineMetrics() {
+                });
+        ProcessEngineMetrics metrics = new ProcessEngineMetrics() {
+        };
         var processMdc = new ProcessMdc(MdcKeys.defaults());
         var stepExecutor = new StepExecutor(processMdc, metrics, clock);
         return new ProcessRuntimeService(clock, database, dao, factory, signal,

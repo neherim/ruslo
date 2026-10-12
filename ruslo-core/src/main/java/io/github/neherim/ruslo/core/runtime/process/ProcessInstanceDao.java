@@ -1,14 +1,14 @@
 package io.github.neherim.ruslo.core.runtime.process;
 
-import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessTypeId;
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.api.view.ProcessTypeCounts;
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
-import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseLostException;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
+import io.github.neherim.ruslo.core.spi.Database;
+import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.DateTimeUtils;
 import io.github.neherim.ruslo.core.utils.UUIDGenerator;
 
@@ -102,8 +102,13 @@ public class ProcessInstanceDao {
     private final boolean historyEnabled;
     private final ProcessEngineMetrics metrics;
 
-    public ProcessInstanceDao(Database database, Clock clock, ProcessInstanceFactory processInstanceFactory,
-                              boolean historyEnabled, ProcessEngineMetrics metrics) {
+    public ProcessInstanceDao(
+            Database database,
+            Clock clock,
+            ProcessInstanceFactory processInstanceFactory,
+            boolean historyEnabled,
+            ProcessEngineMetrics metrics
+    ) {
         this.database = database;
         this.clock = clock;
         this.processInstanceFactory = processInstanceFactory;
@@ -247,7 +252,7 @@ public class ProcessInstanceDao {
     /** Returns the number of {@code ACTIVE} and {@code FAILED} processes. */
     public long countIncompleteProcesses() {
         return database.queryForObject(COUNT_UNCOMPLETED_PROCESSES_SQL, rs -> rs.getLong(1))
-                .orElse(0L);
+            .orElse(0L);
     }
 
     /**
@@ -271,7 +276,8 @@ public class ProcessInstanceDao {
     /** Returns the number of ready processes of the worker that no lease holds. */
     public long countReadyForWorker(WorkerId workerId) {
         return database.queryForObject(COUNT_READY_FOR_WORKER_SQL, rs -> rs.getLong(1),
-                workerId.name(), clock.instant()).orElse(0L);
+                workerId.name(), clock.instant())
+            .orElse(0L);
     }
 
     /**
@@ -281,10 +287,10 @@ public class ProcessInstanceDao {
     public Duration oldestReadyAgeForWorker(WorkerId workerId) {
         var now = clock.instant();
         return database.queryForObject(OLDEST_READY_FOR_WORKER_SQL,
-                        rs -> DateTimeUtils.toInstant(rs.getTimestamp(1)), workerId.name(), now)
-                .map(oldest -> Duration.between(oldest, now))
-                .filter(age -> !age.isNegative())
-                .orElse(Duration.ZERO);
+                rs -> DateTimeUtils.toInstant(rs.getTimestamp(1)), workerId.name(), now)
+            .map(oldest -> Duration.between(oldest, now))
+            .filter(age -> !age.isNegative())
+            .orElse(Duration.ZERO);
     }
 
     /** Stores new transitions in history and, after commit, counts entering a terminal state as completion. */
@@ -296,9 +302,12 @@ public class ProcessInstanceDao {
         }
         if (!historyEnabled || entries.isEmpty()) return;
         var params = entries.stream()
-                .map(e -> new Object[]{UUIDGenerator.generate(), process.getId(), e.state().name(),
-                        e.changedAt()})
-                .toList();
+            .map(e -> new Object[]{
+                    UUIDGenerator.generate(),
+                    process.getId(),
+                    e.state().name(),
+                    e.changedAt()})
+            .toList();
         database.batchInsert(INSERT_PROCESS_STATE_HIST_SQL, params);
     }
 }

@@ -8,14 +8,15 @@ public class SimpleProcessDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.INIT)
-                .step(State.INIT, ctx -> { }, State.FINISH)
-                .terminal(State.FINISH)
-                .build();
+            .type(TYPE)
+            .initialState(State.INIT)
+            .step(State.INIT, ctx -> {}, State.FINISH)
+            .terminal(State.FINISH)
+            .build();
     }
 
     public enum State implements ProcessState {
-        INIT, FINISH
+        INIT,
+        FINISH
     }
 }

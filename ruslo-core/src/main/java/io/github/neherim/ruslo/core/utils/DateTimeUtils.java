@@ -1,6 +1,5 @@
 package io.github.neherim.ruslo.core.utils;
 
-
 import java.sql.Timestamp;
 import java.time.Instant;
 

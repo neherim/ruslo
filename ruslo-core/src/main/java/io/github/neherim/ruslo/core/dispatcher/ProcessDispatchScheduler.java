@@ -33,8 +33,13 @@ public class ProcessDispatchScheduler {
      * @param maxInterval maximum fallback interval
      * @param clock       the engine clock that {@code available_at} is compared against
      */
-    public ProcessDispatchScheduler(Duration minInterval, Duration maxInterval, ProcessDispatcher processDispatcher,
-                                    ProcessDispatchSignal dispatchSignal, Clock clock) {
+    public ProcessDispatchScheduler(
+            Duration minInterval,
+            Duration maxInterval,
+            ProcessDispatcher processDispatcher,
+            ProcessDispatchSignal dispatchSignal,
+            Clock clock
+    ) {
         this.processDispatcher = processDispatcher;
         this.minInterval = minInterval;
         this.maxInterval = maxInterval;

@@ -90,7 +90,7 @@ class EmulatorTest {
 
     private UUID startReview() {
         return processEngine.newProcess(ReviewDefinition.TYPE)
-                .variable(ReviewDefinition.DOCUMENT_ID, "doc-1")
-                .start();
+            .variable(ReviewDefinition.DOCUMENT_ID, "doc-1")
+            .start();
     }
 }

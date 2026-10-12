@@ -6,12 +6,12 @@ import io.github.neherim.ruslo.admin.controller.ProcessEngineAdminModelAttribute
 import io.github.neherim.ruslo.admin.controller.ProcessesAdminController;
 import io.github.neherim.ruslo.admin.service.ProcessEngineAdminService;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
-import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
+import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
-import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.management.DatabaseSchemaMigrator;
+import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -24,9 +24,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ProcessEngineAdminUiAutoConfigurationTest {
     private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(ProcessEngineAdminUiAutoConfiguration.class))
-            .withBean(ProcessEngine.class, this::processEngine)
-            .withBean(ProcessEngineAdmin.class, () -> new ProcessEngineAdmin(processEngine()));
+        .withConfiguration(AutoConfigurations.of(ProcessEngineAdminUiAutoConfiguration.class))
+        .withBean(ProcessEngine.class, this::processEngine)
+        .withBean(ProcessEngineAdmin.class, () -> new ProcessEngineAdmin(processEngine()));
 
     @Test
     void shouldRegisterAdminUiBeans() {
@@ -58,30 +58,30 @@ class ProcessEngineAdminUiAutoConfigurationTest {
     @Test
     void shouldDisableAdminUiBeansByProperty() {
         contextRunner
-                .withPropertyValues("ruslo.admin-ui.enabled=false")
-                .run(context -> {
-                    assertThat(context).doesNotHaveBean(DashboardAdminController.class);
-                    assertThat(context).doesNotHaveBean(ProcessesAdminController.class);
-                    assertThat(context).doesNotHaveBean(ProcessEngineAdminApiController.class);
-                    assertThat(context).doesNotHaveBean(ProcessEngineAdminModelAttributes.class);
-                });
+            .withPropertyValues("ruslo.admin-ui.enabled=false")
+            .run(context -> {
+                assertThat(context).doesNotHaveBean(DashboardAdminController.class);
+                assertThat(context).doesNotHaveBean(ProcessesAdminController.class);
+                assertThat(context).doesNotHaveBean(ProcessEngineAdminApiController.class);
+                assertThat(context).doesNotHaveBean(ProcessEngineAdminModelAttributes.class);
+            });
     }
 
     @Test
     void shouldRejectUnknownAdminUiPropertyWhenEnabled() {
         contextRunner
-                .withPropertyValues("ruslo.admin-ui.enabled=true", "ruslo.admin-ui.base-pth=/processes")
-                .run(context -> assertThat(context).hasFailed());
+            .withPropertyValues("ruslo.admin-ui.enabled=true", "ruslo.admin-ui.base-pth=/processes")
+            .run(context -> assertThat(context).hasFailed());
     }
 
     @Test
     void shouldNotRegisterAdminUiBeansOutsideServletWebApplication() {
         new ApplicationContextRunner()
-                .withConfiguration(AutoConfigurations.of(ProcessEngineAdminUiAutoConfiguration.class))
-                .withPropertyValues("ruslo.admin-ui.enabled=true")
-                .withBean(ProcessEngine.class, this::processEngine)
-                .withBean(ProcessEngineAdmin.class, () -> new ProcessEngineAdmin(processEngine()))
-                .run(context -> assertThat(context).doesNotHaveBean(ProcessesAdminController.class));
+            .withConfiguration(AutoConfigurations.of(ProcessEngineAdminUiAutoConfiguration.class))
+            .withPropertyValues("ruslo.admin-ui.enabled=true")
+            .withBean(ProcessEngine.class, this::processEngine)
+            .withBean(ProcessEngineAdmin.class, () -> new ProcessEngineAdmin(processEngine()))
+            .run(context -> assertThat(context).doesNotHaveBean(ProcessesAdminController.class));
     }
 
     private ProcessEngine processEngine() {
@@ -91,12 +91,12 @@ class ProcessEngineAdminUiAutoConfigurationTest {
         dataSource.setPassword("");
         DatabaseSchemaMigrator.update(dataSource);
         return new ProcessEngineBuilder(new PlainJdbcDatabase(dataSource))
-                .withDispatcherEnabled(false)
-                .withDatabaseMigrationEnabled(false)
-                .registerWorker(WorkerSpec.builder(WorkerId.DEFAULT)
-                        .transactional()
-                        .build())
-                .build()
-                .start();
+            .withDispatcherEnabled(false)
+            .withDatabaseMigrationEnabled(false)
+            .registerWorker(WorkerSpec.builder(WorkerId.DEFAULT)
+                .transactional()
+                .build())
+            .build()
+            .start();
     }
 }

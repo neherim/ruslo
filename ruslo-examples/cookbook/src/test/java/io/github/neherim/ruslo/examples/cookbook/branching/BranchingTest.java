@@ -69,8 +69,8 @@ class BranchingTest {
 
     private UUID startApplication(long amount) {
         return processEngine.newProcess(LoanApplicationDefinition.TYPE)
-                .variable(LoanApplicationDefinition.APPLICANT, "John Smith")
-                .variable(LoanApplicationDefinition.AMOUNT, amount)
-                .start();
+            .variable(LoanApplicationDefinition.APPLICANT, "John Smith")
+            .variable(LoanApplicationDefinition.AMOUNT, amount)
+            .start();
     }
 }

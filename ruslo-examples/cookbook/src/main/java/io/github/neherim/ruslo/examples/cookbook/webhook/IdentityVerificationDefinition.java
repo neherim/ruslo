@@ -54,16 +54,18 @@ public class IdentityVerificationDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("IDENTITY_VERIFICATION");
     public static final Duration RESPONSE_DEADLINE = Duration.ofDays(3);
     public static final VariableType<String> APPLICANT_EMAIL = VariableType.of("applicantEmail", String.class);
-    public static final VariableType<ProcessedEvents> PROCESSED_EVENTS =
-            VariableType.of("processedEvents", ProcessedEvents.class);
-    public static final MessageType<VerificationCallback> CALLBACK =
-            MessageType.of("verificationCallback", VerificationCallback.class);
+    public static final VariableType<ProcessedEvents> PROCESSED_EVENTS = VariableType.of("processedEvents",
+            ProcessedEvents.class);
+    public static final MessageType<VerificationCallback> CALLBACK = MessageType.of("verificationCallback",
+            VerificationCallback.class);
 
     private final SubmitVerificationStep submitVerificationStep;
     private final VerificationCallbackHandler callbackHandler;
 
-    public IdentityVerificationDefinition(SubmitVerificationStep submitVerificationStep,
-                                          VerificationCallbackHandler callbackHandler) {
+    public IdentityVerificationDefinition(
+            SubmitVerificationStep submitVerificationStep,
+            VerificationCallbackHandler callbackHandler
+    ) {
         this.submitVerificationStep = submitVerificationStep;
         this.callbackHandler = callbackHandler;
     }
@@ -72,19 +74,19 @@ public class IdentityVerificationDefinition implements ProcessDefinition {
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
-                .type(TYPE)
-                .initialState(State.SUBMITTING)
-                .step(State.SUBMITTING, submitVerificationStep, State.WAITING_FOR_RESULT)
-                .await(State.WAITING_FOR_RESULT, await -> await
-                        .message(CALLBACK, callbackHandler, routes -> routes
-                                .on(VerificationCallbackHandler.Result.WAIT, State.WAITING_FOR_RESULT)
-                                .on(VerificationCallbackHandler.Result.APPROVED, State.VERIFIED)
-                                .on(VerificationCallbackHandler.Result.DECLINED, State.REJECTED))
-                        .timeout(RESPONSE_DEADLINE, State.NO_RESPONSE))
-                .terminal(State.VERIFIED)
-                .terminal(State.REJECTED)
-                .terminal(State.NO_RESPONSE)
-                .build();
+            .type(TYPE)
+            .initialState(State.SUBMITTING)
+            .step(State.SUBMITTING, submitVerificationStep, State.WAITING_FOR_RESULT)
+            .await(State.WAITING_FOR_RESULT, await -> await
+                .message(CALLBACK, callbackHandler, routes -> routes
+                    .on(VerificationCallbackHandler.Result.WAIT, State.WAITING_FOR_RESULT)
+                    .on(VerificationCallbackHandler.Result.APPROVED, State.VERIFIED)
+                    .on(VerificationCallbackHandler.Result.DECLINED, State.REJECTED))
+                .timeout(RESPONSE_DEADLINE, State.NO_RESPONSE))
+            .terminal(State.VERIFIED)
+            .terminal(State.REJECTED)
+            .terminal(State.NO_RESPONSE)
+            .build();
     }
 
     public enum State implements ProcessState {

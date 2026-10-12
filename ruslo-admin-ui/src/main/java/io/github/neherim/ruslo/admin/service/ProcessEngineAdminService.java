@@ -54,10 +54,11 @@ public class ProcessEngineAdminService {
             failed += counts.failed();
             overdue += counts.overdue();
         }
-        var instances = management.listApplicationInstances().stream()
-                .map(instance -> new DashboardResponse.InstanceResponse(instance.id(), instance.leaseCount(),
+        var instances = management.listApplicationInstances()
+            .stream()
+            .map(instance -> new DashboardResponse.InstanceResponse(instance.id(), instance.leaseCount(),
                     instance.expiresIn().toSeconds(), instance.current()))
-                .toList();
+            .toList();
         return new DashboardResponse(active, failed, overdue,
                 LocalDateTime.ofInstant(overdueAt, zone).toString(), zone.getId(), typeCounts, instances);
     }
@@ -66,10 +67,11 @@ public class ProcessEngineAdminService {
      * Returns the registered process definitions sorted by type.
      */
     public List<DefinitionResponse> definitions() {
-        return management.listProcessSpecifications().stream()
-                .map(this::toDefinitionResponse)
-                .sorted(Comparator.comparing(DefinitionResponse::type))
-                .toList();
+        return management.listProcessSpecifications()
+            .stream()
+            .map(this::toDefinitionResponse)
+            .sorted(Comparator.comparing(DefinitionResponse::type))
+            .toList();
     }
 
     /**
@@ -78,10 +80,10 @@ public class ProcessEngineAdminService {
      */
     public List<DefinitionResponse.StateResponse> statesFor(String typeName, String currentState) {
         return definitions().stream()
-                .filter(definition -> definition.type().equals(typeName))
-                .findFirst()
-                .map(DefinitionResponse::states)
-                .orElse(List.of(new DefinitionResponse.StateResponse(currentState, null, "UNKNOWN", null,
+            .filter(definition -> definition.type().equals(typeName))
+            .findFirst()
+            .map(DefinitionResponse::states)
+            .orElse(List.of(new DefinitionResponse.StateResponse(currentState, null, "UNKNOWN", null,
                     List.of(), null)));
     }
 
@@ -91,19 +93,21 @@ public class ProcessEngineAdminService {
      */
     public Optional<ProcessGraphResponse> graph(String typeName) {
         return findDefinition(typeName).map(definition -> {
-            var states = definition.states().stream()
-                    .sorted(Comparator.comparing(state -> state.state().name()))
-                    .toList();
+            var states = definition.states()
+                .stream()
+                .sorted(Comparator.comparing(state -> state.state().name()))
+                .toList();
             var nodes = states.stream()
-                    .map(state -> new ProcessGraphResponse.Node(state.state().name(), state.description(),
+                .map(state -> new ProcessGraphResponse.Node(state.state().name(), state.description(),
                         state.kind().name(), state.workerId().map(WorkerId::name).orElse(null)))
-                    .toList();
+                .toList();
             var edges = states.stream()
-                    .flatMap(state -> state.transitions().stream()
-                        .map(transition -> new ProcessGraphResponse.Edge(state.state().name(),
+                .flatMap(state -> state.transitions()
+                    .stream()
+                    .map(transition -> new ProcessGraphResponse.Edge(state.state().name(),
                             transition.target().name(), transition.trigger().name(),
                             edgeLabel(state, transition))))
-                    .toList();
+                .toList();
             return new ProcessGraphResponse(definition.initialState().name(), nodes, edges);
         });
     }
@@ -115,10 +119,10 @@ public class ProcessEngineAdminService {
         var limit = request.pageLimit();
         var offset = request.pageOffset();
         var items = request.applyTo(processEngine.processes())
-                .list(limit + 1, offset)
-                .stream()
-                .map(this::toProcessSummaryResponse)
-                .toList();
+            .list(limit + 1, offset)
+            .stream()
+            .map(this::toProcessSummaryResponse)
+            .toList();
         var hasNext = items.size() > limit;
         var pageItems = hasNext ? items.subList(0, limit) : items;
         return new ProcessPageResponse(pageItems, hasNext, limit, offset);
@@ -136,9 +140,11 @@ public class ProcessEngineAdminService {
      *
      * @param variables JSON object of process variables
      */
-    public UUID startProcess(String type,
-                             String businessKey,
-                             String variables) {
+    public UUID startProcess(
+            String type,
+            String businessKey,
+            String variables
+    ) {
         var builder = processEngine.newProcess(ProcessType.of(type));
         if (hasText(businessKey)) {
             builder.businessKey(businessKey);
@@ -196,14 +202,15 @@ public class ProcessEngineAdminService {
                 definition.type().name(),
                 definition.description().orElse(null),
                 definition.initialState().name(),
-                definition.states().stream()
-                        .map(state -> new DefinitionResponse.StateResponse(state.state().name(),
+                definition.states()
+                    .stream()
+                    .map(state -> new DefinitionResponse.StateResponse(state.state().name(),
                             state.description().equals(state.state().name()) ? null : state.description(),
                             state.kind().name(), state.workerId().map(WorkerId::name).orElse(null),
                             state.acceptedMessageTypes().stream().sorted().toList(),
                             timerDelay(state)))
-                        .sorted(Comparator.comparing(DefinitionResponse.StateResponse::name))
-                        .toList());
+                    .sorted(Comparator.comparing(DefinitionResponse.StateResponse::name))
+                    .toList());
     }
 
     private String edgeLabel(ProcessSpecInfo.StateInfo state, ProcessSpecInfo.TransitionInfo transition) {
@@ -236,15 +243,18 @@ public class ProcessEngineAdminService {
     private ProcessDetailsResponse toProcessDetailsResponse(ProcessInstanceDetails process) {
         var definition = findDefinition(process.type().name());
         var stateInfo = definition
-            .flatMap(def -> def.states().stream()
-                .filter(state -> state.state().name().equals(process.state().name())).findFirst())
+            .flatMap(def -> def.states()
+                .stream()
+                .filter(state -> state.state().name().equals(process.state().name()))
+                .findFirst())
             .orElse(null);
         return new ProcessDetailsResponse(
                 process.id(),
                 process.type().name(),
                 process.state().name(),
                 stateInfo == null || stateInfo.description().equals(stateInfo.state().name())
-                        ? null : stateInfo.description(),
+                        ? null
+                        : stateInfo.description(),
                 process.status(),
                 process.scheduledAt().orElse(null),
                 process.businessKey().orElse(null),
@@ -265,8 +275,9 @@ public class ProcessEngineAdminService {
     private List<StateHistoryResponse> stateHistory(ProcessInstanceDetails process, ProcessSpecInfo definition) {
         var declared = new HashSet<String>();
         if (definition != null) {
-            definition.states().forEach(state -> state.transitions().forEach(transition ->
-                    declared.add(state.state().name() + "\u0000" + transition.target().name())));
+            definition.states()
+                .forEach(state -> state.transitions()
+                    .forEach(transition -> declared.add(state.state().name() + "\u0000" + transition.target().name())));
         }
         var history = process.stateHistory();
         var result = new ArrayList<StateHistoryResponse>(history.size());
@@ -284,9 +295,10 @@ public class ProcessEngineAdminService {
     }
 
     private Optional<ProcessSpecInfo> findDefinition(String typeName) {
-        return management.listProcessSpecifications().stream()
-                .filter(definition -> definition.type().name().equals(typeName))
-                .findFirst();
+        return management.listProcessSpecifications()
+            .stream()
+            .filter(definition -> definition.type().name().equals(typeName))
+            .findFirst();
     }
 
     private Map<String, Object> parseVariablesObject(String variables) {
@@ -294,8 +306,9 @@ public class ProcessEngineAdminService {
             return Map.of();
         }
         try {
-            return JsonUtils.DEFAULT_OBJECT_MAPPER.readValue(variables, new TypeReference<LinkedHashMap<String, Object>>() {
-            });
+            return JsonUtils.DEFAULT_OBJECT_MAPPER.readValue(variables,
+                    new TypeReference<LinkedHashMap<String, Object>>() {
+                    });
         } catch (JacksonException ex) {
             throw new IllegalArgumentException("Invalid variables JSON object", ex);
         }

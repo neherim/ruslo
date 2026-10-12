@@ -35,9 +35,10 @@ class RetriesTest {
     @Test
     void retriesTemporaryFailureAndSends() {
         doThrow(new IllegalStateException("Gateway is unavailable"))
-                .doThrow(new IllegalStateException("Gateway is unavailable"))
-                .doNothing()
-                .when(notificationGateway).send(any(), any());
+            .doThrow(new IllegalStateException("Gateway is unavailable"))
+            .doNothing()
+            .when(notificationGateway)
+            .send(any(), any());
         var processId = startNotification(RECIPIENT);
 
         // The first attempt failed: a retry is scheduled in 1 second
@@ -61,7 +62,8 @@ class RetriesTest {
     @Test
     void movesToFallbackStateWhenGatewayStaysDown() {
         doThrow(new IllegalStateException("Gateway is unavailable"))
-                .when(notificationGateway).send(any(), any());
+            .when(notificationGateway)
+            .send(any(), any());
         var processId = startNotification(RECIPIENT);
 
         emulator.runUntilStop(processId);
@@ -80,7 +82,8 @@ class RetriesTest {
     @Test
     void doesNotRetryPermanentFailure() {
         doThrow(new InvalidRecipientException("not-an-address"))
-                .when(notificationGateway).send(any(), any());
+            .when(notificationGateway)
+            .send(any(), any());
         var processId = startNotification("not-an-address");
 
         var failed = emulator.runUntilStop(processId);
@@ -91,8 +94,8 @@ class RetriesTest {
 
     private UUID startNotification(String recipient) {
         return processEngine.newProcess(NotificationDefinition.TYPE)
-                .variable(NotificationDefinition.RECIPIENT, recipient)
-                .variable(NotificationDefinition.TEXT, "Your order has shipped")
-                .start();
+            .variable(NotificationDefinition.RECIPIENT, recipient)
+            .variable(NotificationDefinition.TEXT, "Your order has shipped")
+            .start();
     }
 }

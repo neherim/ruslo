@@ -1,7 +1,9 @@
 package io.github.neherim.ruslo.perf.runner;
 
 import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 

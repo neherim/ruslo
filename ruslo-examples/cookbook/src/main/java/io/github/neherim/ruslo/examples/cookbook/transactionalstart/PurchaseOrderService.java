@@ -26,9 +26,9 @@ public class PurchaseOrderService {
         var orderId = UUID.randomUUID().toString();
         orderRepository.insert(orderId, item, quantity, "NEW");
         processEngine.newProcess(PurchaseOrderDefinition.TYPE)
-                .businessKey(orderId)
-                .variable(PurchaseOrderDefinition.ORDER_ID, orderId)
-                .start();
+            .businessKey(orderId)
+            .variable(PurchaseOrderDefinition.ORDER_ID, orderId)
+            .start();
         return orderId;
     }
 }

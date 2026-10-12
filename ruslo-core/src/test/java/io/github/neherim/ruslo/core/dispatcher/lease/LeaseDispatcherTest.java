@@ -1,24 +1,25 @@
 package io.github.neherim.ruslo.core.dispatcher.lease;
 
-import io.github.neherim.ruslo.core.TestDatabases;
 import io.github.neherim.ruslo.core.BaseTest;
-import io.github.neherim.ruslo.core.api.exception.WorkerNotRegisteredException;
-import io.github.neherim.ruslo.core.spi.Database;
-import io.github.neherim.ruslo.core.spi.RowMapper;
+import io.github.neherim.ruslo.core.TestDatabases;
+import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
-import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
-import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.api.exception.WorkerNotRegisteredException;
 import io.github.neherim.ruslo.core.metrics.InMemoryProcessEngineMetrics;
 import io.github.neherim.ruslo.core.runtime.worker.Worker;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
+import io.github.neherim.ruslo.core.spi.Database;
+import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
+import io.github.neherim.ruslo.core.spi.RowMapper;
 import org.junit.jupiter.api.Test;
 
+import javax.sql.DataSource;
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.Clock;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,9 +34,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import java.util.function.Consumer;
-import javax.sql.DataSource;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -77,7 +77,8 @@ class LeaseDispatcherTest extends BaseTest {
     void zeroCapacityShouldNotAccessDatabase() {
         var worker = new TestWorker(FIRST_WORKER, 0);
         var forbiddenDatabase = new ForbiddenDatabase();
-        var metrics = new ProcessEngineMetrics() {};
+        var metrics = new ProcessEngineMetrics() {
+        };
         var leaseDao = new LeaseDao(forbiddenDatabase, TestDatabases.dialect());
         var dispatcher = new LeaseDispatcher(UUID::randomUUID, leaseDao, new LeaseReleaser(leaseDao, metrics),
                 new TestWorkerRegistry(List.of(worker)), metrics, CLOCK);
@@ -235,7 +236,8 @@ class LeaseDispatcherTest extends BaseTest {
             var replacementOwner = UUID.randomUUID();
             new ApplicationInstanceDao(database).register(replacementOwner, LEASE_DURATION);
             replacement.set(new LeaseDao(database, TestDatabases.dialect()).claimReadyForWorker(
-                    replacementOwner, FIRST_WORKER, 1, TEST_NOW).getFirst());
+                    replacementOwner, FIRST_WORKER, 1, TEST_NOW)
+                .getFirst());
         };
         var fixture = dispatcher(rejecting);
         var processId = insertReady(FIRST_TYPE, 1);
@@ -254,7 +256,8 @@ class LeaseDispatcherTest extends BaseTest {
         var instances = new ApplicationInstanceDao(database);
         instances.register(abandonedOwner, LEASE_DURATION);
         var abandoned = new LeaseDao(database, TestDatabases.dialect()).claimReadyForWorker(
-                abandonedOwner, FIRST_WORKER, 1, TEST_NOW).getFirst();
+                abandonedOwner, FIRST_WORKER, 1, TEST_NOW)
+            .getFirst();
         database.update("update xs_application_instance set expires_at = current_timestamp - interval '1' second "
                 + "where id = ?", abandonedOwner);
         instances.recover();
@@ -319,7 +322,8 @@ class LeaseDispatcherTest extends BaseTest {
         database.update("update xs_process_instance set lease_owner = null where id = ?", processId);
         new ApplicationInstanceDao(database).register(replacementOwner, LEASE_DURATION);
         var replacement = new LeaseDao(database, TestDatabases.dialect())
-                .claimReadyForWorker(replacementOwner, FIRST_WORKER, 1, TEST_NOW).getFirst();
+            .claimReadyForWorker(replacementOwner, FIRST_WORKER, 1, TEST_NOW)
+            .getFirst();
 
         assertFalse(fixture.dispatcher().dispatch());
 
@@ -333,7 +337,8 @@ class LeaseDispatcherTest extends BaseTest {
         var firstWorker = new TestWorker(FIRST_WORKER, 1);
         var secondWorker = new TestWorker(SECOND_WORKER, 1);
         var fixture = dispatcher(new FailingWorkerClaimDatabase(database, SECOND_WORKER),
-                new ProcessEngineMetrics() {}, firstWorker, secondWorker);
+                new ProcessEngineMetrics() {
+                }, firstWorker, secondWorker);
         var firstProcess = insertReady(FIRST_TYPE, 1);
         insertReady(SECOND_TYPE, 2);
 
@@ -344,15 +349,19 @@ class LeaseDispatcherTest extends BaseTest {
     }
 
     private DispatcherFixture dispatcher(TestWorker... workers) {
-        return dispatcher(new ProcessEngineMetrics() {}, workers);
+        return dispatcher(new ProcessEngineMetrics() {
+        }, workers);
     }
 
     private DispatcherFixture dispatcher(ProcessEngineMetrics metrics, TestWorker... workers) {
         return dispatcher(database, metrics, workers);
     }
 
-    private DispatcherFixture dispatcher(Database dispatcherDatabase, ProcessEngineMetrics metrics,
-                                         TestWorker... workers) {
+    private DispatcherFixture dispatcher(
+            Database dispatcherDatabase,
+            ProcessEngineMetrics metrics,
+            TestWorker... workers
+    ) {
         var registry = new TestWorkerRegistry(List.of(workers));
         var ownerId = UUID.randomUUID();
         new ApplicationInstanceDao(dispatcherDatabase).register(ownerId, LEASE_DURATION);
@@ -376,12 +385,14 @@ class LeaseDispatcherTest extends BaseTest {
 
     private UUID leaseOwner(UUID processId) {
         return database.queryForObject("select lease_owner from xs_process_instance where id = ?",
-                rs -> rs.getObject(1, UUID.class), processId).orElse(null);
+                rs -> rs.getObject(1, UUID.class), processId)
+            .orElse(null);
     }
 
     private int countClaimed() {
         return database.queryForObject("select count(*) from xs_process_instance where lease_owner is not null",
-                rs -> rs.getInt(1)).orElseThrow();
+                rs -> rs.getInt(1))
+            .orElseThrow();
     }
 
     private WorkerId workerId(ProcessType type) {

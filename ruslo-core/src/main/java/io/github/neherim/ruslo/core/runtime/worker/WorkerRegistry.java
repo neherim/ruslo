@@ -1,7 +1,7 @@
 package io.github.neherim.ruslo.core.runtime.worker;
 
-import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.exception.WorkerNotRegisteredException;
 
 import java.util.*;

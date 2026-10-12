@@ -1,7 +1,7 @@
 package io.github.neherim.ruslo.spring.test;
 
-import io.github.neherim.ruslo.core.api.test.MutableClock;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
+import io.github.neherim.ruslo.core.api.test.MutableClock;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

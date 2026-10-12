@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.core;
 
 import io.github.neherim.ruslo.core.definitions.SimpleProcessDefinition;
-import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchScheduler;
+import io.github.neherim.ruslo.core.spi.Database;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 
@@ -25,8 +25,8 @@ public class ProcessStartTest extends BaseTest {
             var id = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
             var process = processEngine.processes().byId(id).singleDetails().orElseThrow();
             assertThat(process.state().is(INIT))
-                    .as("Process should be in INIT state before commit")
-                    .isTrue();
+                .as("Process should be in INIT state before commit")
+                .isTrue();
             return id;
         });
     }
@@ -61,8 +61,8 @@ public class ProcessStartTest extends BaseTest {
         MDC.put("correlation_id", "mdc-correlation");
         try {
             var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE)
-                    .correlationId("explicit-correlation")
-                    .start();
+                .correlationId("explicit-correlation")
+                .start();
 
             var process = processEngine.processes().byId(processId).singleDetails().orElseThrow();
             assertEquals("explicit-correlation", process.correlationId());
