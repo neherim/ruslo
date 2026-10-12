@@ -86,7 +86,7 @@
             <dependency>
                 <groupId>com.fasterxml.uuid</groupId>
                 <artifactId>java-uuid-generator</artifactId>
-                <version>5.1.0</version>
+                <version>5.2.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -97,7 +97,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.14.1</version>
+                    <version>3.16.0</version>
                     <configuration>
                         <release>${maven.compiler.release}</release>
                         <parameters>true</parameters>
@@ -106,7 +106,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.4</version>
+                    <version>3.6.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
@@ -119,7 +119,7 @@
                 <plugin>
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
-                    <version>0.8.14</version>
+                    <version>0.8.15</version>
                     <executions>
                         <execution>
                             <goals>
