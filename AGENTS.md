@@ -73,7 +73,7 @@ Notes:
 
 ## Project Structure
 
-Maven multi-module project (`Java 21`, `Spring Boot 4.0.0`):
+Maven multi-module project (`Java 21`, Spring Boot 4.0 baseline):
 
 - **`ruslo-core`**: core engine, runtime, lease dispatcher, DAO layer, metrics, and public API.
 - **`ruslo-spring-boot-starter`**: Spring Boot auto-configuration, property binding, JDBC integration, Micrometer integration.
