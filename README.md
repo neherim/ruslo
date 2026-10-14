@@ -11,42 +11,56 @@ An embedded engine for long-running business processes in Java and Spring Boot. 
 machine in a Java DSL, and the engine runs it right inside your application, keeping its state in the database you
 already have. No separate cluster, broker or BPMN.
 
+Typical uses:
+
+- an order waits for payment, then for delivery, and is cancelled if a deadline passes;
+- customer onboarding waits days for documents and sends reminders;
+- a call to an external API is retried with delays, and the process falls back to a compensating state if the API
+  keeps failing.
+
 ![Process page in the Admin UI](docs/images/admin-ui-process.png)
 
 ## Features
 
 - **One database transaction with your data.** A step changes application data atomically with the process transition.
-  Temporal and message brokers cannot do this: their state lives outside your database.
 - **No infrastructure.** The engine is a library that uses your application's database: PostgreSQL in production,
   H2 for tests and local runs. There is no server, broker or cluster to deploy.
-- **Typed DSL.** Message payloads and handler forms are checked by the compiler: a handler that does not match its
-  declaration does not compile. `build()` checks the rest of the graph at startup.
-- **Durability.** Every transition is committed to the database, so a process survives restarts and node failures.
-- **Waiting without threads.** A process waits for a message or a timer (minutes, days, weeks) without holding a thread.
-- **Horizontal scaling.** Several application instances share processes through the common database.
-- **The whole process in one place.** The transition graph is defined in a Java DSL; the Admin UI draws a diagram from it.
-- **Deterministic tests.** The emulator runs steps and moves time forward without `sleep`.
+- **Typed DSL.** Message payloads and handler forms are checked by the compiler.
+- **Deterministic tests.** The engine's test emulator runs steps and moves time forward without `sleep`.
+
+Like other durable process engines, Ruslo commits every transition, so a process survives restarts and node
+failures; waits for a message or a timer (minutes, days, weeks) without holding a thread; and shares processes
+between several application instances through the common database.
 
 ## Example
 
-An order is created, then waits for payment. If the payment does not arrive within 2 hours, the order is cancelled.
+An order waits for payment. If the payment does not arrive within 2 hours, the order is cancelled.
 
 ```java
+// Declare the process states
 public enum OrderState implements ProcessState {
     CREATED, WAITING_FOR_PAYMENT, PAID, CANCELLED
 }
 
+// Implement a process step handler
 @Component
-public class CreateOrderStep implements ProcessStep {
+@RequiredArgsConstructor
+public class ReserveStockStep implements ProcessStep {
+    private final OrderRepository orders;
+
     @Override
     public void execute(ProcessContext context) {
-        // business logic; database changes are committed together with the transition
+        long orderId = context.getVariable(OrderProcess.ORDER_ID);
+        // The whole execute method runs in the same database transaction that records the move to the next state
+        orders.reserveStock(orderId);
     }
 }
 
+// Describe the process itself and the transitions between states
 @Component
 public class OrderProcess extends SpringProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("ORDER");
+    public static final VariableType<Long> ORDER_ID = VariableType.of("orderId");
     public static final MessageType<PaymentConfirmed> PAYMENT_CONFIRMED =
             MessageType.of("paymentConfirmed", PaymentConfirmed.class);
 
@@ -54,7 +68,8 @@ public class OrderProcess extends SpringProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder.type(TYPE)
                 .initialState(CREATED)
-                .step(CREATED, bean(CreateOrderStep.class), WAITING_FOR_PAYMENT)
+                // bean(...) takes the handler from the Spring context
+                .step(CREATED, bean(ReserveStockStep.class), WAITING_FOR_PAYMENT)
                 .await(WAITING_FOR_PAYMENT, await -> await
                         .message(PAYMENT_CONFIRMED, bean(PaymentHandler.class), PAID)
                         .timeout(Duration.ofHours(2), CANCELLED))
@@ -65,19 +80,21 @@ public class OrderProcess extends SpringProcessDefinition {
 }
 ```
 
-`PaymentHandler` implements `ProcessMessageHandler<PaymentConfirmed>`. Handlers only perform an action and the
-definition declares the next state, so the whole transition graph is visible in one place.
-
 A process is started and receives messages through `ProcessEngine`:
 
 ```java
-UUID orderId = processEngine.newProcess(OrderProcess.TYPE).start();
+// start a process
+UUID processId = processEngine.newProcess(OrderProcess.TYPE)
+        .businessKey(order.number())
+        .variable(OrderProcess.ORDER_ID, order.id())
+        .start();
 
 // later, e.g. in the payment callback
-processEngine.sendMessage(orderId, OrderProcess.PAYMENT_CONFIRMED, new PaymentConfirmed(amount));
+processEngine.sendMessage(processId, OrderProcess.PAYMENT_CONFIRMED, new PaymentConfirmed(amount));
 ```
 
-`sendMessage` stores the message in the caller's transaction; the handler runs after commit.
+`start` and `sendMessage` join the caller's transaction; the step or handler runs after commit. The business key
+lets you find the process by order number in search and in the Admin UI.
 
 The full example with a test is in the [quickstart](docs/quickstart.md).
 
@@ -91,8 +108,8 @@ The full example with a test is in the [quickstart](docs/quickstart.md).
 </dependency>
 ```
 
-Requirements: Java 21, Spring Boot 4, PostgreSQL (H2 works for tests and local runs). The starter creates the
-engine tables on startup.
+Requirements: Java 21, Spring Boot 4, PostgreSQL (H2 works for tests and local runs).
+The engine creates its database tables on startup.
 
 Additional modules:
 
@@ -102,13 +119,22 @@ Additional modules:
 | `ruslo-admin-ui` | Web UI: process search, diagram, manual intervention |
 | `ruslo-spring-boot-starter-test` | `@ProcessEngineTest` and the emulator for tests (scope `test`) |
 
+## Performance
+
+With empty handlers on one PostgreSQL, one engine executes about 4 800 steps/s with the transactional worker.
+Every transition is a database commit, so throughput is bounded by the database: two or four instances on the same
+database add 14–28%. Conditions and raw data:
+[performance report](docs/performance/2026-10-11-1-d5c2eb6/performance-report.md).
+
 ## When not to use it
 
-- You need a stateless task queue. Kafka, RabbitMQ or db-scheduler is enough.
-- You need parallel branches within one process.
+- Your production database is not PostgreSQL: the engine currently supports only PostgreSQL and H2.
+- Your application runs on Spring Boot 3: the starter requires Spring Boot 4.
+- You need a stable API now: in 0.x, incompatible changes are possible in minor versions.
+- You need a stateless task queue. Kafka, RabbitMQ or db-scheduler is a better fit.
 - You need process versioning: running processes use the current definition; its version is not stored.
-- You need executable BPMN or a visual process editor. Use Camunda or Flowable.
-- You need orchestration across services in different languages with a dedicated cluster. Use Temporal.
+- You need executable BPMN or a visual process editor. Camunda or Flowable is a better fit.
+- You need orchestration across services in different languages with a dedicated cluster. Temporal is a better fit.
 
 ## Documentation
 

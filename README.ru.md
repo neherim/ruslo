@@ -11,6 +11,13 @@
 автомат на Java DSL, а движок выполняет его прямо внутри вашего приложения и хранит состояние в той базе данных,
 которая у вас уже есть. Без отдельного кластера, брокера и BPMN.
 
+Типичные задачи:
+
+- заказ ждёт оплату, потом доставку и отменяется, если срок истёк;
+- онбординг клиента днями ждёт документы и отправляет напоминания;
+- вызов внешнего API повторяется с задержками, а если API продолжает падать, процесс уходит в компенсирующее
+  состояние.
+
 ![Карточка процесса в Admin UI](docs/images/admin-ui-process.png)
 
 ## Возможности
@@ -18,34 +25,42 @@
 - **Одна БД транзакция с вашими данными.** Шаг меняет данные приложения атомарно с переходом процесса.
 - **Без инфраструктуры.** Движок — это библиотека, которая работает с БД вашего приложения: PostgreSQL в production,
   H2 для тестов и локального запуска. Не нужно разворачивать сервер, брокер или кластер.
-- **Типизированный DSL.** Типы сообщений и формы обработчиков проверяет компилятор: обработчик, не подходящий к
-  объявлению, не скомпилируется. Остальную структуру графа `build()` проверяет при старте.
-- **Надёжность.** Каждый переход фиксируется в БД, поэтому процесс переживает рестарт и падение узла.
-- **Ожидание без потоков.** Процесс ждёт сообщение или таймер (минуты, дни, недели) и не занимает поток.
-- **Горизонтальное масштабирование.** Несколько экземпляров приложения разбирают процессы через общую БД.
-- **Весь процесс в одном месте.** Граф переходов описан на Java DSL, Admin UI рисует по нему схему.
-- **Детерминированные тесты.** Эмулятор выполняет шаги и сдвигает время без `sleep`.
+- **Типизированный DSL.** Типы сообщений и формы обработчиков проверяет компилятор.
+- **Детерминированные тесты.** Тестовый эмулятор движка выполняет шаги и сдвигает время без `sleep`.
+
+Как и другие персистентные движки процессов, Ruslo фиксирует каждый переход, поэтому процесс переживает рестарт и
+падение узла; ждёт сообщение или таймер (минуты, дни, недели), не занимая поток; распределяет процессы между
+несколькими экземплярами приложения через общую БД.
 
 ## Пример
 
-Заказ создаётся, затем ждёт оплату. Если оплата не пришла за 2 часа, заказ отменяется.
+Заказ ждёт оплату. Если оплата не пришла за 2 часа, заказ отменяется.
 
 ```java
+// Объявляем список состояний процесса
 public enum OrderState implements ProcessState {
     CREATED, WAITING_FOR_PAYMENT, PAID, CANCELLED
 }
 
+// Описываем обработчик шага процесса
 @Component
-public class CreateOrderStep implements ProcessStep {
+@RequiredArgsConstructor
+public class ReserveStockStep implements ProcessStep {
+    private final OrderRepository orders;
+
     @Override
     public void execute(ProcessContext context) {
-        // бизнес-логика; изменения в БД коммитятся вместе с переходом
+        long orderId = context.getVariable(OrderProcess.ORDER_ID);
+        // Весь метод execute находится в той же БД транзакции, в которой будет записан переход процесса в следующее состояние
+        orders.reserveStock(orderId);
     }
 }
 
+// Описываем саму схему процесса и переходов между состояниями
 @Component
 public class OrderProcess extends SpringProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("ORDER");
+    public static final VariableType<Long> ORDER_ID = VariableType.of("orderId");
     public static final MessageType<PaymentConfirmed> PAYMENT_CONFIRMED =
             MessageType.of("paymentConfirmed", PaymentConfirmed.class);
 
@@ -53,7 +68,8 @@ public class OrderProcess extends SpringProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder.type(TYPE)
                 .initialState(CREATED)
-                .step(CREATED, bean(CreateOrderStep.class), WAITING_FOR_PAYMENT)
+                // bean(...) берёт обработчик из Spring-контекста
+                .step(CREATED, bean(ReserveStockStep.class), WAITING_FOR_PAYMENT)
                 .await(WAITING_FOR_PAYMENT, await -> await
                         .message(PAYMENT_CONFIRMED, bean(PaymentHandler.class), PAID)
                         .timeout(Duration.ofHours(2), CANCELLED))
@@ -64,19 +80,21 @@ public class OrderProcess extends SpringProcessDefinition {
 }
 ```
 
-`PaymentHandler` реализует `ProcessMessageHandler<PaymentConfirmed>`. Обработчики только выполняют действие,
-а следующее состояние задаёт definition, поэтому весь граф переходов виден в одном месте.
-
 Процесс запускается и получает сообщения через `ProcessEngine`:
 
 ```java
-UUID orderId = processEngine.newProcess(OrderProcess.TYPE).start();
+// запуск процесса
+UUID processId = processEngine.newProcess(OrderProcess.TYPE)
+        .businessKey(order.number())
+        .variable(OrderProcess.ORDER_ID, order.id())
+        .start();
 
 // позже, например в обработчике callback от платёжной системы
-processEngine.sendMessage(orderId, OrderProcess.PAYMENT_CONFIRMED, new PaymentConfirmed(amount));
+processEngine.sendMessage(processId, OrderProcess.PAYMENT_CONFIRMED, new PaymentConfirmed(amount));
 ```
 
-`sendMessage` сохраняет сообщение в транзакции вызывающего кода, обработчик выполняется после коммита.
+`start` и `sendMessage` присоединяются к транзакции вызывающего кода, шаг или обработчик выполняется после коммита.
+По business key процесс можно найти по номеру заказа в поиске и в Admin UI.
 
 Полный пример с тестом — в [быстром старте](docs/ru/quickstart.md).
 
@@ -90,8 +108,8 @@ processEngine.sendMessage(orderId, OrderProcess.PAYMENT_CONFIRMED, new PaymentCo
 </dependency>
 ```
 
-Требования: Java 21, Spring Boot 4, PostgreSQL (H2 подходит для тестов и локального запуска). При старте
-starter сам создаёт таблицы движка.
+Требования: Java 21, Spring Boot 4, PostgreSQL (H2 подходит для тестов и локального запуска). 
+При запуске движок сам создает таблицы в БД.
 
 Дополнительные модули:
 
@@ -101,13 +119,22 @@ starter сам создаёт таблицы движка.
 | `ruslo-admin-ui` | Web-интерфейс: поиск процессов, схема, ручное вмешательство|
 | `ruslo-spring-boot-starter-test` | `@ProcessEngineTest` и эмулятор для тестов (scope `test`) |
 
+## Производительность
+
+С пустыми обработчиками на одном PostgreSQL один движок выполняет около 4 800 шагов/с
+с транзакционным worker. Каждый переход — это коммит в БД, поэтому пропускную способность ограничивает база:
+два или четыре экземпляра на одной БД добавляют 14–28%. Условия и сырые данные:
+[отчёт о производительности](docs/performance/2026-10-11-1-d5c2eb6/performance-report.md) (на английском).
+
 ## Когда не подходит
 
-- Нужна очередь задач без состояний. Хватит Kafka, RabbitMQ или db-scheduler.
-- Нужны параллельные ветки внутри одного процесса.
+- Production-БД — не PostgreSQL: в данный момент движок поддерживает только PostgreSQL и H2.
+- Приложение работает на Spring Boot 3: starter требует Spring Boot 4.
+- Нужен стабильный API уже сейчас: в 0.x несовместимые изменения возможны в минорных версиях.
+- Нужна очередь задач без состояний. Лучше подойдут Kafka, RabbitMQ или db-scheduler.
 - Нужно версионирование процессов: уже запущенные процессы используют текущую definition, её версия не сохраняется.
-- Нужен исполняемый BPMN или визуальный редактор процессов. Подойдут Camunda или Flowable.
-- Нужна оркестрация между сервисами на разных языках с отдельным кластером. Подойдёт Temporal.
+- Нужен исполняемый BPMN или визуальный редактор процессов. Лучше подойдут Camunda или Flowable.
+- Нужна оркестрация между сервисами на разных языках с отдельным кластером. Лучше подойдёт Temporal.
 
 ## Документация
 
