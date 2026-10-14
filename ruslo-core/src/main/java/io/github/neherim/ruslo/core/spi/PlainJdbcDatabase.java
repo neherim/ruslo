@@ -10,89 +10,68 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
  * {@link Database} on plain JDBC, without an external transaction manager.
+ * <p>
+ * A transaction is bound to the calling thread: the outermost {@code doInTransaction*} call takes a connection from
+ * the data source, and nested calls and SQL operations on the same thread use it. SQL operations called outside a
+ * transaction run in their own one. {@link #doAfterCommit(Runnable)} outside a transaction runs the action
+ * immediately.
  */
 public class PlainJdbcDatabase implements Database {
-    private final Logger log = LoggerFactory.getLogger(PlainJdbcDatabase.class);
+    private static final Logger log = LoggerFactory.getLogger(PlainJdbcDatabase.class);
     private final DataSource dataSource;
-    private final ThreadLocal<Connection> connectionHolder = new ThreadLocal<>();
-    private final ThreadLocal<List<Runnable>> afterCommitActions = new ThreadLocal<>();
+    private final ThreadLocal<Transaction> currentTransaction = new ThreadLocal<>();
 
     public PlainJdbcDatabase(DataSource dataSource) {
-        this.dataSource = dataSource;
+        this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * After-commit actions run after the connection is released. Every action runs even if an earlier one throws;
+     * the first exception is rethrown with the others suppressed, although the transaction is already committed.
+     *
+     * @throws PlainJdbcDatabaseException if a connection cannot be obtained or the commit fails
+     */
     @Override
     public <T> T doInTransactionWithResult(Supplier<T> action) {
-        Connection connection = null;
-        var isNewTransaction = connectionHolder.get() == null;
-        var commited = false;
+        if (currentTransaction.get() != null) {
+            return action.get();
+        }
+        var transaction = new Transaction(openConnection(), new ArrayList<>());
+        currentTransaction.set(transaction);
+        T result;
         try {
-            connection = getOrCreateConnection();
-
-            T result = action.get();
-
-            if (isNewTransaction) {
-                log.trace("Committing transaction");
-                connection.commit();
-                commited = true;
-            }
-            return result;
+            result = action.get();
+            log.trace("Committing transaction");
+            transaction.connection().commit();
         } catch (SQLException e) {
-            rollbackIfNeeded(connection, isNewTransaction, e);
-            throw new PlainJdbcDatabaseException("Transaction failed", e);
-        } catch (RuntimeException | Error ex) {
-            rollbackIfNeeded(connection, isNewTransaction, ex);
-            throw ex;
+            var failure = new PlainJdbcDatabaseException("Failed to commit transaction", e);
+            rollback(transaction.connection(), failure);
+            throw failure;
+        } catch (RuntimeException | Error e) {
+            rollback(transaction.connection(), e);
+            throw e;
         } finally {
-            if (isNewTransaction && connection != null) {
-                try {
-                    connection.setAutoCommit(true);
-                    connection.close();
-                    connectionHolder.remove();
-                    if (commited) {
-                        runAfterCommitActions();
-                    } else {
-                        afterCommitActions.remove();
-                    }
-                } catch (SQLException e) {
-                    log.error("Error while closing connection", e);
-                }
-            }
+            currentTransaction.remove();
+            release(transaction.connection());
         }
-    }
-
-    private void rollbackIfNeeded(Connection connection, boolean isNewTransaction, Throwable failure) {
-        if (!isNewTransaction || connection == null) {
-            return;
-        }
-        try {
-            connection.rollback();
-        } catch (SQLException ex) {
-            failure.addSuppressed(ex);
-        }
-    }
-
-    private void runAfterCommitActions() {
-        var actions = afterCommitActions.get();
-        if (actions != null) {
-            afterCommitActions.remove();
-            actions.forEach(Runnable::run);
-        }
+        runAll(transaction.afterCommitActions());
+        return result;
     }
 
     @Override
     public int update(String sql, Object... params) {
         return doInTransactionWithResult(() -> {
-            Connection conn = getOrCreateConnection();
-            try (var ps = conn.prepareStatement(sql)) {
-                for (int i = 0; i < params.length; i++) {
-                    setParameter(ps, i + 1, params[i]);
-                }
+            try (var ps = currentConnection().prepareStatement(sql)) {
+                bindParameters(ps, params);
                 return ps.executeUpdate();
             } catch (SQLException e) {
                 throw new PlainJdbcDatabaseException("Error during update", e);
@@ -103,11 +82,8 @@ public class PlainJdbcDatabase implements Database {
     @Override
     public <T> List<T> queryForList(String sql, RowMapper<T> rowMapper, Object... params) {
         return doInTransactionWithResult(() -> {
-            Connection conn = getOrCreateConnection();
-            try (var ps = conn.prepareStatement(sql)) {
-                for (int i = 0; i < params.length; i++) {
-                    setParameter(ps, i + 1, params[i]);
-                }
+            try (var ps = currentConnection().prepareStatement(sql)) {
+                bindParameters(ps, params);
                 try (ResultSet rs = ps.executeQuery()) {
                     List<T> result = new ArrayList<>();
                     while (rs.next()) {
@@ -124,12 +100,9 @@ public class PlainJdbcDatabase implements Database {
     @Override
     public void batchInsert(String sql, List<Object[]> params) {
         doInTransaction(() -> {
-            Connection conn = getOrCreateConnection();
-            try (var ps = conn.prepareStatement(sql)) {
+            try (var ps = currentConnection().prepareStatement(sql)) {
                 for (Object[] rowParams : params) {
-                    for (int i = 0; i < rowParams.length; i++) {
-                        setParameter(ps, i + 1, rowParams[i]);
-                    }
+                    bindParameters(ps, rowParams);
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -141,17 +114,12 @@ public class PlainJdbcDatabase implements Database {
 
     @Override
     public void doAfterCommit(Runnable action) {
-        if (connectionHolder.get() == null) {
+        var transaction = currentTransaction.get();
+        if (transaction == null) {
             action.run();
             return;
         }
-
-        var actions = afterCommitActions.get();
-        if (actions == null) {
-            actions = new ArrayList<>();
-            afterCommitActions.set(actions);
-        }
-        actions.add(action);
+        transaction.afterCommitActions().add(action);
     }
 
     @Override
@@ -159,54 +127,77 @@ public class PlainJdbcDatabase implements Database {
         return dataSource;
     }
 
-    @Override
-    public <T> Optional<T> queryForObject(String sql, RowMapper<T> rowMapper, Object... params) {
-        var result = queryForList(sql, rowMapper, params);
-        if (result.isEmpty()) {
-            return Optional.empty();
-        } else {
-            return Optional.ofNullable(result.get(0));
+    private Connection openConnection() {
+        Connection connection = null;
+        try {
+            connection = dataSource.getConnection();
+            connection.setAutoCommit(false);
+            log.trace("Started transaction");
+            return connection;
+        } catch (SQLException e) {
+            var failure = new PlainJdbcDatabaseException("Failed to start transaction", e);
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException closeFailure) {
+                    failure.addSuppressed(closeFailure);
+                }
+            }
+            throw failure;
         }
     }
 
-    @Override
-    public List<Map<String, Object>> queryForMap(String sql, Object... params) {
-        var result = new ArrayList<Map<String, Object>>();
-        return doInTransactionWithResult(() -> {
-            Connection conn = getOrCreateConnection();
-            try (var ps = conn.prepareStatement(sql)) {
-                for (int i = 0; i < params.length; i++) {
-                    setParameter(ps, i + 1, params[i]);
-                }
-                try (ResultSet rs = ps.executeQuery()) {
-                    var columnCount = rs.getMetaData().getColumnCount();
-                    while (rs.next()) {
-                        var row = new HashMap<String, Object>();
-                        for (int i = 1; i <= columnCount; i++) {
-                            row.put(rs.getMetaData().getColumnName(i), rs.getObject(i));
-                        }
-                        result.add(row);
-                    }
-                    return result;
-                }
-            } catch (SQLException e) {
-                throw new PlainJdbcDatabaseException("Error during query", e);
-            }
-        });
+    private Connection currentConnection() {
+        var transaction = currentTransaction.get();
+        if (transaction == null) {
+            throw new IllegalStateException("No transaction bound to the current thread");
+        }
+        return transaction.connection();
     }
 
-    private Connection getOrCreateConnection() {
+    private static void rollback(Connection connection, Throwable failure) {
         try {
-            Connection connection = connectionHolder.get();
-            if (connection == null || connection.isClosed()) {
-                connection = dataSource.getConnection();
-                connection.setAutoCommit(false);
-                connectionHolder.set(connection);
-                log.trace("Created new connection to database");
-            }
-            return connection;
+            connection.rollback();
         } catch (SQLException e) {
-            throw new PlainJdbcDatabaseException(e);
+            failure.addSuppressed(e);
+        }
+    }
+
+    /** Never throws: the transaction outcome is already decided, a release failure must not replace it. */
+    private static void release(Connection connection) {
+        try {
+            connection.setAutoCommit(true);
+        } catch (SQLException e) {
+            log.warn("Failed to restore auto-commit before closing connection", e);
+        }
+        try {
+            connection.close();
+        } catch (SQLException e) {
+            log.error("Failed to close connection", e);
+        }
+    }
+
+    private static void runAll(List<Runnable> actions) {
+        RuntimeException failure = null;
+        for (var action : actions) {
+            try {
+                action.run();
+            } catch (RuntimeException e) {
+                if (failure == null) {
+                    failure = e;
+                } else {
+                    failure.addSuppressed(e);
+                }
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private static void bindParameters(PreparedStatement statement, Object[] params) throws SQLException {
+        for (int i = 0; i < params.length; i++) {
+            setParameter(statement, i + 1, params[i]);
         }
     }
 
@@ -216,5 +207,8 @@ public class PlainJdbcDatabase implements Database {
             return;
         }
         statement.setObject(index, value);
+    }
+
+    private record Transaction(Connection connection, List<Runnable> afterCommitActions) {
     }
 }

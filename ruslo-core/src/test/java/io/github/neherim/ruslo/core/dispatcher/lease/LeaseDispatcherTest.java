@@ -498,11 +498,6 @@ class LeaseDispatcherTest extends BaseTest {
         }
 
         @Override
-        public List<Map<String, Object>> queryForMap(String sql, Object... params) {
-            return delegate.queryForMap(sql, params);
-        }
-
-        @Override
         public <T> List<T> queryForList(String sql, RowMapper<T> rowMapper, Object... params) {
             return delegate.queryForList(sql, rowMapper, params);
         }
@@ -573,11 +568,6 @@ class LeaseDispatcherTest extends BaseTest {
 
         @Override
         public <T> java.util.Optional<T> queryForObject(String sql, RowMapper<T> rowMapper, Object... params) {
-            throw accessed();
-        }
-
-        @Override
-        public List<Map<String, Object>> queryForMap(String sql, Object... params) {
             throw accessed();
         }
 

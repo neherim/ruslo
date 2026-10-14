@@ -1,8 +1,9 @@
 package io.github.neherim.ruslo.core.spi;
 
+import io.github.neherim.ruslo.core.api.exception.TooManyRowsException;
+
 import javax.sql.DataSource;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -40,10 +41,18 @@ public interface Database {
      */
     void batchInsert(String sql, List<Object[]> params);
 
-    /** Returns the mapped row, or empty if there is none. */
-    <T> Optional<T> queryForObject(String sql, RowMapper<T> rowMapper, Object... params);
-
-    List<Map<String, Object>> queryForMap(String sql, Object... params);
+    /**
+     * Returns the mapped row, or empty if there is none.
+     *
+     * @throws TooManyRowsException if the query returns more than one row
+     */
+    default <T> Optional<T> queryForObject(String sql, RowMapper<T> rowMapper, Object... params) {
+        var result = queryForList(sql, rowMapper, params);
+        if (result.size() > 1) {
+            throw new TooManyRowsException("Expected at most one row, got " + result.size());
+        }
+        return result.isEmpty() ? Optional.empty() : Optional.ofNullable(result.getFirst());
+    }
 
     <T> List<T> queryForList(String sql, RowMapper<T> rowMapper, Object... params);
 
