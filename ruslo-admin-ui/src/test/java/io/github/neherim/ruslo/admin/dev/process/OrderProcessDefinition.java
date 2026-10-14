@@ -43,6 +43,10 @@ public class OrderProcessDefinition implements ProcessDefinition {
         INVALID
     }
 
+    /** Reviewer decision on a suspicious order. */
+    public record ReviewDecision(String reviewer, String comment) {
+    }
+
     /** Result of the periodic payment check. */
     public enum PaymentCheck {
         PAID,
@@ -65,9 +69,9 @@ public class OrderProcessDefinition implements ProcessDefinition {
                     .on(PaymentCheck.NOT_YET, State.WAITING_FOR_PAYMENT))
                 .timeout(Duration.ofHours(1), State.REJECTED))
             .await(State.MANUAL_REVIEW, await -> await
-                .message(MessageType.of("approveReview", String.class), (context, message) -> {},
+                .message(MessageType.of("approveReview", ReviewDecision.class), (context, message) -> {},
                         State.WAITING_FOR_PAYMENT)
-                .message(MessageType.of("rejectReview", String.class), (context, message) -> {},
+                .message(MessageType.of("rejectReview", ReviewDecision.class), (context, message) -> {},
                         State.REJECTED))
             .terminal(State.COMPLETED)
             .terminal(State.REJECTED)

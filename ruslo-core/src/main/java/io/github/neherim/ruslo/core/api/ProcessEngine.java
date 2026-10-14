@@ -16,6 +16,7 @@ import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
 import io.github.neherim.ruslo.core.search.ProcessSearchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
 import java.util.Collection;
@@ -41,6 +42,7 @@ public class ProcessEngine implements AutoCloseable {
     private final ProcessRuntimeService processRuntimeService;
     private final ApplicationInstanceLifecycle applicationInstanceLifecycle;
     private final Clock clock;
+    private final ObjectMapper objectMapper;
     private final boolean databaseMigrationEnabled;
     private final boolean dispatcherEnabled;
     private volatile boolean started;
@@ -54,6 +56,7 @@ public class ProcessEngine implements AutoCloseable {
             ProcessRuntimeService processRuntimeService,
             ApplicationInstanceLifecycle applicationInstanceLifecycle,
             Clock clock,
+            ObjectMapper objectMapper,
             boolean databaseMigrationEnabled,
             boolean dispatcherEnabled
     ) {
@@ -65,6 +68,7 @@ public class ProcessEngine implements AutoCloseable {
         this.processRuntimeService = processRuntimeService;
         this.applicationInstanceLifecycle = applicationInstanceLifecycle;
         this.clock = clock;
+        this.objectMapper = objectMapper;
         this.databaseMigrationEnabled = databaseMigrationEnabled;
         this.dispatcherEnabled = dispatcherEnabled;
     }
@@ -237,5 +241,9 @@ public class ProcessEngine implements AutoCloseable {
 
     Clock clock() {
         return clock;
+    }
+
+    ObjectMapper objectMapper() {
+        return objectMapper;
     }
 }

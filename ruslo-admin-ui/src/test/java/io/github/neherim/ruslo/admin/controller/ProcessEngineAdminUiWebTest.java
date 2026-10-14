@@ -4,6 +4,7 @@ import io.github.neherim.ruslo.admin.dev.process.OrderProcessDefinition;
 import io.github.neherim.ruslo.admin.dto.ProcessPageResponse;
 import io.github.neherim.ruslo.admin.dto.ProcessSummaryResponse;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
+import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -94,6 +95,22 @@ class ProcessEngineAdminUiWebTest {
             .andExpect(status().isUnprocessableContent())
             .andExpect(content().string(containsString("error\">Invalid JSON value</div>")))
             .andExpect(header().string("HX-Trigger", containsString("\"kind\":\"error\"")));
+    }
+
+    @Test
+    void shouldPrefillMessageFormWithPayloadTemplate() throws Exception {
+        var processId = processEngine.newProcess(OrderProcessDefinition.TYPE).start();
+        new ProcessEngineAdmin(processEngine).moveProcessToState(processId,
+                OrderProcessDefinition.State.MANUAL_REVIEW);
+
+        var html = mockMvc.perform(get("/ruslo/processes/{id}", processId))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        var template = "{\n  &quot;reviewer&quot; : &quot;&quot;,\n  &quot;comment&quot; : &quot;&quot;\n}";
+        assertThat(html).contains("value=\"approveReview\" data-template=\"" + template + "\"")
+            .contains("name=\"jsonValue\" required>" + template + "</textarea>");
     }
 
     @Test
