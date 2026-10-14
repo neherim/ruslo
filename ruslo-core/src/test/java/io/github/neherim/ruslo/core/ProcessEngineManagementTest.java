@@ -77,6 +77,31 @@ class ProcessEngineManagementTest extends BaseTest {
         }
     }
 
+    @Test
+    void returnsPayloadTemplateOfAwaitedMessage() {
+        var type = ProcessType.of("TEMPLATE");
+        var approve = MessageType.of("approve", Approval.class);
+        ProcessDefinition definition = builder -> builder.type(type)
+            .initialState(State.START)
+            .step(State.START, context -> {}, State.WAIT)
+            .await(State.WAIT, await -> await.message(approve, (context, message) -> {}, State.DONE))
+            .terminal(State.DONE)
+            .build();
+        var engine = newProcessEngineWith(definition);
+        try {
+            var admin = new ProcessEngineAdmin(engine);
+            assertEquals("{\"approver\":\"\",\"amount\":0}",
+                    admin.messagePayloadTemplate(type, State.WAIT, "approve").orElseThrow().replaceAll("\\s+", ""));
+            assertEquals(Optional.empty(), admin.messagePayloadTemplate(type, State.WAIT, "reject"));
+            assertEquals(Optional.empty(), admin.messagePayloadTemplate(type, State.START, "approve"));
+        } finally {
+            engine.close();
+        }
+    }
+
+    private record Approval(String approver, int amount) {
+    }
+
     private enum State implements ProcessState {
         START,
         WAIT,

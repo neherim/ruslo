@@ -1,18 +1,21 @@
 package io.github.neherim.ruslo.core.api;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
+import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.api.view.ApplicationInstanceInfo;
 import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo;
 import io.github.neherim.ruslo.core.api.view.ProcessTypeCounts;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceLifecycle;
+import io.github.neherim.ruslo.core.management.JsonTemplate;
 import io.github.neherim.ruslo.core.runtime.ProcessRuntimeService;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -24,6 +27,7 @@ public final class ProcessEngineAdmin {
     private final ProcessDefinitionRegistry processDefinitionRegistry;
     private final ProcessRuntimeService processRuntimeService;
     private final ApplicationInstanceLifecycle applicationInstanceLifecycle;
+    private final JsonTemplate jsonTemplate;
 
     public ProcessEngineAdmin(ProcessEngine processEngine) {
         Objects.requireNonNull(processEngine, "ProcessEngine must not be null");
@@ -31,6 +35,7 @@ public final class ProcessEngineAdmin {
         this.processDefinitionRegistry = processEngine.processDefinitionRegistry();
         this.processRuntimeService = processEngine.processRuntimeService();
         this.applicationInstanceLifecycle = processEngine.applicationInstanceLifecycle();
+        this.jsonTemplate = new JsonTemplate(processEngine.objectMapper());
     }
 
     public Set<WorkerSpec> listWorkerSpecifications() {
@@ -80,6 +85,22 @@ public final class ProcessEngineAdmin {
      */
     public void sendMessage(UUID processId, String messageTypeName, Object jsonCompatiblePayload) {
         processRuntimeService.sendAdminMessage(processId, messageTypeName, jsonCompatiblePayload);
+    }
+
+    /**
+     * Returns a JSON skeleton of the payload class of the message accepted in {@code state}, for an operator to fill
+     * in before {@link #sendMessage}: strings are {@code ""}, numbers {@code 0}, booleans {@code false}, collections
+     * and maps empty, nested objects expanded; enums, dates and other values are {@code null}. Property names follow
+     * the engine's JSON mapper.
+     *
+     * @return empty if {@code state} does not await this message
+     * @throws io.github.neherim.ruslo.core.api.exception.UnsupportedProcessTypeException  if the type is not registered
+     * @throws io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException if the type has no such state
+     */
+    public Optional<String> messagePayloadTemplate(ProcessType type, ProcessState state, String messageTypeName) {
+        return processDefinitionRegistry.getProcessSpec(type)
+            .getMessageEvent(messageTypeName, state)
+            .map(event -> jsonTemplate.of(event.type().clazz()));
     }
 
     public <T> void setProcessVariable(UUID processId, VariableType<T> type, T value) {

@@ -251,7 +251,7 @@ public class ProcessEngineBuilder {
 
         return new ProcessEngine(processSearchService,
                 workerRegistry, processDefinitionRegistry, processDispatchScheduler, managementService,
-                processRuntimeService, applicationInstanceLifecycle, clock,
+                processRuntimeService, applicationInstanceLifecycle, clock, objectMapper,
                 databaseMigrationEnabled, dispatcherEnabled);
     }
 

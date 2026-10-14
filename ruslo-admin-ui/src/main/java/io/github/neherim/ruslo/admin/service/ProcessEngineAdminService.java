@@ -264,8 +264,20 @@ public class ProcessEngineAdminService {
                 stateHistory(process, definition.orElse(null)),
                 process.variables().asJsonMap(),
                 stateInfo == null ? "UNKNOWN" : stateInfo.kind().name(),
-                stateInfo == null ? List.of() : stateInfo.acceptedMessageTypes().stream().sorted().toList(),
+                stateInfo == null ? List.of() : acceptedMessages(process, stateInfo),
                 stateInfo == null ? null : timerDelay(stateInfo));
+    }
+
+    private List<ProcessDetailsResponse.AcceptedMessage> acceptedMessages(
+            ProcessInstanceDetails process,
+            ProcessSpecInfo.StateInfo state
+    ) {
+        return state.acceptedMessageTypes()
+            .stream()
+            .sorted()
+            .map(name -> new ProcessDetailsResponse.AcceptedMessage(name,
+                    management.messagePayloadTemplate(process.type(), process.state(), name).orElse("{}")))
+            .toList();
     }
 
     /**

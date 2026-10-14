@@ -30,7 +30,7 @@ messages). The actions match the [manual intervention operations](operations.md#
 |---|---|
 | Retry current step | `resumeFailedProcess`: retries the failed step or event of a process in `FAILED` |
 | Change state | `moveProcessToState`: moves the process to the selected state; the message queue is cleared |
-| Send message | takes JSON, validates it against the payload class and stores it like `sendMessage`; available in an await that declares messages, including in `FAILED` |
+| Send message | takes JSON, validates it against the payload class and stores it like `sendMessage`; available in an await that declares messages, including in `FAILED`. The JSON field is pre-filled with the payload class fields (`messagePayloadTemplate`): strings `""`, numbers `0`, booleans `false`, collections empty, nested objects expanded, enums, dates and other values `null` |
 | Add / edit / remove variable | changes process variables |
 
 Retry and variable removal ask for confirmation. Every action is written to the application log with the user name.

@@ -12,6 +12,7 @@ import java.util.UUID;
  * Process page data, without the internal signal queue.
  *
  * @param stateDescription description of the current state if it differs from the state name
+ * @param acceptedMessages messages of the current await, sorted by name
  */
 public record ProcessDetailsResponse(
         UUID id,
@@ -27,7 +28,7 @@ public record ProcessDetailsResponse(
         List<StateHistoryResponse> stateHistory,
         Map<String, String> variables,
         String stateKind,
-        List<String> acceptedMessageTypes,
+        List<AcceptedMessage> acceptedMessages,
         String timerDelay
 ) {
     public int variablesCount() {
@@ -40,7 +41,7 @@ public record ProcessDetailsResponse(
 
     /** Returns whether to show the message form: only for an await, including one stopped in {@code FAILED}. */
     public boolean acceptsMessages() {
-        return "AWAIT".equals(stateKind) && !acceptedMessageTypes.isEmpty();
+        return "AWAIT".equals(stateKind) && !acceptedMessages.isEmpty();
     }
 
     /** Returns whether the variable is a JSON object or array, shown collapsed to one line; a scalar is shown as is. */
@@ -56,5 +57,13 @@ public record ProcessDetailsResponse(
     public String version() {
         return Integer.toHexString(Objects.hash(state, status.name(), scheduledAt, businessKey, attempt,
                 lastError, stateHistory, variables));
+    }
+
+    /**
+     * Message the current await accepts.
+     *
+     * @param payloadTemplate JSON skeleton of the payload class that pre-fills the message form
+     */
+    public record AcceptedMessage(String name, String payloadTemplate) {
     }
 }
