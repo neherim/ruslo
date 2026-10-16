@@ -149,8 +149,8 @@ public class ProcessRuntimeService {
      * see {@link io.github.neherim.ruslo.core.api.ProcessEngine#sendMessageSync}. A handler exception propagates
      * as is; engine rejections are thrown after the transaction.
      *
-     * @throws MessageNotExpectedException if the current state does not await this type or the process is completed
-     * @throws ProcessStatusException      if the process is {@code FAILED}
+     * @throws MessageNotExpectedException if the current state does not await this type, the process is completed
+     *                                     or {@code FAILED}
      * @throws IllegalArgumentException    if no await of the process declares this type
      */
     public <T> void sendMessageSync(UUID processId, MessageType<T> type, T message) {
@@ -158,10 +158,8 @@ public class ProcessRuntimeService {
             doInTransactionOrReject(() -> {
                 var process = findProcessWithLock(processId);
                 var event = expectedMessageEvent(process, type);
-                if (event.isEmpty()) return messageNotExpected(process, type.name());
-                if (process.getStatus() == ProcessStatus.FAILED) {
-                    return new ProcessStatusException(processId, ProcessStatus.FAILED,
-                            "resume the process before handling a message synchronously");
+                if (event.isEmpty() || process.getStatus() == ProcessStatus.FAILED) {
+                    return messageNotExpected(process, type.name());
                 }
                 stepExecutor.executeMessage(process, event.get(), message);
                 processInstanceDao.update(process);
@@ -290,7 +288,7 @@ public class ProcessRuntimeService {
     }
 
     private static MessageNotExpectedException messageNotExpected(ProcessInstance process, String messageName) {
-        return new MessageNotExpectedException(process.getId(), messageName, process.getState().name(),
+        return new MessageNotExpectedException(process.getId(), messageName, process.getStatus(), process.getState(),
                 process.getProcessSpec().getApplicableMessageTypeNames(process.getState()));
     }
 

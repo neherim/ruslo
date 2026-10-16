@@ -94,11 +94,13 @@ class SendMessageSyncTest extends BaseTest {
 
         var unexpected = assertThrows(MessageNotExpectedException.class,
                 () -> engine.sendMessageSync(id, SIGNAL, "again"));
-        assertEquals("NEXT", unexpected.getCurrentState());
+        assertEquals(ProcessState.of("NEXT"), unexpected.getCurrentState());
+        assertEquals(ProcessStatus.ACTIVE, unexpected.getStatus());
         emulator(engine).runUntilStop(id);
         var completed = assertThrows(MessageNotExpectedException.class,
                 () -> engine.sendMessageSync(id, SIGNAL, "late"));
-        assertEquals("DONE", completed.getCurrentState());
+        assertEquals(ProcessState.of("DONE"), completed.getCurrentState());
+        assertEquals(ProcessStatus.COMPLETED, completed.getStatus());
         assertEquals(List.of("m", "next"), log);
     }
 
