@@ -16,6 +16,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -239,7 +240,10 @@ class ProcessStepExecutionTest extends BaseTest {
             new ProcessEngineAdmin(engine).sendMessage(id, SIGNAL.name(), "admin");
             assertEquals(ProcessStatus.FAILED, engine.processes().byId(id).singleDetails().orElseThrow().status());
             assertThrows(ProcessStatusException.class, () -> emulator(engine).runOneStep(id));
-            assertThrows(ProcessStatusException.class, () -> engine.sendMessageSync(id, SIGNAL, "sync"));
+            var rejected = assertThrows(MessageNotExpectedException.class,
+                    () -> engine.sendMessageSync(id, SIGNAL, "sync"));
+            assertEquals(ProcessStatus.FAILED, rejected.getStatus());
+            assertEquals(Set.of(SIGNAL.name()), rejected.getExpectedMessageNames());
             assertThrows(IllegalArgumentException.class,
                     () -> engine.sendMessage(id, MessageType.of("OTHER", String.class), "other"));
             assertEquals(List.of("first"), received);

@@ -126,7 +126,8 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
 - Inside Spring `@Transactional`, `start()` and `sendMessage()` are atomic with the application's own changes
   (same `DataSource` / transaction manager).
 - A message is accepted **only while the process is in an await that declares its type**. Otherwise
-  `sendMessage` throws `MessageNotExpectedException` (with `getCurrentState()`) and stores nothing.
+  `sendMessage` throws `MessageNotExpectedException` (with `getStatus()` and `getCurrentState()`) and stores
+  nothing.
   **There is no buffering of early messages**: the sender retries later or ignores it.
 - `MessageNotExpectedException` is thrown after the engine's transaction, so catching it does **not** mark the
   caller's transaction rollback-only. Catch it where a late or duplicate message is a normal case
@@ -136,13 +137,14 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
   try {
       processEngine.sendMessage(processId, CALLBACK, callback);
   } catch (MessageNotExpectedException ex) {
-      log.info("Callback ignored in state {}", ex.getCurrentState());
+      log.info("Callback ignored in state {}", ex.getCurrentState().name());
   }
   ```
 - A message type not declared by any await of the process is a caller bug: `IllegalArgumentException`.
 - `sendMessage` is **not idempotent**: deduplicate in the handler, e.g. by an event id in the payload.
 - `sendMessageSync(...)` runs the message handler in the caller's thread and transaction; handler exceptions
-  propagate to the caller.
+  propagate to the caller. A `FAILED` process is not handled synchronously: `MessageNotExpectedException` with
+  `getStatus() == FAILED`, nothing is stored.
 - Find processes: `processEngine.processes().byType(TYPE).byBusinessKey(key).single()` (`Optional`),
   `.byId(id).singleDetails()`, `.list()`.
 

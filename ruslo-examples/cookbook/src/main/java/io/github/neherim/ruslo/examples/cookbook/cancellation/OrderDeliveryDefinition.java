@@ -45,10 +45,11 @@ import org.springframework.stereotype.Component;
  *       deleted unhandled. That is why the cancel step refunds by order id, not by a variable the payment handler
  *       would have written.</li>
  *   <li>Do not cancel inside an application transaction: an exception from the cancel handler marks it
- *       rollback-only even if caught. Engine rejections ({@code MessageNotExpectedException},
- *       {@code ProcessStatusException}) do not mark the transaction.</li>
- *   <li>A process in {@code FAILED} is not handled synchronously ({@code ProcessStatusException}). An operator
- *       cancels such an order: in the admin UI, Change state → {@link State#CANCELLING}.</li>
+ *       rollback-only even if caught. An engine rejection ({@code MessageNotExpectedException})
+ *       does not mark the transaction.</li>
+ *   <li>A process in {@code FAILED} is not handled synchronously: {@link OrderCancellation} returns
+ *       {@code MANUAL}. An operator cancels such an order: in the admin UI, Change state →
+ *       {@link State#CANCELLING}.</li>
  * </ul>
  */
 @Component

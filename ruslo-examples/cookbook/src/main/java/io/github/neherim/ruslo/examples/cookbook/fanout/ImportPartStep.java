@@ -37,7 +37,7 @@ public class ImportPartStep implements ProcessStep {
         } catch (MessageNotExpectedException ex) {
             // The parent no longer waits, e.g. it completed on the overall deadline: the part just completes
             log.warn("Parent process {} in state {} did not accept report for rows {}-{}",
-                    parentId, ex.getCurrentState(), fromRow, toRow);
+                    parentId, ex.getCurrentState().name(), fromRow, toRow);
         }
     }
 }

@@ -93,6 +93,7 @@ A custom handler:
   `ProcessStatusException` and changes nothing; the exception itself does not mark the caller's transaction
   rollback-only.
 - A process in `FAILED` does not run: the dispatcher does not select it, timers do not fire, `sendMessageSync`
-  and emulator steps throw `ProcessStatusException`. `sendMessage` still accepts messages of the await: they stay in
+  throws `MessageNotExpectedException` with `getStatus() == FAILED` and emulator steps throw
+  `ProcessStatusException`. `sendMessage` still accepts messages of the await: they stay in
   the queue and are handled after `resumeFailedProcess`.
 - `resumeFailedProcess` resets `attempt`: the retry policy starts counting again after resume.
