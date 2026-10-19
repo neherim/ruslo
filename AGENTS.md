@@ -41,6 +41,7 @@ Engine operations join the caller's transaction, and in Spring any exception esc
 
 - Primary business logic lives in `ruslo-core`. Start there unless the task is clearly about Spring integration, admin UI, examples, or test support.
 - Do not edit `target/` directories or generated files.
+- Implementation plans go to `plans/` at the repository root; the folder is not committed. Everything worth keeping from a plan moves into code, Javadoc, docs and the commit message.
 - If you change public API, configuration properties, database schema, or test utilities, also update the relevant docs/examples in the same change.
 - If such a change affects what a library user writes (definitions, handlers, engine calls, error handling, workers, testing), also update the user-facing agent skill `skills/ruslo/SKILL.md` in the same change.
 - If you add, rename, remove, or change defaults/semantics of Spring Boot configuration properties, update `ruslo-spring-boot-starter/src/main/resources/META-INF/additional-spring-configuration-metadata.json` and relevant docs/examples in the same change.

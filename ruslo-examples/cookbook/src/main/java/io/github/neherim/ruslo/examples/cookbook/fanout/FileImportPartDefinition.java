@@ -18,9 +18,7 @@ import java.util.UUID;
 public class FileImportPartDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("FILE_IMPORT_PART");
     public static final VariableType<UUID> PARENT_ID = VariableType.of("parentId", UUID.class);
-    public static final VariableType<String> FILE_NAME = VariableType.of("fileName", String.class);
-    public static final VariableType<Integer> FROM_ROW = VariableType.of("fromRow", Integer.class);
-    public static final VariableType<Integer> TO_ROW = VariableType.of("toRow", Integer.class);
+    public static final VariableType<Integer> PART_NUMBER = VariableType.of("partNumber", Integer.class);
 
     private final ImportPartStep importPartStep;
 
@@ -28,7 +26,7 @@ public class FileImportPartDefinition implements ProcessDefinition {
         this.importPartStep = importPartStep;
     }
 
-    /** Describes a part import: import the rows and report to the parent. */
+    /** Describes a part import: import the part and report to the parent. */
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder

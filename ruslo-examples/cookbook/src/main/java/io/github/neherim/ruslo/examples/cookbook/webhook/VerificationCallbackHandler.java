@@ -14,29 +14,24 @@ public class VerificationCallbackHandler
         implements BranchingMessageHandler<VerificationCallback, VerificationCallbackHandler.Result> {
     private static final Logger log = LoggerFactory.getLogger(VerificationCallbackHandler.class);
 
-    private final ApplicantNotifier applicantNotifier;
-
-    public VerificationCallbackHandler(ApplicantNotifier applicantNotifier) {
-        this.applicantNotifier = applicantNotifier;
-    }
-
     /**
-     * Handles a callback once per {@code eventId}: a repeated delivery keeps the process waiting. A request for more
-     * documents is forwarded to the customer; a final status ends the wait.
+     * Keeps waiting on a repeated callback without doing anything. Otherwise remembers its {@code eventId}, forwards
+     * a request for more documents to the customer and keeps waiting; a final status ends the wait.
      */
     @Override
     public Result handle(ProcessContext context, IncomingMessage<VerificationCallback> message) {
         var callback = message.payload();
-        var processed = Objects.requireNonNullElse(
-                context.getVariable(IdentityVerificationDefinition.PROCESSED_EVENTS), ProcessedEvents.NONE);
-        if (processed.contains(callback.eventId())) {
-            log.info("Duplicate verification callback {} ignored", callback.eventId());
+        var handled = Objects.requireNonNullElse(context.getVariable(IdentityVerificationDefinition.HANDLED_EVENTS),
+                HandledEvents.NONE);
+        if (handled.contains(callback.eventId())) {
+            log.info("Repeated verification callback {} ignored", callback.eventId());
             return Result.WAIT;
         }
-        context.setVariable(IdentityVerificationDefinition.PROCESSED_EVENTS, processed.with(callback.eventId()));
+        context.setVariable(IdentityVerificationDefinition.HANDLED_EVENTS, handled.with(callback.eventId()));
         return switch (callback.status()) {
             case DOCUMENTS_REQUIRED -> {
-                applicantNotifier.requestDocuments(context.getVariable(IdentityVerificationDefinition.APPLICANT_EMAIL));
+                log.info("Documents requested from {}",
+                        context.getVariable(IdentityVerificationDefinition.APPLICANT_EMAIL));
                 yield Result.WAIT;
             }
             case APPROVED -> Result.APPROVED;

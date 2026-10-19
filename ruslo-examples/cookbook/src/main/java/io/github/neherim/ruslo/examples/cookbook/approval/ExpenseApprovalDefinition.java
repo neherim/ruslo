@@ -1,93 +1,98 @@
 package io.github.neherim.ruslo.examples.cookbook.approval;
 
+import io.github.neherim.ruslo.core.api.definition.IncomingMessage;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
+import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Map;
 
 /**
- * Recipe: human approval with reminders and escalation on a deadline.
+ * Recipe: escalation, restarting the wait with a new deadline and a new recipient.
  * <p>
- * Task: an employee submits an expense report, their manager approves it. While there is no decision, the manager
- * gets a reminder once a day. If the manager does not answer in time, the approval goes to their manager; if there is
- * no one above, the report expires.
+ * Task: an employee submits an expense report, their manager approves it. If the manager does not answer in time,
+ * the approval goes to their manager with a new deadline; if there is no one above, the report expires.
  * <p>
  * How it works:
  * <ul>
- *   <li>Step {@link RequestApprovalStep} asks the current approver ({@link #APPROVER}) for a decision.</li>
- *   <li>Await {@link State#WAITING_FOR_DECISION} declares three events. Message {@link #DECISION} ends the
- *       approval. {@code every} targeting the await itself sends a reminder and keeps waiting; the deadline does
- *       not move. {@code timeout} leads to escalation.</li>
- *   <li>Step {@link EscalateStep} passes the approval to the manager and returns the process to
- *       {@link State#REQUESTING}. The wait starts over: a new deadline, reminders go to the new approver.</li>
+ *   <li>Await {@link State#WAITING_FOR_DECISION} waits for message {@link #DECISION} with a {@code timeout}, as in
+ *       recipe {@code deadline}.</li>
+ *   <li>On the deadline step {@link State#ESCALATING} passes the approval to the manager ({@link #APPROVER}) and
+ *       returns the process to step {@link State#REQUESTING}, which leads back to the await. Entering the await again
+ *       restarts its deadline: this is the only way to reset a deadline.</li>
  *   <li>If there is no manager, the process ends in {@link State#EXPIRED}.</li>
  * </ul>
  * <p>
  * Pitfalls:
  * <ul>
- *   <li>Do not make the deadline a multiple of the reminder interval. At equal times {@code every} fires before
- *       {@code timeout}, and a needless reminder would go out right before escalation. Here the deadline is
- *       60 hours: reminders after one and two days, then escalation.</li>
- *   <li>To restart the wait, go to a step that leads back to the await. An event targeting the await itself does
- *       not reset the deadline, and {@code timeout} cannot target its own await.</li>
- *   <li>A decision from the previous approver that arrives after escalation is accepted too: the process checks
- *       only the message type. If that is not acceptable, compare {@code approver} from the decision with
- *       {@link #APPROVER} in the handler and return a "keep waiting" outcome that targets the await itself.</li>
- *   <li>While the process moves to the new approver (steps {@link State#ESCALATING} and {@link State#REQUESTING}),
- *       {@code sendMessage} with a decision may throw {@code MessageNotExpectedException}: early messages are not
- *       buffered. The approval UI should show an error and offer to retry.</li>
+ *   <li>A decision from the previous approver that arrives after escalation is accepted too. If that is not
+ *       acceptable, compare {@code approver} with {@link #APPROVER} in the handler and keep waiting on a mismatch.
+ *       While the process moves to the new approver, {@code sendMessage} throws
+ *       {@code MessageNotExpectedException}: the approval UI should offer to retry.</li>
  * </ul>
  */
 @Component
 public class ExpenseApprovalDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("EXPENSE_APPROVAL");
-    public static final Duration REMINDER_INTERVAL = Duration.ofDays(1);
-    public static final Duration DECISION_DEADLINE = Duration.ofHours(60);
+    public static final Duration DECISION_DEADLINE = Duration.ofDays(2);
     public static final VariableType<String> APPROVER = VariableType.of("approver", String.class);
     public static final VariableType<String> DECIDED_BY = VariableType.of("decidedBy", String.class);
-    public static final VariableType<String> COMMENT = VariableType.of("comment", String.class);
     public static final MessageType<Decision> DECISION = MessageType.of("decision", Decision.class);
 
-    private final RequestApprovalStep requestApprovalStep;
-    private final ApprovalHandlers approvalHandlers;
-    private final EscalateStep escalateStep;
+    private static final Logger log = LoggerFactory.getLogger(ExpenseApprovalDefinition.class);
+    /** Stands for the org chart: employee to manager; the top manager has none. */
+    private static final Map<String, String> MANAGERS = Map.of(
+            "alice", "bob",
+            "bob", "carol");
 
-    public ExpenseApprovalDefinition(
-            RequestApprovalStep requestApprovalStep,
-            ApprovalHandlers approvalHandlers,
-            EscalateStep escalateStep
-    ) {
-        this.requestApprovalStep = requestApprovalStep;
-        this.approvalHandlers = approvalHandlers;
-        this.escalateStep = escalateStep;
-    }
-
-    /** Describes the approval: request, wait for a decision with reminders, escalation on a deadline. */
+    /** Describes the approval: request, wait for a decision, escalation on a deadline. */
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
             .initialState(State.REQUESTING)
-            .step(State.REQUESTING, requestApprovalStep, State.WAITING_FOR_DECISION)
+            .step(State.REQUESTING, ExpenseApprovalDefinition::requestApproval, State.WAITING_FOR_DECISION)
             .await(State.WAITING_FOR_DECISION, await -> await
-                .message(DECISION, approvalHandlers::onDecision, routes -> routes
-                    .on(ApprovalHandlers.Outcome.APPROVED, State.APPROVED)
-                    .on(ApprovalHandlers.Outcome.REJECTED, State.REJECTED))
-                .every(REMINDER_INTERVAL, approvalHandlers::remind, State.WAITING_FOR_DECISION)
+                .message(DECISION, ExpenseApprovalDefinition::onDecision, routes -> routes
+                    .on(Outcome.APPROVED, State.APPROVED)
+                    .on(Outcome.REJECTED, State.REJECTED))
                 .timeout(DECISION_DEADLINE, State.ESCALATING))
-            .step(State.ESCALATING, escalateStep, routes -> routes
-                .on(EscalateStep.Escalation.ESCALATED, State.REQUESTING)
-                .on(EscalateStep.Escalation.NO_ONE_LEFT, State.EXPIRED))
+            .step(State.ESCALATING, ExpenseApprovalDefinition::escalate, routes -> routes
+                .on(Escalation.ESCALATED, State.REQUESTING)
+                .on(Escalation.NO_ONE_LEFT, State.EXPIRED))
             .terminal(State.APPROVED)
             .terminal(State.REJECTED)
             .terminal(State.EXPIRED)
             .build();
+    }
+
+    private static void requestApproval(ProcessContext context) {
+        log.info("Approval of {} requested from {}", context.businessKey().orElseThrow(),
+                context.getVariable(APPROVER));
+    }
+
+    private static Outcome onDecision(ProcessContext context, IncomingMessage<Decision> message) {
+        context.setVariable(DECIDED_BY, message.payload().approver());
+        return message.payload().approved() ? Outcome.APPROVED : Outcome.REJECTED;
+    }
+
+    /** Passes the approval to the current approver's manager, if there is one. */
+    private static Escalation escalate(ProcessContext context) {
+        var manager = MANAGERS.get(context.getVariable(APPROVER));
+        if (manager == null) {
+            return Escalation.NO_ONE_LEFT;
+        }
+        context.setVariable(APPROVER, manager);
+        return Escalation.ESCALATED;
     }
 
     public enum State implements ProcessState {
@@ -97,5 +102,17 @@ public class ExpenseApprovalDefinition implements ProcessDefinition {
         APPROVED,
         REJECTED,
         EXPIRED
+    }
+
+    /** Decision on the report. */
+    public enum Outcome {
+        APPROVED,
+        REJECTED
+    }
+
+    /** Escalation result. */
+    public enum Escalation {
+        ESCALATED,
+        NO_ONE_LEFT
     }
 }

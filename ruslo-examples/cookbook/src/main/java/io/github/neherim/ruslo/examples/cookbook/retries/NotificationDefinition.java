@@ -10,6 +10,8 @@ import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -50,11 +52,10 @@ public class NotificationDefinition implements ProcessDefinition {
     private static final ProcessErrorHandler BACKOFF = ProcessErrorHandler.exponential(MAX_RETRIES,
             Duration.ofSeconds(1), Duration.ofMinutes(1));
 
-    private final SendNotificationStep sendNotificationStep;
+    /** Recipients on this domain stand for a gateway that is down: every attempt fails. */
+    static final String UNAVAILABLE_DOMAIN = "@unavailable.example.com";
 
-    public NotificationDefinition(SendNotificationStep sendNotificationStep) {
-        this.sendNotificationStep = sendNotificationStep;
-    }
+    private static final Logger log = LoggerFactory.getLogger(NotificationDefinition.class);
 
     /** Describes sending a notification with retries and a fallback state. */
     @Override
@@ -63,10 +64,22 @@ public class NotificationDefinition implements ProcessDefinition {
             .type(TYPE)
             .onError(this::onError, State.DELIVERY_FAILED)
             .initialState(State.SENDING)
-            .step(State.SENDING, sendNotificationStep, State.SENT)
+            .step(State.SENDING, NotificationDefinition::send, State.SENT)
             .terminal(State.SENT)
             .terminal(State.DELIVERY_FAILED)
             .build();
+    }
+
+    /** Stands for a call to the notification gateway. */
+    private static void send(ProcessContext context) {
+        var recipient = context.getVariable(RECIPIENT);
+        if (!recipient.contains("@")) {
+            throw new InvalidRecipientException(recipient);
+        }
+        if (recipient.endsWith(UNAVAILABLE_DOMAIN)) {
+            throw new IllegalStateException("Gateway is unavailable");
+        }
+        log.info("Notification sent to {}: {}", recipient, context.getVariable(TEXT));
     }
 
     /** Does not retry errors a retry cannot fix; retries the rest with a growing delay. */

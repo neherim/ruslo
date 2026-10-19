@@ -44,3 +44,6 @@ jacoco.exec
 
 # Claude Code settings and hooks are local
 .claude/
+
+# Implementation plans are local working drafts
+/plans/

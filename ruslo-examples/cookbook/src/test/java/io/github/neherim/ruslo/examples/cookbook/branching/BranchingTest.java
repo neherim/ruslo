@@ -47,11 +47,9 @@ class BranchingTest {
         assertTrue(waiting.state().is(LoanApplicationDefinition.State.MANUAL_REVIEW));
 
         var approved = emulator.sendMessageAndRunUntilStop(processId, LoanApplicationDefinition.REVIEW_DECISION,
-                new ReviewDecision("alice", true, "Stable income"));
+                new ReviewDecision(true, "Stable income"));
 
         assertTrue(approved.state().is(LoanApplicationDefinition.State.APPROVED));
-        assertEquals("alice",
-                approved.variables().get(LoanApplicationDefinition.REVIEWER).orElseThrow());
     }
 
     @Test
@@ -60,7 +58,7 @@ class BranchingTest {
         emulator.runUntilStop(processId);
 
         var rejected = emulator.sendMessageAndRunUntilStop(processId, LoanApplicationDefinition.REVIEW_DECISION,
-                new ReviewDecision("bob", false, "Insufficient income"));
+                new ReviewDecision(false, "Insufficient income"));
 
         assertTrue(rejected.state().is(LoanApplicationDefinition.State.REJECTED));
         assertEquals("Insufficient income",
@@ -69,7 +67,6 @@ class BranchingTest {
 
     private UUID startApplication(long amount) {
         return processEngine.newProcess(LoanApplicationDefinition.TYPE)
-            .variable(LoanApplicationDefinition.APPLICANT, "John Smith")
             .variable(LoanApplicationDefinition.AMOUNT, amount)
             .start();
     }

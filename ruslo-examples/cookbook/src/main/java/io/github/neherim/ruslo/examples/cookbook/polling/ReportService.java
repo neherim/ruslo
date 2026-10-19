@@ -31,10 +31,7 @@ public class ReportService {
 
     /** Returns the current job status. */
     public ReportStatus checkStatus(String jobId) {
-        if (checks.merge(jobId, 1, Integer::sum) < 3) {
-            return new ReportStatus(ReportStatus.State.IN_PROGRESS, null);
-        }
-        return new ReportStatus(ReportStatus.State.READY, "https://reports.example.com/" + jobId + ".csv");
+        return checks.merge(jobId, 1, Integer::sum) < 3 ? ReportStatus.IN_PROGRESS : ReportStatus.READY;
     }
 
     /** Cancels the job so the service does not spend resources on it. */

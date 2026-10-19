@@ -15,9 +15,9 @@ public class PurchaseOrderRepository {
     }
 
     /** Inserts an order. */
-    public void insert(String orderId, String item, int quantity, String status) {
-        jdbcClient.sql("insert into purchase_order (id, item, quantity, status) values (?, ?, ?, ?)")
-            .params(orderId, item, quantity, status)
+    public void insert(String orderId, String item, String status) {
+        jdbcClient.sql("insert into purchase_order (id, item, status) values (?, ?, ?)")
+            .params(orderId, item, status)
             .update();
     }
 

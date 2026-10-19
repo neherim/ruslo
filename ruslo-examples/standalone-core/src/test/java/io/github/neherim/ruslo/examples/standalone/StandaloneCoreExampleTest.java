@@ -1,69 +1,76 @@
 package io.github.neherim.ruslo.examples.standalone;
 
-import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
+import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
+import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
+import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
 import org.h2.jdbcx.JdbcDataSource;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
 import java.util.UUID;
 
-import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The engine runs with the dispatcher enabled, as in an application: processes run in the background,
- * so the test waits for the result with Awaitility.
+ * The engine runs without the dispatcher: {@link ProcessEngineEmulator} executes steps synchronously in the
+ * test thread, so the test needs no waiting.
  */
 class StandaloneCoreExampleTest {
-    private static final Duration PROCESSING_TIMEOUT = Duration.ofSeconds(10);
+    private StandaloneCoreExample example;
+    private ProcessEngineEmulator emulator;
+
+    @BeforeEach
+    void setUp() {
+        var engine = new ProcessEngineBuilder(new PlainJdbcDatabase(newDataSource()))
+            .addProcessDefinition(new ApprovalProcessDefinition())
+            .withDispatcherEnabled(false)
+            .build();
+        engine.start();
+        example = new StandaloneCoreExample(engine);
+        emulator = new ProcessEngineEmulator(engine);
+    }
+
+    @AfterEach
+    void tearDown() {
+        example.close();
+    }
 
     @Test
     void managerApprovesSmallDocument() {
-        try (var example = StandaloneCoreExample.start(newDataSource())) {
-            var processId = example.startApproval("invoice-42", 500);
+        var processId = example.startApproval("invoice-42", 500);
 
-            var waiting = awaitState(example, processId, ApprovalState.WAITING_FOR_APPROVAL);
-            assertEquals("manager",
-                    waiting.variables().get(ApprovalProcess.APPROVER_ROLE).orElseThrow());
+        var waiting = emulator.runUntilStop(processId);
+        assertTrue(waiting.state().is(ApprovalState.WAITING_FOR_APPROVAL));
+        assertEquals("manager",
+                waiting.variables().get(Constants.APPROVER_ROLE).orElseThrow());
 
-            example.approve(processId, "manager-1");
+        example.approve(processId, "manager-1");
 
-            var approved = awaitState(example, processId, ApprovalState.APPROVED);
-            assertEquals(ProcessStatus.COMPLETED, approved.status());
-            assertEquals("manager-1",
-                    approved.variables().get(ApprovalProcess.APPROVED_BY).orElseThrow());
-        }
+        var approved = emulator.runUntilStop(processId);
+        assertTrue(approved.state().is(ApprovalState.APPROVED));
+        assertEquals(ProcessStatus.COMPLETED, approved.status());
+        assertEquals("manager-1",
+                approved.variables().get(Constants.APPROVED_BY).orElseThrow());
     }
 
     @Test
     void cfoRejectsLargeDocument() {
-        try (var example = StandaloneCoreExample.start(newDataSource())) {
-            var processId = example.startApproval("contract-7", 50_000);
+        var processId = example.startApproval("contract-7", 50_000);
 
-            var waiting = awaitState(example, processId, ApprovalState.WAITING_FOR_APPROVAL);
-            assertEquals("cfo",
-                    waiting.variables().get(ApprovalProcess.APPROVER_ROLE).orElseThrow());
+        var waiting = emulator.runUntilStop(processId);
+        assertTrue(waiting.state().is(ApprovalState.WAITING_FOR_APPROVAL));
+        assertEquals("cfo",
+                waiting.variables().get(Constants.APPROVER_ROLE).orElseThrow());
 
-            example.reject(processId, "Budget exceeded");
+        example.reject(processId, "Budget exceeded");
 
-            var rejected = awaitState(example, processId, ApprovalState.REJECTED);
-            assertTrue(rejected.state().is(ApprovalState.REJECTED));
-            assertEquals("Budget exceeded",
-                    rejected.variables().get(ApprovalProcess.REJECTION_REASON).orElseThrow());
-        }
-    }
-
-    private static ProcessInstanceDetails awaitState(
-            StandaloneCoreExample example,
-            UUID processId,
-            ApprovalState state
-    ) {
-        return await().atMost(PROCESSING_TIMEOUT)
-            .until(
-                    () -> example.engine().processes().byId(processId).singleDetails().orElseThrow(),
-                    process -> process.state().is(state));
+        var rejected = emulator.runUntilStop(processId);
+        assertTrue(rejected.state().is(ApprovalState.REJECTED));
+        assertEquals("Budget exceeded",
+                rejected.variables().get(Constants.REJECTION_REASON).orElseThrow());
     }
 
     private static JdbcDataSource newDataSource() {

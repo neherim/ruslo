@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.UUID;
 
@@ -21,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
 class DeadlineTest {
-    private static final Payment PAYMENT = new Payment("pay-1", new BigDecimal("50.00"));
+    private static final String PAYMENT_ID = "pay-1";
 
     @Autowired
     private ProcessEngine processEngine;
@@ -35,10 +34,10 @@ class DeadlineTest {
 
         emulator.fastForwardTime(SeatReservationDefinition.PAYMENT_DEADLINE.minusSeconds(1));
         var confirmed = emulator.sendMessageAndRunUntilStop(
-                processId, SeatReservationDefinition.PAYMENT_RECEIVED, PAYMENT);
+                processId, SeatReservationDefinition.PAYMENT_RECEIVED, PAYMENT_ID);
 
         assertTrue(confirmed.state().is(SeatReservationDefinition.State.CONFIRMED));
-        assertEquals("pay-1",
+        assertEquals(PAYMENT_ID,
                 confirmed.variables().get(SeatReservationDefinition.PAYMENT_ID).orElseThrow());
     }
 
@@ -49,7 +48,7 @@ class DeadlineTest {
         assertTrue(waiting.state().is(SeatReservationDefinition.State.WAITING_FOR_PAYMENT));
 
         // Before the deadline the process waits, after it the seat is released
-        emulator.fastForwardTime(SeatReservationDefinition.PAYMENT_DEADLINE.minus(Duration.ofSeconds(1)));
+        emulator.fastForwardTime(SeatReservationDefinition.PAYMENT_DEADLINE.minusSeconds(1));
         assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.WAITING_FOR_PAYMENT));
         emulator.fastForwardTime(Duration.ofSeconds(1));
         var expired = emulator.runUntilStop(processId);
@@ -59,7 +58,7 @@ class DeadlineTest {
 
         // The process does not accept a late payment: the sender handles it
         assertThrows(MessageNotExpectedException.class,
-                () -> processEngine.sendMessage(processId, SeatReservationDefinition.PAYMENT_RECEIVED, PAYMENT));
+                () -> processEngine.sendMessage(processId, SeatReservationDefinition.PAYMENT_RECEIVED, PAYMENT_ID));
     }
 
     private UUID startReservation() {

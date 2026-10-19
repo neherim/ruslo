@@ -12,10 +12,10 @@ import org.springframework.stereotype.Component;
  * transaction, so a caught rejection does not roll back the application transaction.
  */
 @Component
-public class OrderCancellation {
+public class OrderCancellationService {
     private final ProcessEngine processEngine;
 
-    public OrderCancellation(ProcessEngine processEngine) {
+    public OrderCancellationService(ProcessEngine processEngine) {
         this.processEngine = processEngine;
     }
 

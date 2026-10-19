@@ -2,94 +2,56 @@ package io.github.neherim.ruslo.examples.cookbook.retries;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
-import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.examples.cookbook.CookbookApplication;
 import io.github.neherim.ruslo.spring.test.ProcessEngineTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.Duration;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
 class RetriesTest {
-    private static final String RECIPIENT = "user@example.com";
 
     @Autowired
     private ProcessEngine processEngine;
     @Autowired
     private ProcessEngineEmulator emulator;
-    @MockitoBean
-    private NotificationGateway notificationGateway;
 
     @Test
-    void retriesTemporaryFailureAndSends() {
-        doThrow(new IllegalStateException("Gateway is unavailable"))
-            .doThrow(new IllegalStateException("Gateway is unavailable"))
-            .doNothing()
-            .when(notificationGateway)
-            .send(any(), any());
-        var processId = startNotification(RECIPIENT);
-
-        // The first attempt failed: a retry is scheduled in 1 second
-        var firstRetry = emulator.runUntilStop(processId);
-        assertEquals(1, firstRetry.attempt());
-        assertTrue(firstRetry.scheduledAt().isPresent());
-
-        // The emulator does not run the step before the retry time: the test advances time explicitly
-        emulator.fastForwardTime(Duration.ofSeconds(1));
-        var secondRetry = emulator.runUntilStop(processId);
-        assertEquals(2, secondRetry.attempt());
-
-        emulator.fastForwardTime(Duration.ofSeconds(2));
-        var sent = emulator.runUntilStop(processId);
+    void sendsNotification() {
+        var sent = emulator.runUntilStop(startNotification("ada@example.com"));
 
         assertTrue(sent.state().is(NotificationDefinition.State.SENT));
-        assertEquals(0, sent.attempt());
-        verify(notificationGateway, times(3)).send(RECIPIENT, "Your order has shipped");
     }
 
     @Test
-    void movesToFallbackStateWhenGatewayStaysDown() {
-        doThrow(new IllegalStateException("Gateway is unavailable"))
-            .when(notificationGateway)
-            .send(any(), any());
-        var processId = startNotification(RECIPIENT);
+    void retriesWithGrowingDelayThenFallsBack() {
+        var processId = startNotification("ada" + NotificationDefinition.UNAVAILABLE_DOMAIN);
 
-        emulator.runUntilStop(processId);
-        emulator.fastForwardTime(Duration.ofSeconds(1));
-        emulator.runUntilStop(processId);
-        emulator.fastForwardTime(Duration.ofSeconds(2));
-        emulator.runUntilStop(processId);
-        emulator.fastForwardTime(Duration.ofSeconds(4));
-        var failed = emulator.runUntilStop(processId);
+        // Each failed attempt schedules a retry: after 1, 2 and 4 seconds
+        var process = emulator.runUntilStop(processId);
+        for (var delay : new int[]{1, 2, 4}) {
+            assertTrue(process.state().is(NotificationDefinition.State.SENDING));
+            emulator.fastForwardTime(Duration.ofSeconds(delay));
+            process = emulator.runUntilStop(processId);
+        }
 
-        assertEquals(ProcessStatus.COMPLETED, failed.status());
-        assertTrue(failed.state().is(NotificationDefinition.State.DELIVERY_FAILED));
-        verify(notificationGateway, times(1 + NotificationDefinition.MAX_RETRIES)).send(any(), any());
+        assertTrue(process.state().is(NotificationDefinition.State.DELIVERY_FAILED));
     }
 
     @Test
     void doesNotRetryPermanentFailure() {
-        doThrow(new InvalidRecipientException("not-an-address"))
-            .when(notificationGateway)
-            .send(any(), any());
-        var processId = startNotification("not-an-address");
+        var failed = emulator.runUntilStop(startNotification("+1-555-0100"));
 
-        var failed = emulator.runUntilStop(processId);
-
+        // No retry was scheduled: the process went to the fallback state at once
         assertTrue(failed.state().is(NotificationDefinition.State.DELIVERY_FAILED));
-        verify(notificationGateway, times(1)).send(any(), any());
+        assertEquals(0, failed.attempt());
     }
 
     private UUID startNotification(String recipient) {

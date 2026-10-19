@@ -20,23 +20,23 @@ public class ApprovalProcessDefinition implements ProcessDefinition {
             .initialState(ApprovalState.CREATED)
             .step(ApprovalState.CREATED, ApprovalProcessDefinition::selectApprover, ApprovalState.WAITING_FOR_APPROVAL)
             .await(ApprovalState.WAITING_FOR_APPROVAL, await -> await
-                .message(ApprovalProcess.APPROVE, ApprovalProcessDefinition::onApprove, ApprovalState.APPROVED)
-                .message(ApprovalProcess.REJECT, ApprovalProcessDefinition::onReject, ApprovalState.REJECTED))
+                .message(Constants.APPROVE_MESSAGE, ApprovalProcessDefinition::onApprove, ApprovalState.APPROVED)
+                .message(Constants.REJECT_MESSAGE, ApprovalProcessDefinition::onReject, ApprovalState.REJECTED))
             .terminal(ApprovalState.APPROVED)
             .terminal(ApprovalState.REJECTED)
             .build();
     }
 
     private static void selectApprover(ProcessContext context) {
-        var amount = context.getVariable(ApprovalProcess.AMOUNT);
-        context.setVariable(ApprovalProcess.APPROVER_ROLE, amount >= CFO_APPROVAL_THRESHOLD ? "cfo" : "manager");
+        var amount = context.getVariable(Constants.AMOUNT);
+        context.setVariable(Constants.APPROVER_ROLE, amount >= CFO_APPROVAL_THRESHOLD ? "cfo" : "manager");
     }
 
     private static void onApprove(ProcessContext context, IncomingMessage<String> message) {
-        context.setVariable(ApprovalProcess.APPROVED_BY, message.payload());
+        context.setVariable(Constants.APPROVED_BY, message.payload());
     }
 
     private static void onReject(ProcessContext context, IncomingMessage<String> message) {
-        context.setVariable(ApprovalProcess.REJECTION_REASON, message.payload());
+        context.setVariable(Constants.REJECTION_REASON, message.payload());
     }
 }

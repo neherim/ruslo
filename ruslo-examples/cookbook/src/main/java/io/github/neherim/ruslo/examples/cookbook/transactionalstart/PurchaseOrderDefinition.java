@@ -1,11 +1,11 @@
 package io.github.neherim.ruslo.examples.cookbook.transactionalstart;
 
+import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
-import io.github.neherim.ruslo.core.api.definition.VariableType;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
  *       {@code newProcess(...).start()} run in one transaction. The engine joins the application transaction, so on
  *       rollback neither the order nor the process is saved.</li>
  *   <li>The process starts running only after commit: the dispatcher does not see an uncommitted process.</li>
- *   <li>Step {@link ConfirmOrderStep} on the transactional {@code DEFAULT} worker changes the order status in the
+ *   <li>Step {@link State#CONFIRMING} on the transactional {@code DEFAULT} worker changes the order status in the
  *       same transaction as the process transition: the table status and the process state do not diverge.</li>
  *   <li>The process business key is the order id: the process is found by it with
  *       {@code processes().byBusinessKey(...)}.</li>
@@ -39,12 +39,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class PurchaseOrderDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("PURCHASE_ORDER");
-    public static final VariableType<String> ORDER_ID = VariableType.of("orderId", String.class);
 
-    private final ConfirmOrderStep confirmOrderStep;
+    private final PurchaseOrderRepository orderRepository;
 
-    public PurchaseOrderDefinition(ConfirmOrderStep confirmOrderStep) {
-        this.confirmOrderStep = confirmOrderStep;
+    public PurchaseOrderDefinition(PurchaseOrderRepository orderRepository) {
+        this.orderRepository = orderRepository;
     }
 
     /** Describes order handling: confirmation changes the order status in the application table. */
@@ -53,9 +52,13 @@ public class PurchaseOrderDefinition implements ProcessDefinition {
         return builder
             .type(TYPE)
             .initialState(State.CONFIRMING)
-            .step(State.CONFIRMING, confirmOrderStep, State.CONFIRMED)
+            .step(State.CONFIRMING, this::confirm, State.CONFIRMED)
             .terminal(State.CONFIRMED)
             .build();
+    }
+
+    private void confirm(ProcessContext context) {
+        orderRepository.updateStatus(context.businessKey().orElseThrow(), "CONFIRMED");
     }
 
     public enum State implements ProcessState {

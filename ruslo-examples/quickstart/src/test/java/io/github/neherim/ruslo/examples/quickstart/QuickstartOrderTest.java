@@ -1,6 +1,5 @@
 package io.github.neherim.ruslo.examples.quickstart;
 
-import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
 import io.github.neherim.ruslo.spring.test.ProcessEngineTest;
 import org.junit.jupiter.api.Test;
@@ -16,8 +15,6 @@ class QuickstartOrderTest {
 
     @Autowired
     private OrderService orderService;
-    @Autowired
-    private ProcessEngine processEngine;
     @Autowired
     private ProcessEngineEmulator emulator;
 

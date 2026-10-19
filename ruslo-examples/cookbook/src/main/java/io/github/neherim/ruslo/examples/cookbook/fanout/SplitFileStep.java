@@ -7,8 +7,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class SplitFileStep implements ProcessStep {
-    public static final int PART_SIZE = 100;
-
     private final ProcessEngine processEngine;
 
     public SplitFileStep(ProcessEngine processEngine) {
@@ -21,20 +19,15 @@ public class SplitFileStep implements ProcessStep {
      */
     @Override
     public void execute(ProcessContext context) {
-        int rowCount = context.getVariable(FileImportDefinition.ROW_COUNT);
-        int parts = Math.ceilDiv(rowCount, PART_SIZE);
-        for (int i = 0; i < parts; i++) {
-            int fromRow = i * PART_SIZE + 1;
+        int parts = context.getVariable(FileImportDefinition.PART_COUNT);
+        for (int part = 1; part <= parts; part++) {
             processEngine.newProcess(FileImportPartDefinition.TYPE)
                 // Parts get the parent's correlation id, so logs show the whole job together
                 .correlationId(context.correlationId())
                 .variable(FileImportPartDefinition.PARENT_ID, context.processId())
-                .variable(FileImportPartDefinition.FILE_NAME, context.getVariable(FileImportDefinition.FILE_NAME))
-                .variable(FileImportPartDefinition.FROM_ROW, fromRow)
-                .variable(FileImportPartDefinition.TO_ROW, Math.min(fromRow + PART_SIZE - 1, rowCount))
+                .variable(FileImportPartDefinition.PART_NUMBER, part)
                 .start();
         }
         context.setVariable(FileImportDefinition.REMAINING_PARTS, parts);
-        context.setVariable(FileImportDefinition.IMPORTED_ROWS, 0);
     }
 }

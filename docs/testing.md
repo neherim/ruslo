@@ -58,8 +58,8 @@ class OrderServiceTest {
 }
 ```
 
-Full examples in `ruslo-examples/cookbook`: `EmulatorTest` of the `testing` recipe (all emulator methods), the
-`deadline` recipe (timer) and the `retries` recipe (retries and fallback state).
+Full examples in `ruslo-examples/cookbook`: the `deadline` recipe (timer) and the `retries` recipe (retries and
+fallback state).
 
 Control time through the emulator; there is no need to inject the engine clock into the test. To set your own
 initial clock, declare a `MutableClock` bean (`core.api.test`) named `processEngineClock` with
@@ -70,7 +70,6 @@ throw `IllegalStateException`.
 
 To control time with the dispatcher running, use `@ImportAutoConfiguration(ProcessEngineTestConfiguration.class)`
 instead of `@ProcessEngineTest`: the emulator and `MutableClock` are registered, and the dispatcher stays enabled.
-Example: `DispatcherEnabledTest` of the `testing` recipe in `ruslo-examples/cookbook`.
 
 ## Step unit tests: TestProcessContext
 
@@ -101,8 +100,8 @@ assertEquals(Set.of("order", "paymentId"), context.variableNames());
 | `jsonMapper(ObjectMapper)` | the engine's default mapper; set the same one as in `ProcessEngineBuilder.withJsonMapper` |
 
 `TestProcessContext.create()` is a context with default values. Besides the `ProcessContext` methods, it has
-`variableNames()`, the names of all variables. Example: `ReviewHandlersTest` of the `testing` recipe in
-`ruslo-examples/cookbook`.
+`variableNames()`, the names of all variables. Example: `CheckApplicationStepTest` of the `branching` recipe
+in `ruslo-examples/cookbook`.
 
 ## What the emulator does not check
 

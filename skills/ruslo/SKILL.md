@@ -1,12 +1,12 @@
 ---
 name: ruslo
-description: Write, test and debug business processes on Ruslo, a Java 21 / Spring Boot library for durable stateful processes backed by a relational database. Use when the code imports io.github.neherim.ruslo, or when the task touches ProcessDefinition, ProcessSpecBuilder, ProcessStep, BranchingStep, await/message/every/timeout, ProcessEngine.newProcess/sendMessage, ProcessErrorHandler, workers, @ProcessEngineTest or ProcessEngineEmulator.
+description: Write, test and debug business processes on Ruslo, a Java 21 / Spring Boot library for durable stateful processes backed by a relational database. Use when the code imports io.github.neherim.ruslo, or when the task touches ProcessDefinition, ProcessSpecBuilder, ProcessStep, BranchingStep, await/message/every/timeout, ProcessEngine.newProcess/sendMessage, ProcessErrorHandler, workers, ruslo.* Spring properties, @ProcessEngineTest or ProcessEngineEmulator.
 ---
 
 # Ruslo
 
-Written for Ruslo 0.1.x. Full docs: https://github.com/neherim/ruslo/tree/main/docs.
-Copyable recipes with tests: https://github.com/neherim/ruslo/tree/main/ruslo-examples/cookbook.
+Describes the latest Ruslo version. This page is enough to write, test and debug processes; the online
+documentation listed at the end is optional.
 
 ## Mental model
 
@@ -141,7 +141,9 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
   }
   ```
 - A message type not declared by any await of the process is a caller bug: `IllegalArgumentException`.
-- `sendMessage` is **not idempotent**: deduplicate in the handler, e.g. by an event id in the payload.
+- `sendMessage` is **not idempotent**: deduplicate in the handler. Keep the event ids from the payload in a
+  variable (a record wrapping the list: variable classes cannot be generic); on a known id do nothing and target the
+  await itself to keep waiting.
 - `sendMessageSync(...)` runs the message handler in the caller's thread and transaction; handler exceptions
   propagate to the caller. A `FAILED` process is not handled synchronously: `MessageNotExpectedException` with
   `getStatus() == FAILED`, nothing is stored.
@@ -152,7 +154,8 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
 
 - An exception from a handler is a **technical failure**: its transaction rolls back and the process-level
   `ProcessErrorHandler` decides: `ErrorResult.retryAfter(delay)`, `fail()` (status `FAILED`) or `fallback()`
-  (go to the fallback state given in `onError(handler, fallbackState)`, else `FAILED`).
+  (go to the fallback state given in `onError(handler, fallbackState)`, else `FAILED`). An error in the fallback
+  state itself stops the process in `FAILED`.
 - Expected business situations (declined card, rejected application) are **outcomes of a branching handler**,
   not exceptions.
 - Built-ins: `ProcessErrorHandler.noRetry()` (default), `fixed(maxRetries, delay)`,
@@ -179,6 +182,65 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
         execution-mode: non_transactional
         max-concurrency: 50
   ```
+- The `DEFAULT` worker is created automatically (transactional, `max-concurrency: 10`); override it with the
+  `DEFAULT` key. It must stay `transactional`.
+
+## Spring configuration
+
+All properties are under `ruslo`:
+
+| Property | Default | Meaning |
+|---|---|---|
+| `database-dialect` | detected from JDBC | `postgresql` or `h2` |
+| `database-migration.enabled` | `true` | Create/upgrade `xs_*` tables on start. Disable when Flyway/Liquibase owns the schema and apply `db/migration/<database>/V*.sql` from the `ruslo-core` jar |
+| `history.enabled` | `true` | Store state changes in `xs_process_state_hist` |
+| `dispatcher.enabled` | `true` | Run processes in the background on this node |
+| `dispatcher.min-interval` / `max-interval` | `100ms` / `10s` | Polling interval with / without work |
+| `dispatcher.instance-heartbeat-interval` / `instance-timeout` | `15s` / `60s` | Node liveness; after the timeout other nodes take its processes |
+| `workers.<name>.execution-mode` / `max-concurrency` | `transactional` / `10` | See Workers |
+| `logging.mdc.correlation-id-key` / `process-id-key` / `process-type-key` | `correlation_id` / `process_id` / `process_type` | MDC keys |
+
+## Patterns
+
+**Fan-out: process parts in parallel and wait for all of them.** Steps of one process never run in parallel, and
+there is no subprocess API: parts are ordinary processes exchanging messages.
+
+```java
+// Parent step on a transactional worker: parts are saved in the step's transaction, so they become visible
+// only after the parent is already in WAITING_FOR_PARTS and cannot report too early.
+public void execute(ProcessContext context) {
+    int parts = context.getVariable(PART_COUNT);
+    for (int part = 1; part <= parts; part++) {
+        processEngine.newProcess(PartDefinition.TYPE)
+            .correlationId(context.correlationId())
+            .variable(PartDefinition.PARENT_ID, context.processId())
+            .variable(PartDefinition.PART_NUMBER, part)
+            .start();
+    }
+    context.setVariable(REMAINING_PARTS, parts);
+}
+
+// Parent: count reports, keep waiting until all parts are done
+.step(SPLITTING, splitStep, WAITING_FOR_PARTS)
+.await(WAITING_FOR_PARTS, await -> await
+    .message(PART_DONE, ParentDefinition::onPartDone, routes -> routes
+        .on(Progress.WAIT, WAITING_FOR_PARTS)
+        .on(Progress.ALL_DONE, COMPLETED)))
+
+// Last step of a part (transactional worker, so the report is atomic with the part's transition):
+processEngine.sendMessage(context.getVariable(PARENT_ID), PART_DONE, context.getVariable(PART_NUMBER));
+```
+
+A failed part does not report and the parent waits: give parts a retry policy, report failure from their fallback
+state, or add a `timeout` to the parent's await. Route zero parts past the await with a `BranchingStep`.
+
+**Cancellation by the user at any stage.** Declare a `CANCEL` message in every await where cancellation is allowed,
+all leading to one `CANCELLING` step that undoes work by the business key. Send it with
+`sendMessageSync`: the transition is committed before the call returns, so the user gets a definite answer.
+`sendMessage` only queues it, and a payment queued earlier may move the process on and drop the cancellation.
+On `MessageNotExpectedException` switch on `getStatus()`: `COMPLETED` is too late, `ACTIVE` means a step is running
+(answer "busy, retry": the step always moves on to an await or a terminal state), `FAILED` needs an operator. Keep
+the steps short.
 
 ## Testing (always do this after changing a process)
 
@@ -227,7 +289,7 @@ class OrderProcessTest {
 - Remove or rename a state while live processes may be in it: they get stuck (retried every 60 s with
   `lastError`). Keep the old state, or move them with `ProcessEngineAdmin.moveProcessToState` first.
 - Assume parallel branches inside one process: steps of one process never run in parallel. Fan out into
-  child processes and collect their reports via messages (cookbook recipe `fanout`).
+  child processes and collect their reports via messages (see Patterns).
 
 ## Compile errors and what they mean
 
@@ -242,14 +304,22 @@ class OrderProcessTest {
 `build()` validates the rest (duplicate states/events, undeclared targets, incomplete routes, non-positive
 delays, await without exit, unregistered workers) and its message names the problem.
 
-## Where to look
+## Online documentation (optional)
 
-| Need | Doc | Cookbook recipe |
+Use it only when this page is not enough and network access is available. These files are in the Ruslo GitHub
+repository, not in the user's project. Docs: `https://raw.githubusercontent.com/neherim/ruslo/main/docs/<file>`.
+
+| Need | Doc file | Cookbook recipe |
 |---|---|---|
-| Branching, awaits, timers | `docs/concepts.md` | `branching`, `deadline`, `polling`, `approval`, `subscription` |
-| Errors, retries, compensation | `docs/error-handling.md` | `retries`, `failandresume`, `saga` |
-| Delivery guarantees, messages | `docs/guarantees.md` | `webhook`, `externalcall` |
-| Transactions, event ordering | `docs/execution.md` | `transactionalstart`, `cancellation`, `batch` |
-| Workers | `docs/workers.md` | `ioworker` |
-| Testing | `docs/testing.md` | `testing` |
-| Spring properties | `docs/configuration.md` | |
+| Branching, awaits, timers | `concepts.md` | `branching`, `deadline`, `polling`, `approval`, `subscription` |
+| Errors, retries, compensation | `error-handling.md` | `retries`, `failandresume` |
+| Delivery guarantees, messages | `guarantees.md` | `webhook`, `externalcall` |
+| Transactions, event ordering | `execution.md` | `transactionalstart`, `cancellation`, `batch` |
+| Workers | `workers.md` | `externalcall` |
+| Testing | `testing.md` | `branching` (`CheckApplicationStepTest`) |
+| Spring properties | `configuration.md` | |
+
+Recipes: the list with the class to start from is in
+`https://raw.githubusercontent.com/neherim/ruslo/main/ruslo-examples/cookbook/README.md`. A recipe's code is in
+`https://github.com/neherim/ruslo/tree/main/ruslo-examples/cookbook/src/main/java/io/github/neherim/ruslo/examples/cookbook/<recipe>`.
+Read its `*Definition` class first.

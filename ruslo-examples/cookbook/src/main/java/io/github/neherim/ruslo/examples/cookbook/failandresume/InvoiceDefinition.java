@@ -1,85 +1,70 @@
 package io.github.neherim.ruslo.examples.cookbook.failandresume;
 
-import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
-import io.github.neherim.ruslo.core.api.definition.ProcessError;
-import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
-import java.time.Duration;
+import java.util.Set;
 
 /**
  * Recipe: stop a process on an unrecoverable error, fix the data and continue.
  * <p>
- * Task: issue an invoice, calculating tax by the customer's country. If the country code in the order is wrong, a
- * retry will not help, and no other branch can be chosen automatically: a human must fix the data. The process stops
- * and waits until an operator fixes the country and resumes it.
+ * Task: issue an invoice for the customer's country. If the country code in the order is wrong, a retry will not help,
+ * and no other branch can be chosen automatically: a human must fix the data. The process stops and waits until an
+ * operator fixes the country and resumes it.
  * <p>
  * How it works:
  * <ul>
- *   <li>{@code onError} returns {@link ErrorResult#fail()} for {@link UnsupportedCountryException}: the process stays
+ *   <li>The definition declares no {@code onError}. By default an error in a step is not retried: the process stays
  *       in state {@link State#ISSUING} with status {@code FAILED}, the error text is in {@code lastError}. The
  *       dispatcher does not run such a process.</li>
- *   <li>Other errors are considered transient and are retried; after {@link #MAX_RETRIES} retries
- *       {@code fallback()} without a fallback state also leaves the process in {@code FAILED}.</li>
- *   <li>{@link InvoiceOperations} holds operator actions: find stopped and retrying processes, fix a variable
+ *   <li>{@link InvoiceOperations} holds operator actions: find stopped processes, fix a variable
  *       ({@code admin().setProcessVariable}) and resume ({@code resumeFailedProcess}). Resuming repeats the failed
  *       step with the fixed data. The admin UI offers the same actions.</li>
  * </ul>
  * <p>
  * Pitfalls:
  * <ul>
- *   <li>{@code fail()} is for errors that need a human. If an error has an automatic reaction (cancel the order,
- *       notify the customer), declare a fallback state and return {@code fallback()} (recipe {@code retries}),
- *       otherwise stopped processes pile up.</li>
+ *   <li>Without {@code onError} a transient failure (a network error, a lock timeout) also stops the process. Retry
+ *       such errors in {@code onError} and return {@code ErrorResult.fail()} only for errors that need a human
+ *       (recipe {@code retries}).</li>
+ *   <li>If an error has an automatic reaction (cancel the order, notify the customer), declare a fallback state
+ *       instead of stopping, otherwise stopped processes pile up.</li>
  *   <li>Stopped processes must be noticed: set up an alert on a {@code FAILED} search or on metrics.</li>
- *   <li>{@code resumeFailedProcess} applies only to {@code FAILED}; for a process that is still retrying the step
- *       ({@code byAttempted()}), fixing the data is enough: the next retry sees it.</li>
- *   <li>The attempt counter starts over after {@code resumeFailedProcess}.</li>
  * </ul>
  */
 @Component
 public class InvoiceDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("INVOICE");
-    public static final VariableType<BigDecimal> AMOUNT = VariableType.of("amount", BigDecimal.class);
     public static final VariableType<String> COUNTRY = VariableType.of("country", String.class);
-    public static final VariableType<BigDecimal> TAX = VariableType.of("tax", BigDecimal.class);
 
-    static final int MAX_RETRIES = 3;
-    private static final ProcessErrorHandler BACKOFF = ProcessErrorHandler.exponential(MAX_RETRIES,
-            Duration.ofSeconds(10), Duration.ofMinutes(5));
+    private static final Logger log = LoggerFactory.getLogger(InvoiceDefinition.class);
+    private static final Set<String> SUPPORTED_COUNTRIES = Set.of("DE", "FR");
 
-    private final IssueInvoiceStep issueInvoiceStep;
-
-    public InvoiceDefinition(IssueInvoiceStep issueInvoiceStep) {
-        this.issueInvoiceStep = issueInvoiceStep;
-    }
-
-    /** Describes invoicing: on bad data the process stops until fixed by hand. */
+    /** Describes invoicing: on an error the process stops until fixed by hand. */
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
-            .onError(this::onError)
             .initialState(State.ISSUING)
-            .step(State.ISSUING, issueInvoiceStep, State.ISSUED)
+            .step(State.ISSUING, InvoiceDefinition::issue, State.ISSUED)
             .terminal(State.ISSUED)
             .build();
     }
 
-    /** Stops the process on bad data; retries transient errors. */
-    private ErrorResult onError(ProcessContext context, ProcessError error) {
-        if (error.cause() instanceof UnsupportedCountryException) {
-            return ErrorResult.fail();
+    private static void issue(ProcessContext context) {
+        var country = context.getVariable(COUNTRY);
+        if (!SUPPORTED_COUNTRIES.contains(country)) {
+            throw new IllegalArgumentException("Unsupported country: " + country);
         }
-        return BACKOFF.handle(context, error);
+        log.info("Invoice for {} issued", context.businessKey().orElseThrow());
     }
 
     public enum State implements ProcessState {
