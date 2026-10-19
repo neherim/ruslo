@@ -40,7 +40,7 @@ public class VerificationWebhook {
             processEngine.sendMessage(process.get().id(), IdentityVerificationDefinition.CALLBACK, callback);
         } catch (MessageNotExpectedException ex) {
             log.info("Verification callback {} for application {} in state {} ignored",
-                    callback.eventId(), callback.applicationId(), ex.getCurrentState());
+                    callback.eventId(), callback.applicationId(), ex.getCurrentState().name());
         }
     }
 }

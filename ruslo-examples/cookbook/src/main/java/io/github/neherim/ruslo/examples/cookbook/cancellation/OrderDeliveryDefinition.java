@@ -41,9 +41,9 @@ import org.springframework.stereotype.Component;
  *       the order ships although the customer was told "cancelled".</li>
  *   <li>{@code sendMessageSync} handles the cancellation out of queue order, and an already queued payment is
  *       deleted unhandled, and {@link #PAYMENT_ID} may be missing: undo by order id.</li>
- *   <li>A step retried after errors answers {@code BUSY} for the whole retry period: keep steps short. For a process
- *       in {@code FAILED} {@code sendMessageSync} throws {@code ProcessStatusException}; an operator cancels such an
- *       order in the admin UI: Change state → {@link State#CANCELLING}.</li>
+ *   <li>A step retried after errors answers {@code BUSY} for the whole retry period: keep steps short. A process
+ *       in {@code FAILED} is not handled synchronously, and {@link OrderCancellationService} answers {@code MANUAL};
+ *       an operator cancels such an order in the admin UI: Change state → {@link State#CANCELLING}.</li>
  * </ul>
  */
 @Component

@@ -87,7 +87,8 @@ in the active application transaction or in a new one. The process row stays loc
   another state the queued messages are removed unhandled. If the process is waiting to retry a failed event, that
   retry is kept.
 - Applicability is checked as in `sendMessage`: if the process is not waiting for the message now or has completed,
-  the method throws `MessageNotExpectedException`. A process in `FAILED` is not handled synchronously:
-  `ProcessStatusException`, the message is not stored; `resumeFailedProcess` is needed first.
+  the method throws `MessageNotExpectedException`. A process in `FAILED` is not handled synchronously: the same
+  `MessageNotExpectedException` with `getStatus() == FAILED`, the message is not stored; `resumeFailedProcess` is
+  needed first.
 - A handler exception propagates to the caller and the transaction rolls back: the message is not stored, no error
   is recorded in the process, and `ProcessErrorHandler` is not called.

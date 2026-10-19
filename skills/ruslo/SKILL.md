@@ -126,7 +126,8 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
 - Inside Spring `@Transactional`, `start()` and `sendMessage()` are atomic with the application's own changes
   (same `DataSource` / transaction manager).
 - A message is accepted **only while the process is in an await that declares its type**. Otherwise
-  `sendMessage` throws `MessageNotExpectedException` (with `getCurrentState()`) and stores nothing.
+  `sendMessage` throws `MessageNotExpectedException` (with `getStatus()` and `getCurrentState()`) and stores
+  nothing.
   **There is no buffering of early messages**: the sender retries later or ignores it.
 - `MessageNotExpectedException` is thrown after the engine's transaction, so catching it does **not** mark the
   caller's transaction rollback-only. Catch it where a late or duplicate message is a normal case
@@ -136,7 +137,7 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
   try {
       processEngine.sendMessage(processId, CALLBACK, callback);
   } catch (MessageNotExpectedException ex) {
-      log.info("Callback ignored in state {}", ex.getCurrentState());
+      log.info("Callback ignored in state {}", ex.getCurrentState().name());
   }
   ```
 - A message type not declared by any await of the process is a caller bug: `IllegalArgumentException`.
@@ -144,7 +145,8 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
   variable (a record wrapping the list: variable classes cannot be generic); on a known id do nothing and target the
   await itself to keep waiting.
 - `sendMessageSync(...)` runs the message handler in the caller's thread and transaction; handler exceptions
-  propagate to the caller.
+  propagate to the caller. A `FAILED` process is not handled synchronously: `MessageNotExpectedException` with
+  `getStatus() == FAILED`, nothing is stored.
 - Find processes: `processEngine.processes().byType(TYPE).byBusinessKey(key).single()` (`Optional`),
   `.byId(id).singleDetails()`, `.list()`.
 
@@ -236,8 +238,9 @@ state, or add a `timeout` to the parent's await. Route zero parts past the await
 all leading to one `CANCELLING` step that undoes work by the business key. Send it with
 `sendMessageSync`: the transition is committed before the call returns, so the user gets a definite answer.
 `sendMessage` only queues it, and a payment queued earlier may move the process on and drop the cancellation.
-`MessageNotExpectedException` means either a terminal state (too late) or a step is running (answer "busy, retry":
-the step always moves on to an await or a terminal state). Keep the steps short.
+On `MessageNotExpectedException` switch on `getStatus()`: `COMPLETED` is too late, `ACTIVE` means a step is running
+(answer "busy, retry": the step always moves on to an await or a terminal state), `FAILED` needs an operator. Keep
+the steps short.
 
 ## Testing (always do this after changing a process)
 

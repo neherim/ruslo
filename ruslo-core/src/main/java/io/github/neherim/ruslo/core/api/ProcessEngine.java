@@ -202,8 +202,8 @@ public class ProcessEngine implements AutoCloseable {
      * A handler exception propagates as is and rolls the transaction back: nothing is stored, no retry or
      * error is recorded and {@link ProcessErrorHandler} is not called.
      *
-     * @throws MessageNotExpectedException if the current state does not await this type or the process is completed
-     * @throws ProcessStatusException      if the process is {@code FAILED}
+     * @throws MessageNotExpectedException if the current state does not await this type, the process is completed
+     *                                     or {@code FAILED}; nothing is stored
      * @throws IllegalArgumentException    if no await of the process declares this type
      * @throws IllegalStateException       if the engine is not started
      */

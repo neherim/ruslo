@@ -91,6 +91,6 @@ Handler возвращает один из трёх результатов:
 - `resumeFailedProcess` применим только к `FAILED`. Для активного или завершённого процесса он бросает
   `ProcessStatusException` и ничего не меняет; транзакцию вызывающего кода исключение само не помечает для отката.
 - В `FAILED` процесс не исполняется: диспетчер его не выбирает, таймеры не срабатывают, `sendMessageSync`
-  и шаги эмулятора бросают `ProcessStatusException`. `sendMessage` по-прежнему
+  бросает `MessageNotExpectedException` с `getStatus() == FAILED`, а шаги эмулятора — `ProcessStatusException`. `sendMessage` по-прежнему
   принимает сообщения ожидания: они остаются в очереди и обрабатываются после `resumeFailedProcess`.
 - `resumeFailedProcess` сбрасывает `attempt`: политика повторов после возобновления начинает отсчёт заново.
