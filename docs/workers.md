@@ -53,4 +53,4 @@ builder
 
 For slow external systems that must not take each other's slots, create separate workers with their own
 `max-concurrency`. `build()` checks that all referenced workers are registered.
-Full example: the `ioworker` recipe in [`ruslo-examples/cookbook`](../ruslo-examples/cookbook).
+Full example: the `externalcall` recipe in [`ruslo-examples/cookbook`](../ruslo-examples/cookbook).

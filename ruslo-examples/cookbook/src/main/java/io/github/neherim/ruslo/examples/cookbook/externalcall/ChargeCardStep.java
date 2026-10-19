@@ -18,12 +18,9 @@ public class ChargeCardStep implements BranchingStep<ChargeCardStep.Result> {
      */
     @Override
     public Result execute(ProcessContext context) {
-        var charge = paymentGateway.charge(
-                context.processId().toString(),
-                context.getVariable(CardPaymentDefinition.CARD_TOKEN),
-                context.getVariable(CardPaymentDefinition.AMOUNT));
-        context.setVariable(CardPaymentDefinition.CHARGE_ID, charge.chargeId());
-        return charge.approved() ? Result.APPROVED : Result.DECLINED;
+        var approved = paymentGateway.charge(
+                context.processId().toString(), context.getVariable(CardPaymentDefinition.AMOUNT));
+        return approved ? Result.APPROVED : Result.DECLINED;
     }
 
     /** Bank's answer to the charge. */

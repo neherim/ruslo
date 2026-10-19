@@ -22,12 +22,11 @@ public class PurchaseOrderService {
      * @return order id, also the process business key
      */
     @Transactional
-    public String createOrder(String item, int quantity) {
+    public String createOrder(String item) {
         var orderId = UUID.randomUUID().toString();
-        orderRepository.insert(orderId, item, quantity, "NEW");
+        orderRepository.insert(orderId, item, "NEW");
         processEngine.newProcess(PurchaseOrderDefinition.TYPE)
             .businessKey(orderId)
-            .variable(PurchaseOrderDefinition.ORDER_ID, orderId)
             .start();
         return orderId;
     }

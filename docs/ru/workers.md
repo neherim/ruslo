@@ -53,4 +53,4 @@ builder
 
 Для медленных внешних систем, которые не должны занимать слоты друг друга, заводите отдельные workers со своим
 `max-concurrency`. `build()` проверяет, что все упомянутые workers зарегистрированы.
-Полный пример: рецепт `ioworker` в [`ruslo-examples/cookbook`](../../ruslo-examples/cookbook).
+Полный пример: рецепт `externalcall` в [`ruslo-examples/cookbook`](../../ruslo-examples/cookbook).

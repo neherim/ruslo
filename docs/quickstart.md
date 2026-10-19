@@ -25,7 +25,7 @@ In a Spring Boot application, add the starter and the JDBC driver of your databa
 ```
 
 Set `spring.datasource.url`, `username` and `password`. On startup the starter creates the engine tables and starts
-the dispatcher. The example also uses Lombok for constructor injection in `OrderService`.
+the dispatcher.
 
 ## 2. Declare the states
 

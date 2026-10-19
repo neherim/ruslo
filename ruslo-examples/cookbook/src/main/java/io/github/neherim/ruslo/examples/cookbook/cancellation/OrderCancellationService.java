@@ -13,10 +13,10 @@ import org.springframework.stereotype.Component;
  * application transaction.
  */
 @Component
-public class OrderCancellation {
+public class OrderCancellationService {
     private final ProcessEngine processEngine;
 
-    public OrderCancellation(ProcessEngine processEngine) {
+    public OrderCancellationService(ProcessEngine processEngine) {
         this.processEngine = processEngine;
     }
 

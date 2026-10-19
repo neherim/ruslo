@@ -58,8 +58,8 @@ class OrderServiceTest {
 }
 ```
 
-Полные примеры в `ruslo-examples/cookbook`: `EmulatorTest` рецепта `testing` (все методы эмулятора), рецепты
-`deadline` (таймер) и `retries` (повторы и запасное состояние).
+Полные примеры в `ruslo-examples/cookbook`: рецепты `deadline` (таймер) и `retries` (повторы и запасное
+состояние).
 
 Временем управляйте через эмулятор, внедрять часы движка в тест не нужно. Чтобы задать собственные начальные часы,
 объявите в тестовой конфигурации бин `MutableClock` (`core.api.test`) с именем `processEngineClock` и
@@ -69,7 +69,7 @@ class OrderServiceTest {
 
 Чтобы управлять временем при работающем диспетчере, подключите вместо `@ProcessEngineTest`
 `@ImportAutoConfiguration(ProcessEngineTestConfiguration.class)`: эмулятор и `MutableClock` появятся, а диспетчер
-останется включённым. Пример — `DispatcherEnabledTest` рецепта `testing` в `ruslo-examples/cookbook`.
+останется включённым.
 
 ## Юнит-тесты шагов: TestProcessContext
 
@@ -100,7 +100,8 @@ assertEquals(Set.of("order", "paymentId"), context.variableNames());
 | `jsonMapper(ObjectMapper)` | mapper движка по умолчанию; укажите тот же, что в `ProcessEngineBuilder.withJsonMapper` |
 
 `TestProcessContext.create()` — контекст со значениями по умолчанию. Помимо методов `ProcessContext` есть
-`variableNames()` — имена всех переменных. Пример: `ReviewHandlersTest` рецепта `testing` в `ruslo-examples/cookbook`.
+`variableNames()` — имена всех переменных. Пример: `CheckApplicationStepTest` рецепта `branching` в
+`ruslo-examples/cookbook`.
 
 ## Что эмулятор не проверяет
 

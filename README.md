@@ -157,7 +157,8 @@ Ready-to-run examples: [`ruslo-examples`](ruslo-examples/README.md).
 ## AI coding agents
 
 [`skills/ruslo/SKILL.md`](skills/ruslo/SKILL.md) is a skill for coding agents: the process model, handler types,
-error handling, testing and common mistakes on one page. In Claude Code, put it in your project:
+error handling, testing, configuration, common patterns and mistakes on one page. It does not need network access;
+it follows the latest version of the library. In Claude Code, put it in your project:
 
 ```bash
 mkdir -p .claude/skills/ruslo

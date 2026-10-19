@@ -32,15 +32,6 @@ public class InvoiceOperations {
             .list();
     }
 
-    /** Returns processes still retrying a failed step: an early sign of a problem. */
-    public List<ProcessInstanceSummary> findRetrying() {
-        return processEngine.processes()
-            .byType(InvoiceDefinition.TYPE)
-            .byStatus(ProcessStatus.ACTIVE)
-            .byAttempted()
-            .list();
-    }
-
     /**
      * Fixes the customer's country and resumes the stopped process: the failed step runs again.
      *

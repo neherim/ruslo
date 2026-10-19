@@ -25,7 +25,7 @@
 ```
 
 Настройте `spring.datasource.url`, `username` и `password`. Starter при запуске создаст таблицы движка
-и запустит диспетчер. В примере также используется Lombok для constructor injection в `OrderService`.
+и запустит диспетчер.
 
 ## 2. Объявите состояния
 

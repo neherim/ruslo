@@ -21,11 +21,13 @@ import java.util.UUID;
 public class StandaloneCoreExample implements AutoCloseable {
     private final ProcessEngine engine;
 
-    private StandaloneCoreExample(ProcessEngine engine) {
+    StandaloneCoreExample(ProcessEngine engine) {
         this.engine = engine;
     }
 
-    /** Builds and starts the engine; on return the dispatcher already runs processes in the background. */
+    /**
+     * Builds and starts the engine; on return the dispatcher already runs processes in the background.
+     */
     public static StandaloneCoreExample start(DataSource dataSource) {
         var engine = new ProcessEngineBuilder(new PlainJdbcDatabase(dataSource))
             .addProcessDefinition(new ApprovalProcessDefinition())
@@ -38,12 +40,14 @@ public class StandaloneCoreExample implements AutoCloseable {
         return engine;
     }
 
-    /** Starts a document approval. */
+    /**
+     * Starts a document approval.
+     */
     public UUID startApproval(String documentId, long amount) {
         return engine.newProcess(ApprovalProcessDefinition.TYPE)
             .businessKey(documentId)
-            .variable(ApprovalProcess.DOCUMENT_ID, documentId)
-            .variable(ApprovalProcess.AMOUNT, amount)
+            .variable(Constants.DOCUMENT_ID, documentId)
+            .variable(Constants.AMOUNT, amount)
             .start();
     }
 
@@ -53,7 +57,7 @@ public class StandaloneCoreExample implements AutoCloseable {
      * @throws MessageNotExpectedException if the process is not waiting for a decision now
      */
     public void approve(UUID processId, String approver) {
-        engine.sendMessage(processId, ApprovalProcess.APPROVE, approver);
+        engine.sendMessage(processId, Constants.APPROVE_MESSAGE, approver);
     }
 
     /**
@@ -62,16 +66,20 @@ public class StandaloneCoreExample implements AutoCloseable {
      * @throws MessageNotExpectedException if the process is not waiting for a decision now
      */
     public void reject(UUID processId, String reason) {
-        engine.sendMessage(processId, ApprovalProcess.REJECT, reason);
+        engine.sendMessage(processId, Constants.REJECT_MESSAGE, reason);
     }
 
-    /** Stops the engine dispatcher and workers. */
+    /**
+     * Stops the engine dispatcher and workers.
+     */
     @Override
     public void close() {
         engine.close();
     }
 
-    /** Runs the example on in-memory H2: approves one document and prints the final state. */
+    /**
+     * Runs the example on in-memory H2: approves one document and prints the final state.
+     */
     public static void main(String[] args) throws InterruptedException {
         var dataSource = new JdbcDataSource();
         dataSource.setURL("jdbc:h2:mem:standalone;DB_CLOSE_DELAY=-1");

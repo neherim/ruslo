@@ -11,7 +11,7 @@ ruslo:
     enabled: true
   workers:
     # The transactional DEFAULT worker is registered automatically.
-    # Recipe ioworker: non-transactional worker for long external calls.
+    # Recipe externalcall: non-transactional worker for long external calls.
     # max-concurrency limits concurrent calls to the external service from this node.
     io-worker:
       execution-mode: non_transactional

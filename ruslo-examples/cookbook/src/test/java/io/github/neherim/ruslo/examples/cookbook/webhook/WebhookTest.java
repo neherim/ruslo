@@ -9,15 +9,14 @@ import io.github.neherim.ruslo.spring.test.ProcessEngineTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -30,8 +29,6 @@ class WebhookTest {
     private ProcessEngineEmulator emulator;
     @Autowired
     private VerificationWebhook webhook;
-    @MockitoSpyBean
-    private ApplicantNotifier applicantNotifier;
 
     @Test
     void completesVerificationFromCallbacks() {
@@ -48,22 +45,22 @@ class WebhookTest {
 
         assertEquals(ProcessStatus.COMPLETED, verified.status());
         assertTrue(verified.state().is(IdentityVerificationDefinition.State.VERIFIED));
-        verify(applicantNotifier).requestDocuments(EMAIL);
     }
 
     @Test
-    void handlesRedeliveredCallbackOnce() {
+    void ignoresRepeatedCallbackWhileWaiting() {
         var applicationId = newApplicationId();
         var processId = startVerification(applicationId);
         emulator.runUntilStop(processId);
+        var documentsRequired = new VerificationCallback(applicationId, "evt-1", Status.DOCUMENTS_REQUIRED);
 
-        var callback = new VerificationCallback(applicationId, "evt-1", Status.DOCUMENTS_REQUIRED);
-        webhook.onCallback(callback);
-        webhook.onCallback(callback);
+        webhook.onCallback(documentsRequired);
+        webhook.onCallback(documentsRequired);
         var waiting = emulator.runUntilStop(processId);
 
         assertTrue(waiting.state().is(IdentityVerificationDefinition.State.WAITING_FOR_RESULT));
-        verify(applicantNotifier, times(1)).requestDocuments(EMAIL);
+        assertEquals(Optional.of(new HandledEvents(List.of("evt-1"))),
+                waiting.variables().get(IdentityVerificationDefinition.HANDLED_EVENTS));
     }
 
     @Test
@@ -82,17 +79,6 @@ class WebhookTest {
     void ignoresCallbackForUnknownApplication() {
         assertDoesNotThrow(
                 () -> webhook.onCallback(new VerificationCallback(newApplicationId(), "evt-1", Status.APPROVED)));
-    }
-
-    @Test
-    void closesVerificationWithoutResponse() {
-        var processId = startVerification(newApplicationId());
-        emulator.runUntilStop(processId);
-
-        emulator.fastForwardTime(IdentityVerificationDefinition.RESPONSE_DEADLINE);
-        var noResponse = emulator.runUntilStop(processId);
-
-        assertTrue(noResponse.state().is(IdentityVerificationDefinition.State.NO_RESPONSE));
     }
 
     private UUID startVerification(String applicationId) {

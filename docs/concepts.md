@@ -89,8 +89,8 @@ enum Payment { PAID, PENDING }
 ```
 
 **An event whose target is the await itself means "keep waiting".** This is not a re-entry: the handled message is
-removed, the other messages and the `timeout` deadline are kept, and the next `every` check is scheduled from the
-moment of handling. Use it for:
+removed, the other messages and the `timeout` deadline are kept, the next `every` check is scheduled from the
+moment of handling, and no state history row is written. Use it for:
 
 - a periodic side effect: `every(Duration.ofDays(1), sendReminder, WAITING_FOR_PAYMENT)`;
 - intermediate messages: `message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`.

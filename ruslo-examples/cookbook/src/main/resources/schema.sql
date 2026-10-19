@@ -4,15 +4,7 @@
 -- Recipe transactionalstart
 create table if not exists purchase_order
 (
-    id       varchar(64) primary key,
-    item     varchar(255) not null,
-    quantity int          not null,
-    status   varchar(32)  not null
-);
-
--- Recipe batch
-create table if not exists loyalty_account
-(
-    id     bigint primary key,
-    points int not null
+    id     varchar(64) primary key,
+    item   varchar(255) not null,
+    status varchar(32)  not null
 );

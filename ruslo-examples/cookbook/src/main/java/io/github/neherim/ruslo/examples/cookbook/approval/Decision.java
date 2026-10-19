@@ -6,5 +6,5 @@ package io.github.neherim.ruslo.examples.cookbook.approval;
  * @param approver who made the decision
  * @param approved {@code true} if approved, {@code false} if rejected
  */
-public record Decision(String approver, boolean approved, String comment) {
+public record Decision(String approver, boolean approved) {
 }

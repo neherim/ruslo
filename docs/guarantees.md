@@ -48,7 +48,7 @@ How to assign another worker to a step: [workers.md](workers.md).
   removed.
 - **`sendMessage` is not idempotent.** Sending the same payload again queues a second message.
   If the sender may repeat the call (e.g. after a timeout), the handler must detect duplicates,
-  e.g. by an id in the payload.
+  e.g. by an id in the payload. Example: the `webhook` recipe in [`ruslo-examples/cookbook`](../ruslo-examples/cookbook).
 - A message handler runs in one transaction with removing the message from the queue: its database and
   `ProcessContext` changes are committed exactly once.
 - Messages of one process are handled one at a time, in arrival order.

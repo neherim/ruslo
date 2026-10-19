@@ -32,7 +32,7 @@ class TransactionalStartTest {
 
     @Test
     void savesOrderAndStartsProcess() {
-        var orderId = orderService.createOrder("Keyboard", 2);
+        var orderId = orderService.createOrder("Keyboard");
 
         var process = processEngine.processes().byBusinessKey(orderId).single().orElseThrow();
         assertEquals(Optional.of("NEW"), orderRepository.findStatus(orderId));
@@ -48,7 +48,7 @@ class TransactionalStartTest {
         // The outer transaction rolls back after createOrder: an exception in code that calls the service
         // inside its own transaction has the same effect
         var orderId = transactionTemplate.execute(status -> {
-            var id = orderService.createOrder("Keyboard", 2);
+            var id = orderService.createOrder("Keyboard");
             status.setRollbackOnly();
             return id;
         });

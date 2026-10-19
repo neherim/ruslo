@@ -3,15 +3,17 @@ package io.github.neherim.ruslo.examples.quickstart;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.examples.quickstart.dto.PaymentConfirmed;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class OrderService {
     private final ProcessEngine processEngine;
+
+    public OrderService(ProcessEngine processEngine) {
+        this.processEngine = processEngine;
+    }
 
     /**
      * Creates an order and starts its process.

@@ -157,7 +157,8 @@ processEngine.sendMessage(processId, OrderProcess.PAYMENT_CONFIRMED, new Payment
 ## AI-агенты
 
 [`skills/ruslo/SKILL.md`](skills/ruslo/SKILL.md) — skill для AI-агентов: модель процесса, типы обработчиков,
-обработка ошибок, тестирование и типичные ошибки на одной странице. В Claude Code положите его в проект:
+обработка ошибок, тестирование, настройки, типовые паттерны и ошибки на одной странице. Доступ в сеть ему не нужен;
+он описывает последнюю версию библиотеки. В Claude Code положите его в проект:
 
 ```bash
 mkdir -p .claude/skills/ruslo

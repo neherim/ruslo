@@ -18,21 +18,4 @@
         <module>cookbook</module>
     </modules>
 
-    <build>
-        <plugins>
-            <!-- Explicit processor path: implicit discovery on the classpath is disabled by default since JDK 23 -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </path>
-                    </annotationProcessorPaths>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>
