@@ -81,8 +81,9 @@
                       th:attr="hx-post=@{|htmx/processes/${process.id}/messages|}"
                       hx-target="#message-status"
                       hx-swap="innerHTML">
-                    <label>Message name <select name="name" required><option th:each="name : ${process.acceptedMessageTypes}" th:value="${name}" th:text="${name}">message</option></select></label>
-                    <label>JSON value <textarea class="json-input" name="jsonValue" required>{}</textarea></label>
+                    <label>Message name <select name="name" required data-message-select><option th:each="message : ${process.acceptedMessages}" th:value="${message.name}" th:text="${message.name}" th:data-template="${message.payloadTemplate}">message</option></select></label>
+                    <label>JSON value <textarea class="json-input" name="jsonValue" required
+                                                th:text="${process.acceptedMessages[0].payloadTemplate}">{}</textarea></label>
                     <div class="action-bar">
                         <button type="button" class="secondary" data-modal-close>Cancel</button>
                         <button type="submit">Send async message</button>

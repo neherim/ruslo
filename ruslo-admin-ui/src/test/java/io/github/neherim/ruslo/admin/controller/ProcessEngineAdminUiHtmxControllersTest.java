@@ -117,7 +117,9 @@ class ProcessEngineAdminUiHtmxControllersTest {
                 Map.of(
                         "amount", "42",
                         "customer", "{\"name\":\"Ada\"}"),
-                "AWAIT", List.of("payment", "shipping"), null);
+                "AWAIT", List.of(new ProcessDetailsResponse.AcceptedMessage("payment", "{}"),
+                        new ProcessDetailsResponse.AcceptedMessage("shipping", "{}")),
+                null);
         var controller = new ProcessesAdminController(new ProcessDetailsAdminService(process));
         var response = new MockHttpServletResponse();
 
@@ -128,7 +130,8 @@ class ProcessEngineAdminUiHtmxControllersTest {
         var model = view.getModelMap();
         assertThat(model.getAttribute("process")).isSameAs(process);
         assertThat(process.variablesCount()).isEqualTo(2);
-        assertThat(process.acceptedMessageTypes()).containsExactly("payment", "shipping");
+        assertThat(process.acceptedMessages()).extracting(ProcessDetailsResponse.AcceptedMessage::name)
+            .containsExactly("payment", "shipping");
         assertThat(process.historyCount()).isEqualTo(3);
         assertThat(model.getAttribute("states")).isEqualTo(List.of(
                 new DefinitionResponse.StateResponse("CREATED", null, "STEP", "default", List.of(), null),

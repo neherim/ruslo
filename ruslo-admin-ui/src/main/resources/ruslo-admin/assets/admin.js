@@ -448,6 +448,23 @@ const AdminUi = (() => {
         return {handleClick, formatValues};
     })();
 
+    const MessageForms = (() => {
+        // The JSON field starts with the payload skeleton of the selected message. Switching the message replaces
+        // the skeleton only while the operator has not edited it.
+        function handleChange(event) {
+            const select = event.target.closest && event.target.closest('[data-message-select]');
+            if (!select) return;
+            const valueInput = select.form && select.form.querySelector('textarea[name="jsonValue"]');
+            if (!valueInput) return;
+            const previous = valueInput.dataset.template ?? valueInput.defaultValue;
+            const template = select.selectedOptions[0]?.dataset.template ?? '{}';
+            if (valueInput.value.trim() === previous.trim()) valueInput.value = template;
+            valueInput.dataset.template = template;
+        }
+
+        return {handleChange};
+    })();
+
     // Polling (process card, dashboard) skips a tick while the user is busy with the page,
     // so a redraw does not close a dialog, menu or full-screen diagram and does not drop a text selection.
     function canRefresh() {
@@ -1051,6 +1068,7 @@ const AdminUi = (() => {
     document.body.addEventListener('change', ProcessList.handleFilterChange, true);
     document.body.addEventListener('input', ProcessList.handleFilterChange, true);
     document.body.addEventListener('change', ProcessList.handlePageSizeChange, true);
+    document.body.addEventListener('change', MessageForms.handleChange);
     document.body.addEventListener('htmx:confirm', Confirmations.handleConfirm);
     document.body.addEventListener('htmx:beforeSwap', ProcessDetails.handleBeforeSwap);
     document.body.addEventListener('htmx:afterSwap', handleHtmxAfterSwap);

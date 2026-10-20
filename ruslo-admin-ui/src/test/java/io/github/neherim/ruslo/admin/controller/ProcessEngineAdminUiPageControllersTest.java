@@ -149,7 +149,9 @@ class ProcessEngineAdminUiPageControllersTest {
                 Map.of(
                         "amount", "42",
                         "customer", "{\"name\":\"Ada\"}"),
-                "AWAIT", List.of("payment", "shipping"), null);
+                "AWAIT", List.of(new ProcessDetailsResponse.AcceptedMessage("payment", "{}"),
+                        new ProcessDetailsResponse.AcceptedMessage("shipping", "{}")),
+                null);
         var adminService = new CountingAdminService(
                 process,
                 List.of(new DefinitionResponse(
@@ -171,7 +173,8 @@ class ProcessEngineAdminUiPageControllersTest {
                 new DefinitionResponse.StateResponse("WAIT", null, "STEP", "default", List.of(), null),
                 new DefinitionResponse.StateResponse("NEXT", null, "STEP", "default", List.of(), null)));
         assertThat(process.variablesCount()).isEqualTo(2);
-        assertThat(process.acceptedMessageTypes()).containsExactly("payment", "shipping");
+        assertThat(process.acceptedMessages()).extracting(ProcessDetailsResponse.AcceptedMessage::name)
+            .containsExactly("payment", "shipping");
         assertThat(process.historyCount()).isEqualTo(2);
         assertThat(model.getAttribute("breadcrumbs")).isEqualTo(List.of(
                 Breadcrumb.link("Processes", "./processes"),
@@ -442,7 +445,7 @@ class ProcessEngineAdminUiPageControllersTest {
                         new StateHistoryResponse("START", Instant.parse("2026-05-01T10:00:00Z"), false),
                         new StateHistoryResponse("WAIT", Instant.parse("2026-05-01T10:01:00Z"), true)),
                 Map.of("customer", "{\"name\":\"Ada\"}", "amount", "42"),
-                "AWAIT", List.of("payment"), "PT5M");
+                "AWAIT", List.of(new ProcessDetailsResponse.AcceptedMessage("payment", "{}")), "PT5M");
 
         var html = renderDetails(process);
 
