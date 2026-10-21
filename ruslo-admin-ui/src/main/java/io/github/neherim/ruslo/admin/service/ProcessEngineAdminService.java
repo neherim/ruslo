@@ -36,7 +36,7 @@ public class ProcessEngineAdminService {
 
     /**
      * Returns the dashboard summary: counters of unfinished processes by type and engine instances. A process is
-     * overdue if it is {@code ACTIVE} and its scheduled time passed more than a minute ago, as on the process page;
+     * overdue if it is {@code ACTIVE} and its next run passed more than a minute ago, as on the process page;
      * the boundary is truncated to the minute so it can be passed to the process list filter.
      *
      * @param zone browser time zone for the overdue boundary
@@ -218,7 +218,8 @@ public class ProcessEngineAdminService {
             case STEP -> null;
             case MESSAGE -> transition.messageType().orElse(null);
             case EVERY -> "every " + state.everyInterval().map(this::shortDuration).orElse("");
-            case TIMEOUT -> "timeout " + state.timeoutDelay().map(this::shortDuration).orElse("");
+            case AFTER -> "after " + state.afterDelay().map(this::shortDuration).orElse("");
+            case AT -> "at " + state.atVariable().orElse("");
         };
         var outcome = transition.outcome().orElse(null);
         if (event == null) return outcome;
@@ -236,7 +237,7 @@ public class ProcessEngineAdminService {
                 process.state().name(),
                 process.status(),
                 process.createdAt(),
-                process.scheduledAt().orElse(null),
+                process.nextRunAt().orElse(null),
                 process.businessKey().orElse(null));
     }
 
@@ -256,7 +257,7 @@ public class ProcessEngineAdminService {
                         ? null
                         : stateInfo.description(),
                 process.status(),
-                process.scheduledAt().orElse(null),
+                process.nextRunAt().orElse(null),
                 process.businessKey().orElse(null),
                 process.correlationId(),
                 process.attempt(),
@@ -291,7 +292,7 @@ public class ProcessEngineAdminService {
     }
 
     private String timerDelay(ProcessSpecInfo.StateInfo state) {
-        return state.everyInterval().or(state::timeoutDelay).map(Object::toString).orElse(null);
+        return state.everyInterval().or(state::afterDelay).map(Object::toString).orElse(null);
     }
 
     private Optional<ProcessSpecInfo> findDefinition(String typeName) {

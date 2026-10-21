@@ -71,17 +71,17 @@ public final class LeaseDispatcher implements ProcessDispatcher {
     }
 
     /**
-     * Returns the nearest {@code available_at} among workers with free capacity: a worker without capacity wakes
+     * Returns the nearest {@code next_run_at} among workers with free capacity: a worker without capacity wakes
      * the scheduler itself once it frees up.
      */
     @Override
-    public Optional<Instant> nextAvailableAt() {
+    public Optional<Instant> nextRunAt() {
         Instant next = null;
         for (var worker : workerRegistry.getAllWorkers()) {
             if (worker.getAvailableCapacity() <= 0) {
                 continue;
             }
-            var workerNext = leaseDao.findNextAvailableAt(worker.getId()).orElse(null);
+            var workerNext = leaseDao.findNextRunAt(worker.getId()).orElse(null);
             if (workerNext != null && (next == null || workerNext.isBefore(next))) {
                 next = workerNext;
             }

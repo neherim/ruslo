@@ -324,7 +324,7 @@ class ProcessEngineAdminUiPageControllersTest {
             .contains("<span>Business key</span>")
             .contains("th:text=\"${process.businessKey ?: '—'}\"")
             .contains("<span>Correlation id</span>")
-            .contains("<span>Scheduled</span>")
+            .contains("<span>Next run</span>")
             .contains("copyButton(${process.id}, 'Copy process ID')")
             .contains("copyButton(${process.businessKey}, 'Copy business key')")
             .contains("copyButton(${process.correlationId}, 'Copy correlation id')")

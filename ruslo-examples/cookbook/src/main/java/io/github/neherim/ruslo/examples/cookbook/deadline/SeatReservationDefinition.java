@@ -13,22 +13,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
+import java.time.Instant;
 
 /**
- * Recipe: wait for an event for a limited time.
+ * Recipe: wait for an event until a deadline that can move.
  * <p>
- * Task: reserve a seat for an event and wait 15 minutes for payment. If the payment does not arrive, release the
- * seat so another customer can take it.
+ * Task: reserve a seat for an event and hold it until the payment deadline the booking service sets, usually 15
+ * minutes. Support can extend the deadline. If the payment does not arrive in time, release the seat so another
+ * customer can take it.
  * <p>
  * How it works:
  * <ul>
- *   <li>Await {@link State#WAITING_FOR_PAYMENT} declares two events: message {@link #PAYMENT_RECEIVED} and
- *       {@code timeout(PAYMENT_DEADLINE, ...)}. Whichever comes first moves the process on.</li>
- *   <li>The deadline counts from entering the await, by the engine clock. The step does not need to read and
- *       compare the time itself.</li>
+ *   <li>The caller passes the deadline in variable {@link #PAYMENT_DUE} when starting the process.</li>
+ *   <li>Await {@link State#WAITING_FOR_PAYMENT} declares message {@link #PAYMENT_RECEIVED} and
+ *       {@code at(PAYMENT_DUE, ...)}. Whichever comes first moves the process on. The engine compares the deadline
+ *       with its clock: the step does not read and compare the time itself.</li>
+ *   <li>Message {@link #EXTEND_PAYMENT_DUE} writes a new deadline and keeps waiting: a write of the variable moves
+ *       the timer, earlier or later.</li>
  *   <li>On the deadline the process goes to step {@link State#RELEASING}, which releases the seat. A separate step
- *       gets its own retries on error; a short side effect could also run in a {@code timeout(delay, handler, next)}
+ *       gets its own retries on error; a short side effect could also run in an {@code at(variable, handler, next)}
  *       handler.</li>
  * </ul>
  * <p>
@@ -37,18 +40,20 @@ import java.time.Duration;
  *   <li>After the deadline the process does not accept the message: {@code sendMessage} throws
  *       {@code MessageNotExpectedException}. The sender handles a late payment, for example by refunding it. Which
  *       event wins when a message and the deadline are close is described in {@code docs/execution.md}.</li>
- *   <li>An event targeting the await itself does not reset the deadline. How to restart the wait with a new
- *       deadline is shown in recipe {@code approval}.</li>
+ *   <li>Without the variable there is no timer: a reservation started without {@link #PAYMENT_DUE} waits for the
+ *       payment forever. A fixed delay from entering the await is {@code after(delay, next)}.</li>
  * </ul>
  */
 @Component
 public class SeatReservationDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("SEAT_RESERVATION");
-    public static final Duration PAYMENT_DEADLINE = Duration.ofMinutes(15);
     public static final VariableType<String> SEAT = VariableType.of("seat", String.class);
+    public static final VariableType<Instant> PAYMENT_DUE = VariableType.of("paymentDue", Instant.class);
     public static final VariableType<String> PAYMENT_ID = VariableType.of("paymentId", String.class);
     /** Payment of the reservation; the payload is the payment id in the payment system. */
     public static final MessageType<String> PAYMENT_RECEIVED = MessageType.of("paymentReceived", String.class);
+    /** New payment deadline. */
+    public static final MessageType<Instant> EXTEND_PAYMENT_DUE = MessageType.of("extendPaymentDue", Instant.class);
 
     private static final Logger log = LoggerFactory.getLogger(SeatReservationDefinition.class);
 
@@ -61,7 +66,8 @@ public class SeatReservationDefinition implements ProcessDefinition {
             .step(State.RESERVING, SeatReservationDefinition::reserveSeat, State.WAITING_FOR_PAYMENT)
             .await(State.WAITING_FOR_PAYMENT, await -> await
                 .message(PAYMENT_RECEIVED, SeatReservationDefinition::onPayment, State.CONFIRMED)
-                .timeout(PAYMENT_DEADLINE, State.RELEASING))
+                .message(EXTEND_PAYMENT_DUE, SeatReservationDefinition::onExtend, State.WAITING_FOR_PAYMENT)
+                .at(PAYMENT_DUE, State.RELEASING))
             .step(State.RELEASING, SeatReservationDefinition::releaseSeat, State.EXPIRED)
             .terminal(State.CONFIRMED)
             .terminal(State.EXPIRED)
@@ -78,6 +84,10 @@ public class SeatReservationDefinition implements ProcessDefinition {
 
     private static void onPayment(ProcessContext context, IncomingMessage<String> message) {
         context.setVariable(PAYMENT_ID, message.payload());
+    }
+
+    private static void onExtend(ProcessContext context, IncomingMessage<Instant> message) {
+        context.setVariable(PAYMENT_DUE, message.payload());
     }
 
     public enum State implements ProcessState {

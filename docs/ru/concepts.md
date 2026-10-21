@@ -21,7 +21,7 @@ ProcessDefinition definition = builder -> builder.type("APPROVAL")
     .step(State.CREATE, context -> createOrder(context), State.WAIT)
     .await(State.WAIT, await -> await
         .message(APPROVED, (context, message) -> { }, State.DONE)
-        .timeout(Duration.ofHours(1), State.EXPIRED))
+        .after(Duration.ofHours(1), State.EXPIRED))
     .terminal(State.DONE)
     .terminal(State.EXPIRED)
     .build();
@@ -73,37 +73,64 @@ BranchingStep<Validation> validateStep = context -> isValid(context) ? Validatio
 | Событие | Когда срабатывает | Обработчик |
 |---|---|---|
 | `message(type, handler, next \| routes)` | пришло сообщение типа `type` | `ProcessMessageHandler<T>` или `BranchingMessageHandler<T, O>` |
-| `every(interval, handler, next \| routes)` | каждые `interval`, по сетке от входа в ожидание | `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
-| `timeout(delay[, handler], next)` | однократно через `delay` после входа в ожидание | необязательный `ProcessTimerHandler` |
+| `every(interval, handler, next \| routes)` | повторно, каждые `interval` по сетке от входа в ожидание | `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
+| `after(delay[, handler], next \| routes)` | через `delay` после входа в ожидание | нет, `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
+| `at(variable[, handler], next \| routes)` | в момент из переменной типа `Instant` | нет, `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
 
-В одном ожидании допускается не более одного `every` и не более одного `timeout`; их можно сочетать.
 Хотя бы одно событие должно вести в другое состояние.
 
 ```java
 enum Payment { PAID, PENDING }
 
+static final VariableType<Instant> DUE_DATE = VariableType.of("dueDate", Instant.class);
+
 .await(WAITING_FOR_PAYMENT, await -> await
     .every(Duration.ofSeconds(30), checkPayment, routes -> routes   // polling внешнего условия
         .on(Payment.PAID, SHIPPING)
         .on(Payment.PENDING, WAITING_FOR_PAYMENT))                 // ждать дальше
-    .timeout(Duration.ofDays(7), markExpired, CANCELLED))
+    .message(EXTEND_DUE_DATE, extendDueDate, WAITING_FOR_PAYMENT)  // пишет DUE_DATE
+    .after(Duration.ofDays(3), remind, WAITING_FOR_PAYMENT)         // одно напоминание
+    .at(DUE_DATE, markExpired, CANCELLED))
+```
+
+Правила таймеров:
+
+1. `every(interval)` срабатывает повторно, по сетке `вход в ожидание + initialDelay + k * interval`: опоздавшая
+   проверка не сдвигает следующие, пропущенные точки не выполняются. `after(delay)` срабатывает через `delay` после
+   входа в ожидание. `at(variable)` срабатывает в момент из переменной: нет переменной — нет таймера; переменная
+   изменилась — таймер передвинулся.
+2. Каждый таймер объявляется в ожидании не больше одного раза; сочетать можно любые.
+3. **Таймер срабатывает один раз на свой момент.** Момент `after` в пределах входа не меняется, поэтому он
+   срабатывает один раз за вход. После срабатывания `at` ждёт нового значения переменной: обработчик записал
+   следующую дату — получилось расписание; не записал — ожидание ждёт остальных событий. Процесс при этом не
+   падает: это то же, что ожидание, сообщение для которого не приходит.
+4. Наступивший таймер срабатывает, даже если другое событие ждёт retry: ошибка обработчика не продлевает ожидание.
+
+Таймер без обработчика не может вести в само ожидание: он ничего бы не делал. Первую проверку `every` можно
+выполнить сразу при входе в ожидание: `every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`.
+
+Расписание по датам — это `at`, обработчик которого пишет следующую дату; первую дату пишет вызывающий код при
+запуске или шаг перед ожиданием:
+
+```java
+.step(PLAN, ReportDefinition::planFirstRun, SCHEDULED)          // пишет NEXT_RUN
+.await(SCHEDULED, await -> await
+    .at(NEXT_RUN, ReportDefinition::buildReport, routes -> routes
+        .on(Run.MORE, SCHEDULED)                                // ждать следующей даты
+        .on(Run.LAST, DONE))
+    .message(CANCEL, ReportDefinition::onCancel, CANCELLED))
 ```
 
 **Цель события, равная самому ожиданию, означает «ждать дальше».** Это не повторный вход в состояние:
-обработанное сообщение удаляется, остальные сообщения и дедлайн `timeout` сохраняются, расписание `every`
-сохраняется, строка в истории состояний не пишется. Так объявляются:
+обработанное сообщение удаляется, остальные сообщения и таймеры сохраняются (расписание `every`, моменты `after`
+и `at`), строка в истории состояний не пишется. Так объявляются:
 
 - периодический побочный эффект — `every(Duration.ofDays(1), sendReminder, WAITING_FOR_PAYMENT)`;
 - промежуточные сообщения — `message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`.
 
 Любой переход в другое состояние закрывает ожидание и удаляет необработанные сообщения. Чтобы начать ожидание
-заново — с пустой очередью и новым дедлайном, — уйдите в шаг, ведущий обратно в ожидание.
-
-`timeout` — жёсткий дедлайн: его цель не может быть самим ожиданием, и ошибка обработчика сообщения
-не продлевает ожидание. Первую проверку `every` можно выполнить сразу при входе в ожидание:
-`every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`. Проверки идут по сетке
-`вход в ожидание + initialDelay + k * interval`: опоздавшая проверка не сдвигает следующие, пропущенные точки
-не выполняются.
+заново — с пустой очередью и новым дедлайном `after`, — уйдите в шаг, ведущий обратно в ожидание. Дедлайн, который
+должен сдвигаться без повторного входа, — это `at`: запишите новый момент в его переменную.
 
 Если наступило несколько событий, обрабатывается самое раннее; точные правила — в [execution.md](execution.md#выбор-события-ожидания).
 
@@ -209,7 +236,8 @@ Definition строится один раз при регистрации в eng
   `ProcessMessageHandler<T>` → `BranchingMessageHandler<T, Outcome>`, `ProcessTimerHandler` → `BranchingTimerHandler<Outcome>`.
 - Повтор после технической ошибки — `ErrorResult.retryAfter`, а не шаг, который повторяет сам себя.
 - Периодическую проверку делайте через `every` в ожидании, а не циклом «шаг → ожидание → шаг»: повторный вход
-  в ожидание очищает очередь и сбрасывает `timeout`.
+  в ожидание очищает очередь и сбрасывает `after`. Расписание по календарным датам — это `at`, обработчик которого
+  пишет следующую дату.
 
 ## Эволюция definition
 

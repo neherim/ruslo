@@ -33,15 +33,14 @@ class LastErrorDiagnosticsTest extends BaseTest {
     }
 
     @Test
-    void systemRetryPreservesActionScheduleAndChangesAvailability() {
+    void systemRetryPostponesNextRun() {
         var fixture = WorkerTestFixture.with(database, definition(new AtomicBoolean(false)));
         var process = fixture.insertNewProcess(ProcessType.of("ERROR_DIAGNOSTICS"), "correlation");
         var task = fixture.task(process);
-        var scheduled = fixture.dao().findById(process.getId()).orElseThrow().getScheduledAt().orElseThrow();
+        var nextRun = fixture.dao().findById(process.getId()).orElseThrow().getNextRunAt().orElseThrow();
         fixture.stepErrorHandler().handleSystemError(new IllegalStateException("system failed"), task);
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
-        assertEquals(scheduled, stored.getScheduledAt().orElseThrow());
-        assertTrue(stored.getAvailableAt().orElseThrow().isAfter(scheduled));
+        assertTrue(stored.getNextRunAt().orElseThrow().isAfter(nextRun));
         assertEquals(1, stored.getAttempt());
     }
 
@@ -54,7 +53,7 @@ class LastErrorDiagnosticsTest extends BaseTest {
         var before = Instant.now();
         fixture.transactionalWorker().tryExecute(task);
         var row = database.queryForObject(
-                "select attempt, last_error, available_at, lease_owner from xs_process_instance where id = ?",
+                "select attempt, last_error, next_run_at, lease_owner from xs_process_instance where id = ?",
                 rs -> new Object[]{rs.getInt(1), rs.getString(2), rs.getTimestamp(3).toInstant(), rs.getObject(4)},
                 process.getId())
             .orElseThrow();
@@ -83,7 +82,7 @@ class LastErrorDiagnosticsTest extends BaseTest {
         assertEquals(ProcessStatus.ACTIVE, stored.getStatus());
         assertEquals(1, stored.getAttempt());
         assertTrue(stored.getLastError().orElseThrow().contains("step failed"));
-        assertTrue(stored.getAvailableAt().orElseThrow().isAfter(Instant.now().plus(Duration.ofSeconds(59))));
+        assertTrue(stored.getNextRunAt().orElseThrow().isAfter(Instant.now().plus(Duration.ofSeconds(59))));
     }
 
     private ProcessDefinition definition(AtomicBoolean fail) {

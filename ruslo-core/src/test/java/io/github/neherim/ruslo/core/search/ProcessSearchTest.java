@@ -343,9 +343,9 @@ class ProcessSearchTest extends BaseTest {
         var matchedProcessId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
         var oldCreatedAt = Instant.parse("2026-05-01T10:00:00Z");
         var matchedCreatedAt = Instant.parse("2026-05-02T10:00:00Z");
-        database.update("update xs_process_instance set create_at = ? where id = ?",
+        database.update("update xs_process_instance set created_at = ? where id = ?",
                 Timestamp.from(oldCreatedAt), oldProcessId);
-        database.update("update xs_process_instance set create_at = ? where id = ?",
+        database.update("update xs_process_instance set created_at = ? where id = ?",
                 Timestamp.from(matchedCreatedAt), matchedProcessId);
 
         var result = processEngine.processes()
@@ -356,6 +356,28 @@ class ProcessSearchTest extends BaseTest {
         assertEquals(1, result.size());
         assertEquals(matchedProcessId, result.get(0).id());
         assertEquals(matchedCreatedAt, result.get(0).createdAt());
+    }
+
+    @Test
+    void findByNextRunAtRangeFiltersProcessesAndReturnsNextRun() {
+        var processEngine = simpleProcessEngine();
+        var laterProcessId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
+        var matchedProcessId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
+        var laterNextRunAt = Instant.parse("2026-05-03T10:00:00Z");
+        var matchedNextRunAt = Instant.parse("2026-05-02T10:00:00Z");
+        database.update("update xs_process_instance set next_run_at = ? where id = ?",
+                Timestamp.from(laterNextRunAt), laterProcessId);
+        database.update("update xs_process_instance set next_run_at = ? where id = ?",
+                Timestamp.from(matchedNextRunAt), matchedProcessId);
+
+        var result = processEngine.processes()
+            .byNextRunAtFrom(Instant.parse("2026-05-02T00:00:00Z"))
+            .byNextRunAtTo(Instant.parse("2026-05-02T23:59:59Z"))
+            .list();
+
+        assertEquals(1, result.size());
+        assertEquals(matchedProcessId, result.get(0).id());
+        assertEquals(Optional.of(matchedNextRunAt), result.get(0).nextRunAt());
     }
 
     /** Changes the JVM time zone; H2 caches it, so the cache is reset explicitly. */

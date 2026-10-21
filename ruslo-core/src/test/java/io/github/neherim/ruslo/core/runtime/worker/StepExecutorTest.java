@@ -75,11 +75,11 @@ class StepExecutorTest {
         var second = UUID.randomUUID();
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", first, NOW);
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", second, NOW);
-        var deadline = process.getDeadlineAt().orElseThrow();
+        var deadline = process.getAfterDueAt().orElseThrow();
         assertTrue(executor.executeNextProcessStep(process));
         assertEquals(State.WAIT.name(), process.getState().name());
         assertEquals(second, process.getMessages().peekFirst().orElseThrow().id());
-        assertEquals(deadline, process.getDeadlineAt().orElseThrow());
+        assertEquals(deadline, process.getAfterDueAt().orElseThrow());
     }
 
     @Test
@@ -106,8 +106,8 @@ class StepExecutorTest {
         var process = awaitProcess(State.DONE);
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", UUID.randomUUID(), NOW);
         process.scheduleRetryAfter(Duration.ofMinutes(10), "boom");
-        assertEquals(process.getDeadlineAt(), process.getAvailableAt());
-        clock.now = process.getDeadlineAt().orElseThrow();
+        assertEquals(process.getAfterDueAt(), process.getNextRunAt());
+        clock.now = process.getAfterDueAt().orElseThrow();
         executor.executeNextProcessStep(process);
         assertEquals(State.EXPIRED.name(), process.getState().name());
     }
@@ -116,7 +116,7 @@ class StepExecutorTest {
     private ProcessInstance awaitProcess(State messageTarget) {
         var process = process(builder -> builder.step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {}, messageTarget)
-                .timeout(Duration.ofMinutes(1), State.EXPIRED)));
+                .after(Duration.ofMinutes(1), State.EXPIRED)));
         executor.executeNextProcessStep(process);
         return process;
     }

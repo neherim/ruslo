@@ -19,12 +19,12 @@ import java.util.*;
 /** Searches and filters process instances. */
 public class ProcessInstanceSearchDao {
     private static final String SELECT_SUMMARIES_SQL = """
-            select id, type, state, status, create_at, scheduled_at, business_key, attempt
+            select id, type, state, status, created_at, next_run_at, business_key, attempt
             from xs_process_instance where 1=1
             """;
 
     private static final String SELECT_DETAILS_SQL = """
-            select id, type, state, status, create_at, scheduled_at, business_key, attempt,
+            select id, type, state, status, created_at, next_run_at, business_key, attempt,
                    correlation_id, last_error, variables
             from xs_process_instance where 1=1
             """;
@@ -59,7 +59,7 @@ public class ProcessInstanceSearchDao {
         var params = new ArrayList<>();
         appendFilterClauses(sql, params, criteria);
 
-        sql.append(" order by create_at desc");
+        sql.append(" order by created_at desc");
 
         if (limit != null) {
             sql.append(" limit ?");
@@ -112,20 +112,20 @@ public class ProcessInstanceSearchDao {
             sql.append(" and business_key = ?");
             params.add(filter.businessKey());
         }
-        if (filter.scheduledAtFrom() != null) {
-            sql.append(" and scheduled_at >= ?");
-            params.add(Timestamp.from(filter.scheduledAtFrom()));
+        if (filter.nextRunAtFrom() != null) {
+            sql.append(" and next_run_at >= ?");
+            params.add(Timestamp.from(filter.nextRunAtFrom()));
         }
-        if (filter.scheduledAtTo() != null) {
-            sql.append(" and scheduled_at <= ?");
-            params.add(Timestamp.from(filter.scheduledAtTo()));
+        if (filter.nextRunAtTo() != null) {
+            sql.append(" and next_run_at <= ?");
+            params.add(Timestamp.from(filter.nextRunAtTo()));
         }
         if (filter.createdAtFrom() != null) {
-            sql.append(" and create_at >= ?");
+            sql.append(" and created_at >= ?");
             params.add(Timestamp.from(filter.createdAtFrom()));
         }
         if (filter.createdAtTo() != null) {
-            sql.append(" and create_at <= ?");
+            sql.append(" and created_at <= ?");
             params.add(Timestamp.from(filter.createdAtTo()));
         }
         if (filter.correlationId() != null) {
@@ -148,8 +148,8 @@ public class ProcessInstanceSearchDao {
                 type,
                 state,
                 ProcessStatus.valueOf(rs.getString("status")),
-                DateTimeUtils.toInstant(rs.getTimestamp("create_at")),
-                Optional.ofNullable(DateTimeUtils.toInstant(rs.getTimestamp("scheduled_at"))),
+                DateTimeUtils.toInstant(rs.getTimestamp("created_at")),
+                Optional.ofNullable(DateTimeUtils.toInstant(rs.getTimestamp("next_run_at"))),
                 Optional.ofNullable(rs.getString("business_key")),
                 rs.getString("correlation_id"),
                 rs.getInt("attempt"),
@@ -174,8 +174,8 @@ public class ProcessInstanceSearchDao {
                 type,
                 state,
                 ProcessStatus.valueOf(rs.getString("status")),
-                DateTimeUtils.toInstant(rs.getTimestamp("create_at")),
-                Optional.ofNullable(DateTimeUtils.toInstant(rs.getTimestamp("scheduled_at"))),
+                DateTimeUtils.toInstant(rs.getTimestamp("created_at")),
+                Optional.ofNullable(DateTimeUtils.toInstant(rs.getTimestamp("next_run_at"))),
                 Optional.ofNullable(rs.getString("business_key")),
                 rs.getInt("attempt"));
     }

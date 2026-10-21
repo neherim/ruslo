@@ -22,6 +22,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 /**
  * Demo processes for the admin UI. Not a recipe: on application startup it starts processes of all recipes with data
@@ -113,6 +116,7 @@ public class DemoProcessGenerator implements ApplicationRunner {
         for (var seat : new String[]{"A-1", "A-2"}) {
             processEngine.newProcess(SeatReservationDefinition.TYPE)
                 .variable(SeatReservationDefinition.SEAT, seat)
+                .variable(SeatReservationDefinition.PAYMENT_DUE, Instant.now().plus(Duration.ofMinutes(15)))
                 .start();
         }
     }
@@ -165,7 +169,7 @@ public class DemoProcessGenerator implements ApplicationRunner {
             .start();
     }
 
-    /** {@code subscription}: the first period is paid; the next charge is in 30 days, the second card is declined. */
+    /** {@code subscription}: the first period is paid; the next charge is in a month, the second card is declined. */
     private void startSubscriptions() {
         startSubscription("subscription-401", "tok_visa");
         startSubscription("subscription-402", "tok_declined");
@@ -175,6 +179,8 @@ public class DemoProcessGenerator implements ApplicationRunner {
         processEngine.newProcess(SubscriptionDefinition.TYPE)
             .businessKey(subscriptionId)
             .variable(SubscriptionDefinition.CARD_TOKEN, cardToken)
+            .variable(SubscriptionDefinition.NEXT_CHARGE_AT,
+                    SubscriptionDefinition.nextMonth(Instant.now().truncatedTo(ChronoUnit.SECONDS)))
             .start();
     }
 

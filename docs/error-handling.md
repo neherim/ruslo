@@ -79,8 +79,8 @@ A custom handler:
 - The failed handler's transaction is rolled back before the error handler is called; the error handler sees the
   last saved process state.
 - `ProcessContext` changes made by the error handler are saved atomically with its result.
-- With `retryAfter` and `fail`, the failed event is not considered handled. If the await deadline passes while the
-  retry is pending, `timeout` fires (see [execution.md](execution.md#await-event-selection)).
+- With `retryAfter` and `fail`, the failed event is not considered handled. If another await timer comes due while
+  the retry is pending, it fires first (see [execution.md](execution.md#await-event-selection)).
 - If the error handler itself throws or returns `null`, the failed event is retried after 60 seconds;
   `lastError` keeps the original error.
 - A branching handler that returns `null` is treated as failed with `IllegalStateException` and goes through the

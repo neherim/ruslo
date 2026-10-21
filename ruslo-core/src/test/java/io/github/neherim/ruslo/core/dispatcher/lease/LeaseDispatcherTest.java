@@ -64,13 +64,13 @@ class LeaseDispatcherTest extends BaseTest {
     }
 
     @Test
-    void nextAvailableAtShouldBeEarliestAmongWorkersWithCapacity() {
+    void nextRunAtShouldBeEarliestAmongWorkersWithCapacity() {
         var fixture = dispatcher(new TestWorker(FIRST_WORKER, 0), new TestWorker(SECOND_WORKER, 1));
         insertReady(FIRST_TYPE, 1);
         insertReady(SECOND_TYPE, 3);
         insertReady(SECOND_TYPE, 2);
 
-        assertEquals(Instant.parse("2026-07-19T10:00:00.002Z"), fixture.dispatcher().nextAvailableAt().orElseThrow());
+        assertEquals(Instant.parse("2026-07-19T10:00:00.002Z"), fixture.dispatcher().nextRunAt().orElseThrow());
     }
 
     @Test
@@ -84,7 +84,7 @@ class LeaseDispatcherTest extends BaseTest {
                 new TestWorkerRegistry(List.of(worker)), metrics, CLOCK);
 
         assertFalse(dispatcher.dispatch());
-        assertTrue(dispatcher.nextAvailableAt().isEmpty());
+        assertTrue(dispatcher.nextRunAt().isEmpty());
 
         assertFalse(forbiddenDatabase.accessed);
     }
@@ -376,10 +376,9 @@ class LeaseDispatcherTest extends BaseTest {
         var readyAt = Instant.parse("2026-07-19T10:00:00Z").plusMillis(order);
         database.update("""
                 insert into xs_process_instance
-                    (id, create_at, state, worker_id, status, type, scheduled_at, available_at)
-                values (?, current_timestamp, ?, ?, 'ACTIVE', ?, ?, ?)
-                """, id, TestState.READY.name(), workerId(type).name(), type.name(),
-                Timestamp.from(readyAt), Timestamp.from(readyAt));
+                    (id, created_at, state, worker_id, status, type, next_run_at)
+                values (?, current_timestamp, ?, ?, 'ACTIVE', ?, ?)
+                """, id, TestState.READY.name(), workerId(type).name(), type.name(), Timestamp.from(readyAt));
         return id;
     }
 

@@ -19,8 +19,8 @@ public record ProcessSearchRequest(
         ProcessStatus status,
         String businessKey,
         String correlationId,
-        String scheduledAtFrom,
-        String scheduledAtTo,
+        String nextRunAtFrom,
+        String nextRunAtTo,
         String createdAtFrom,
         String createdAtTo,
         String variablesLike,
@@ -53,11 +53,11 @@ public record ProcessSearchRequest(
         if (hasText(correlationId)) {
             query.byCorrelationId(correlationId);
         }
-        if (hasText(scheduledAtFrom)) {
-            query.byScheduledAtFrom(parseHtmlDateTime(scheduledAtFrom, zone()));
+        if (hasText(nextRunAtFrom)) {
+            query.byNextRunAtFrom(parseHtmlDateTime(nextRunAtFrom, zone()));
         }
-        if (hasText(scheduledAtTo)) {
-            query.byScheduledAtTo(parseHtmlDateTime(scheduledAtTo, zone()));
+        if (hasText(nextRunAtTo)) {
+            query.byNextRunAtTo(parseHtmlDateTime(nextRunAtTo, zone()));
         }
         if (hasText(createdAtFrom)) {
             query.byCreatedAtFrom(parseHtmlDateTime(createdAtFrom, zone()));

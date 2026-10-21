@@ -66,11 +66,11 @@ class ProcessRuntimeServiceTest extends BaseTest {
         var processId = runtime.newProcess(SimpleProcessDefinition.TYPE).start();
 
         assertEquals(2, clock.reads);
-        assertEquals(initial, timestamp("select scheduled_at from xs_process_instance where id = ?", processId));
+        assertEquals(initial, timestamp("select next_run_at from xs_process_instance where id = ?", processId));
         assertEquals(initial, timestamp(
                 "select changed_at from xs_process_state_hist where link_process_instance = ?", processId));
         assertEquals(initial.plusSeconds(1), timestamp(
-                "select create_at from xs_process_instance where id = ?", processId));
+                "select created_at from xs_process_instance where id = ?", processId));
     }
 
     @Test

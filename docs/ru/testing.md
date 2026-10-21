@@ -29,8 +29,9 @@
 
 ## Таймеры и повторы
 
-Таймеры `every`, `timeout` и задержки `retryAfter` наступают, когда время перемотано эмулятором
-(`fastForwardTime` или `setTime`). Собственные бины `Clock` приложения на часы движка не влияют:
+Таймеры `every`, `after`, `at` и задержки `retryAfter`, в том числе у шагов, наступают, когда время перемотано
+эмулятором (`fastForwardTime` или `setTime`): `runUntilStop` останавливается на шаге, ждущем повтора, `runOneStep`
+выполняет его сразу. Собственные бины `Clock` приложения на часы движка не влияют:
 
 ```java
 @ProcessEngineTest
@@ -50,7 +51,7 @@ class OrderServiceTest {
         var waiting = emulator.runUntilStop(processId);
         assertTrue(waiting.state().is(State.WAITING_FOR_DELIVERY_TIMER));
 
-        emulator.fastForwardTime(Duration.ofSeconds(11));   // timeout ожидания — 10 секунд
+        emulator.fastForwardTime(Duration.ofSeconds(11));   // ожидание ждёт after(10 секунд)
 
         var completed = emulator.runUntilStop(processId);
         assertEquals(ProcessStatus.COMPLETED, completed.status());
@@ -58,8 +59,23 @@ class OrderServiceTest {
 }
 ```
 
-Полные примеры в `ruslo-examples/cookbook`: рецепты `deadline` (таймер) и `retries` (повторы и запасное
-состояние).
+Срок из переменной (`at`) тестируется через `setTime`: задайте время старта, передайте срок относительно него
+и переведите часы на срок:
+
+```java
+var start = Instant.parse("2026-10-07T10:00:00Z");
+emulator.setTime(start);
+var processId = processEngine.newProcess(SeatReservationDefinition.TYPE)
+        .variable(SeatReservationDefinition.PAYMENT_DUE, start.plus(Duration.ofMinutes(15)))
+        .start();
+emulator.runUntilStop(processId);
+
+emulator.setTime(start.plus(Duration.ofMinutes(15)));
+assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
+```
+
+Полные примеры в `ruslo-examples/cookbook`: рецепты `deadline` (таймер `at`), `subscription` (расписание по датам)
+и `retries` (повторы и запасное состояние).
 
 Временем управляйте через эмулятор, внедрять часы движка в тест не нужно. Чтобы задать собственные начальные часы,
 объявите в тестовой конфигурации бин `MutableClock` (`core.api.test`) с именем `processEngineClock` и

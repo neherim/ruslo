@@ -150,14 +150,14 @@
                     <strong class="numeric" th:text="${process.attempt}">0</strong>
                 </div>
                 <div class="hero-field">
-                    <span>Scheduled</span>
+                    <span>Next run</span>
                     <strong>
-                        <time th:if="${process.scheduledAt != null}"
+                        <time th:if="${process.nextRunAt != null}"
                               class="relative-time"
                               th:attr="data-overdue-check=${process.status.name() == 'ACTIVE'} ? 'true' : null"
-                              th:datetime="${process.scheduledAt}"
-                              th:text="${process.scheduledAt}">—</time>
-                        <span th:if="${process.scheduledAt == null}" class="muted">—</span>
+                              th:datetime="${process.nextRunAt}"
+                              th:text="${process.nextRunAt}">—</time>
+                        <span th:if="${process.nextRunAt == null}" class="muted">—</span>
                     </strong>
                 </div>
                 <div class="hero-field hero-field-wide">

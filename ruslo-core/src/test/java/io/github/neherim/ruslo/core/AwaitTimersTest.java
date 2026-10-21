@@ -342,7 +342,7 @@ class AwaitTimersTest extends BaseTest {
                 .message(SIGNAL, (context, message) -> {
                     throw new IllegalStateException("boom");
                 }, State.MSG_DONE)
-                .timeout(Duration.ofHours(1), State.TIMEOUT_DONE))
+                .after(Duration.ofHours(1), State.TIMEOUT_DONE))
             .step(State.FALLBACK, context -> {}, State.MSG_DONE)
             .terminal(State.MSG_DONE)
             .terminal(State.TIMEOUT_DONE)
@@ -374,7 +374,7 @@ class AwaitTimersTest extends BaseTest {
             .await(State.WAIT, await -> {
                 await.message(SIGNAL, onMessage, messageTarget);
                 if (every != null) await.every(every, onEvery, everyTarget);
-                await.timeout(Duration.ofHours(1), context -> log.add("timeout"), State.TIMEOUT_DONE);
+                await.after(Duration.ofHours(1), context -> log.add("timeout"), State.TIMEOUT_DONE);
             })
             .terminal(State.MSG_DONE)
             .terminal(State.EVERY_DONE)
@@ -393,7 +393,7 @@ class AwaitTimersTest extends BaseTest {
             .await(State.WAIT, await -> await
                 .every(Duration.ofMinutes(10), onEvery, everyTarget,
                         options -> options.initialDelay(initialDelay))
-                .timeout(Duration.ofHours(1), State.TIMEOUT_DONE))
+                .after(Duration.ofHours(1), State.TIMEOUT_DONE))
             .terminal(State.EVERY_DONE)
             .terminal(State.TIMEOUT_DONE)
             .build();

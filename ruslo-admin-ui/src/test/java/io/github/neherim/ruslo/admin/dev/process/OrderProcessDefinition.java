@@ -63,7 +63,7 @@ public class OrderProcessDefinition implements ProcessDefinition {
                 .every(Duration.ofSeconds(30), context -> PaymentCheck.NOT_YET, routes -> routes
                     .on(PaymentCheck.PAID, State.COMPLETED)
                     .on(PaymentCheck.NOT_YET, State.WAITING_FOR_PAYMENT))
-                .timeout(Duration.ofHours(1), State.REJECTED))
+                .after(Duration.ofHours(1), State.REJECTED))
             .await(State.MANUAL_REVIEW, await -> await
                 .message(MessageType.of("approveReview", String.class), (context, message) -> {},
                         State.WAITING_FOR_PAYMENT)

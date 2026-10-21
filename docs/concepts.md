@@ -21,7 +21,7 @@ ProcessDefinition definition = builder -> builder.type("APPROVAL")
     .step(State.CREATE, context -> createOrder(context), State.WAIT)
     .await(State.WAIT, await -> await
         .message(APPROVED, (context, message) -> { }, State.DONE)
-        .timeout(Duration.ofHours(1), State.EXPIRED))
+        .after(Duration.ofHours(1), State.EXPIRED))
     .terminal(State.DONE)
     .terminal(State.EXPIRED)
     .build();
@@ -72,37 +72,64 @@ An await declares events:
 | Event | Fires when | Handler |
 |---|---|---|
 | `message(type, handler, next \| routes)` | a message of type `type` arrives | `ProcessMessageHandler<T>` or `BranchingMessageHandler<T, O>` |
-| `every(interval, handler, next \| routes)` | every `interval`, on a grid from entering the await | `ProcessTimerHandler` or `BranchingTimerHandler<O>` |
-| `timeout(delay[, handler], next)` | once, `delay` after entering the await | optional `ProcessTimerHandler` |
+| `every(interval, handler, next \| routes)` | repeatedly, every `interval` on a grid from entering the await | `ProcessTimerHandler` or `BranchingTimerHandler<O>` |
+| `after(delay[, handler], next \| routes)` | `delay` after entering the await | none, `ProcessTimerHandler` or `BranchingTimerHandler<O>` |
+| `at(variable[, handler], next \| routes)` | at the moment stored in an `Instant` variable | none, `ProcessTimerHandler` or `BranchingTimerHandler<O>` |
 
-An await allows at most one `every` and at most one `timeout`; they can be combined.
 At least one event must lead to another state.
 
 ```java
 enum Payment { PAID, PENDING }
 
+static final VariableType<Instant> DUE_DATE = VariableType.of("dueDate", Instant.class);
+
 .await(WAITING_FOR_PAYMENT, await -> await
     .every(Duration.ofSeconds(30), checkPayment, routes -> routes   // polling an external condition
         .on(Payment.PAID, SHIPPING)
         .on(Payment.PENDING, WAITING_FOR_PAYMENT))                 // keep waiting
-    .timeout(Duration.ofDays(7), markExpired, CANCELLED))
+    .message(EXTEND_DUE_DATE, extendDueDate, WAITING_FOR_PAYMENT)  // writes DUE_DATE
+    .after(Duration.ofDays(3), remind, WAITING_FOR_PAYMENT)         // one reminder
+    .at(DUE_DATE, markExpired, CANCELLED))
+```
+
+Timer rules:
+
+1. `every(interval)` fires repeatedly, on the grid `entering the await + initialDelay + k * interval`: a late check
+   does not shift the next ones, missed points are skipped. `after(delay)` fires `delay` after entering the await.
+   `at(variable)` fires at the moment stored in the variable: no variable, no timer; the variable changed, the timer
+   moved.
+2. Each timer is declared at most once per await; any of them can be combined.
+3. **A timer fires once per moment.** The moment of `after` does not change within one entry, so it fires once per
+   entry. After firing, `at` waits for a new value of its variable: a handler that writes the next date makes a
+   schedule; a handler that does not write it leaves the await waiting for its other events. The process does not
+   fail in that case: it is the same as an await whose message never comes.
+4. A due timer fires even while another event waits for a retry: a handler error does not extend the wait.
+
+A timer without a handler cannot target the await itself: it would do nothing. The first `every` check can run
+right on entering the await: `every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`.
+
+A schedule by dates is an `at` whose handler writes the next date; the first date is written by the caller at start
+or by a step before the await:
+
+```java
+.step(PLAN, ReportDefinition::planFirstRun, SCHEDULED)          // writes NEXT_RUN
+.await(SCHEDULED, await -> await
+    .at(NEXT_RUN, ReportDefinition::buildReport, routes -> routes
+        .on(Run.MORE, SCHEDULED)                                // wait for the next date
+        .on(Run.LAST, DONE))
+    .message(CANCEL, ReportDefinition::onCancel, CANCELLED))
 ```
 
 **An event whose target is the await itself means "keep waiting".** This is not a re-entry: the handled message is
-removed, the other messages and the `timeout` deadline are kept, the `every` schedule is kept, and no state history row
-is written. Use it for:
+removed, the other messages and the timers are kept (the `every` schedule, the `after` and `at` moments), and no
+state history row is written. Use it for:
 
 - a periodic side effect: `every(Duration.ofDays(1), sendReminder, WAITING_FOR_PAYMENT)`;
 - intermediate messages: `message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`.
 
 Any transition to another state closes the await and removes unhandled messages. To start the await over, with an
-empty queue and a new deadline, go to a step that leads back to the await.
-
-`timeout` is a hard deadline: its target cannot be the await itself, and a message handler failure does not extend
-the await. The first `every` check can run right on entering the await:
-`every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`. Checks follow the grid
-`entering the await + initialDelay + k * interval`: a late check does not shift the next ones, missed points are
-skipped.
+empty queue and a new `after` deadline, go to a step that leads back to the await. A deadline that must move
+without re-entry is an `at`: write the new moment to its variable.
 
 If several events are due, the earliest one is handled; the exact rules are in [execution.md](execution.md#await-event-selection).
 
@@ -209,7 +236,7 @@ positive delays and an exit from every await.
   `ProcessMessageHandler<T>` → `BranchingMessageHandler<T, Outcome>`, `ProcessTimerHandler` → `BranchingTimerHandler<Outcome>`.
 - Retry after a technical error with `ErrorResult.retryAfter`, not with a step that repeats itself.
 - Do periodic checks with `every` in an await, not with a "step → await → step" loop: re-entering the await clears
-  the queue and resets `timeout`.
+  the queue and resets `after`. A schedule by calendar dates is an `at` whose handler writes the next date.
 
 ## Definition evolution
 

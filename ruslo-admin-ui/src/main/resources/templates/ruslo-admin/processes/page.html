@@ -75,8 +75,8 @@
                         <div class="advanced-panel field-grid">
                             <label class="uuid-filter">Correlation id <input name="correlationId" class="mono" th:value="${searchForm.correlationId()}"></label>
                             <label>Variables LIKE <input name="variablesLike" placeholder="%&quot;key&quot;%" th:value="${searchForm.variablesLike()}"></label>
-                            <label class="date-filter">Scheduled from <input name="scheduledAtFrom" type="datetime-local" th:value="${searchForm.scheduledAtFrom()}"></label>
-                            <label class="date-filter">Scheduled to <input name="scheduledAtTo" type="datetime-local" th:value="${searchForm.scheduledAtTo()}"></label>
+                            <label class="date-filter">Next run from <input name="nextRunAtFrom" type="datetime-local" th:value="${searchForm.nextRunAtFrom()}"></label>
+                            <label class="date-filter">Next run to <input name="nextRunAtTo" type="datetime-local" th:value="${searchForm.nextRunAtTo()}"></label>
                             <label class="date-filter">Created from <input name="createdAtFrom" type="datetime-local" th:value="${searchForm.createdAtFrom()}"></label>
                             <label class="date-filter">Created to <input name="createdAtTo" type="datetime-local" th:value="${searchForm.createdAtTo()}"></label>
                         </div>

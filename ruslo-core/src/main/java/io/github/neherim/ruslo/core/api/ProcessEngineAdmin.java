@@ -49,7 +49,7 @@ public final class ProcessEngineAdmin {
     /**
      * Counts incomplete processes per type, ordered by type name; types without incomplete processes are omitted.
      *
-     * @param overdueAt an {@code ACTIVE} process with {@code scheduledAt} at or before this moment counts as overdue
+     * @param overdueAt an {@code ACTIVE} process with {@code nextRunAt} at or before this moment counts as overdue
      */
     public List<ProcessTypeCounts> countIncompleteProcessesByType(Instant overdueAt) {
         Objects.requireNonNull(overdueAt, "Overdue moment must not be null");

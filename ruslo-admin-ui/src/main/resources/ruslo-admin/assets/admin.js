@@ -522,7 +522,7 @@ const AdminUi = (() => {
         const LOOP_SWEEP_DEG = 50;
         // How far the loop control points stand out of the right side of the node.
         const LOOP_OUTSET = 40;
-        const TRIGGER_ICONS = {MESSAGE: '✉', EVERY: '⏱', TIMEOUT: '⏱'};
+        const TRIGGER_ICONS = {MESSAGE: '✉', EVERY: '⏱', AFTER: '⏱', AT: '⏱'};
         const SYMBOL_FONT = '"Diagram Symbols"';
         const KIND_NAMES = {STEP: 'Step', AWAIT: 'Await', TERMINAL: 'Terminal'};
         const wheelBound = new WeakSet();

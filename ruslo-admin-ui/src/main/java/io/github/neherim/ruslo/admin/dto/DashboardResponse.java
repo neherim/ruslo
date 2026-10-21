@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Dashboard summary. A process is overdue if it is {@code ACTIVE} and scheduled no later than {@code overdueAt};
+ * Dashboard summary. A process is overdue if it is {@code ACTIVE} and its next run is no later than {@code overdueAt};
  * {@code overdueAt} is a {@code datetime-local} value in {@code timeZone}, as in the process list filter.
  */
 public record DashboardResponse(

@@ -19,7 +19,7 @@ public record ProcessDetailsResponse(
         String state,
         String stateDescription,
         ProcessStatus status,
-        Instant scheduledAt,
+        Instant nextRunAt,
         String businessKey,
         String correlationId,
         int attempt,
@@ -54,7 +54,7 @@ public record ProcessDetailsResponse(
      * The status is hashed by name so the version does not depend on the JVM.
      */
     public String version() {
-        return Integer.toHexString(Objects.hash(state, status.name(), scheduledAt, businessKey, attempt,
+        return Integer.toHexString(Objects.hash(state, status.name(), nextRunAt, businessKey, attempt,
                 lastError, stateHistory, variables));
     }
 }

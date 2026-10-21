@@ -20,36 +20,62 @@ timer stays for a retry. The [error policy](error-handling.md) applies next.
 One run of an await handles **at most one** event. Every event has a time:
 
 - a message: the moment `sendMessage` stored it;
-- `every`: the scheduled check time;
-- `timeout`: the deadline.
+- `every`: the planned grid point, `entering the await + initialDelay + k * interval`;
+- `after`: entering the await plus `delay`, computed on entering;
+- `at`: the value of its variable.
 
-Among due events, the one with the smallest time is handled. On a tie the order is: message, `every`, `timeout`;
-messages with the same time go in arrival order. The moment the dispatcher reached the process does not affect the
-choice. The only exception: if the process is waiting to retry a failed event, a due deadline wins, so a handler
-error does not extend the await.
+An event is due when its time is not later than the engine clock. Among due events, the one with the smallest time
+is handled. On a tie the order is: message, `every`, `after`, `at`; messages with the same time go in arrival order.
+The moment the dispatcher reached the process does not affect the choice.
 
-Example (deadline at 12:00):
+**Timer moments.** After a successful `every` the next check is the first grid point after the handling. After a
+successful `after` the timer is off until the await is entered again. The `at` timer is on while its variable has a
+value that has not fired yet in this entry of the await. The value is checked on entering the await, on every write
+or removal of the variable (a handler, a step, `setProcessVariable` / `removeProcessVariable` in the admin API) and
+after `at` fires. Writing the same value does not fire the timer again, so a handler that does not move the moment
+does not make a loop. The value is compared with microsecond precision, the precision of the stored timestamps.
+
+A moment in the past or equal to now is an event that is already due, selected by the usual rules: the process
+entered the await after the deadline, a message moved the deadline into the past, or dates were missed during
+downtime (the `at` handler can skip past dates itself). A variable that cannot be read as `Instant`, for example a
+string of another format written through the admin API, is an error of the writer: the write throws, the process is
+unchanged.
+
+**Hard deadline.** A handler error does not extend the wait. While the process waits to retry a failed event, a due
+timer other than that event wakes the process and wins. If its target is the await itself, the failed event is
+retried right after it, with its attempt count kept. A failed `every`, `after` or `at` handler is retried by
+[`onError`](error-handling.md); the timer stays on until it is handled successfully.
+
+Example (`after(1h)` from entering the await at 11:00, so the deadline is 12:00):
 
 | Situation | Result |
 |---|---|
 | Message accepted at 11:59, handling started at 12:01 | the message is handled |
-| Message accepted at 11:59, its handling failed and was scheduled for retry at 12:05 | `timeout` fires at 12:00 |
+| Message accepted at 11:59, its handling failed and was scheduled for retry at 12:05 | `after` fires at 12:00 |
+| Message accepted at 11:59, handling at 12:01 failed and was scheduled for retry at 12:06 | `after` fires right away |
 | Message accepted at 11:30, its handling failed and was scheduled for retry at 11:35 | the message is retried at 11:35 |
-| Message accepted at 11:59, handled at 12:01 with the await itself as the target | `timeout` fires next |
-| Message accepted at 12:00:30, handling started at 12:01 | `timeout` fires, the message is removed with the queue |
+| Message accepted at 11:59, handled at 12:01 with the await itself as the target | `after` fires next |
+| Message accepted at 12:00:30, handling started at 12:01 | `after` fires, the message is removed with the queue |
+| `after` handler failed at 12:00 and was scheduled for retry at 12:05, `at` is 12:02 | `at` fires at 12:02 |
+| A message moved `at` from 13:00 to 11:32 during a retry backoff until 11:35 | `at` fires at 11:32 |
 
 Consequences:
 
-- a message accepted after the deadline but before it is handled is removed on the `timeout` transition,
+- a message accepted after the deadline but before it is handled is removed on the deadline transition,
   although `sendMessage` returned successfully;
 - a late `every` sees the current state of the external system: a check scheduled for 11:58
   and run at 12:01 may see a change made after the deadline;
 - `every` checks missed during downtime are not run in a batch: one runs, and the next is the first point of the
-  grid (`entering the await + initialDelay + k * interval`) after it is handled;
+  grid after it is handled;
 - a late check does not shift the grid, so the check after it may come sooner than `interval`: there is no minimum
-  interval between checks. With `every(10m)` and a deadline at 12:00, the 12:00 check runs before `timeout`
+  interval between checks. With `every(10m)` and a deadline at 12:00, the 12:00 check runs before `after`
   however late the previous checks were;
-- timers do not fire in status `FAILED`; after `resumeFailedProcess` the event is selected by these rules again.
+- timers do not fire in status `FAILED`, and a write of the `at` variable does not wake such a process; after
+  `resumeFailedProcess` the event is selected by these rules again.
+
+A process taken with no due event, for example after `next_run_at` was changed by hand
+([operations.md](operations.md#editing-timers-in-sql)), only recomputes its next run: no handler runs, no attempt is
+counted and no history row is written.
 
 ## Concurrent access
 
@@ -86,7 +112,7 @@ in the active application transaction or in a new one. The process row stays loc
 
 - Only the handler of this message runs synchronously, not the process until it stops; the dispatcher runs the
   following steps after commit.
-- The message bypasses the queue: earlier messages and due `every`/`timeout` are ignored, and on a transition to
+- The message bypasses the queue: earlier messages and due `every`, `after` and `at` are ignored, and on a transition to
   another state the queued messages are removed unhandled. If the process is waiting to retry a failed event, that
   retry is kept.
 - Applicability is checked as in `sendMessage`: if the process is not waiting for the message now or has completed,

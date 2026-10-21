@@ -13,6 +13,7 @@ import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
+import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.management.DatabaseSchemaMigrator;
 import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
@@ -49,7 +50,8 @@ class ProcessEngineAdminServiceGraphTest {
                 .every(Duration.ofSeconds(30), context -> Outcome.FAIL, routes -> routes
                     .on(Outcome.OK, State.DONE)
                     .on(Outcome.FAIL, State.WAIT))
-                .timeout(Duration.ofMinutes(90), State.DONE))
+                .after(Duration.ofMinutes(90), State.DONE)
+                .at(VariableType.of("dueDate", Instant.class), State.DONE))
             .terminal(State.DONE)
             .build();
         var service = new ProcessEngineAdminService(engine(definition), new ProcessEngineAdmin(engine));
@@ -67,7 +69,8 @@ class ProcessEngineAdminServiceGraphTest {
                 new Edge("WAIT", "DONE", "MESSAGE", "approve"),
                 new Edge("WAIT", "DONE", "EVERY", "every 30s / OK"),
                 new Edge("WAIT", "WAIT", "EVERY", "every 30s / FAIL"),
-                new Edge("WAIT", "DONE", "TIMEOUT", "timeout 1h30m"));
+                new Edge("WAIT", "DONE", "AFTER", "after 1h30m"),
+                new Edge("WAIT", "DONE", "AT", "at dueDate"));
         assertThat(service.graph("UNKNOWN")).isEmpty();
         assertThat(service.statesFor("GRAPH", "CHECK"))
             .extracting(DefinitionResponse.StateResponse::name, DefinitionResponse.StateResponse::description)
