@@ -101,6 +101,8 @@ line where the target must become routes. `build()` checks that all enum constan
 - Polling an external system: `every` with branching routes back to the same await. Do not build a
   "step → await → step" loop: re-entering an await clears the queue and resets the `timeout`.
 - Run the first `every` check immediately: `every(interval, handler, next, o -> o.initialDelay(Duration.ZERO))`.
+- `every` follows a fixed grid from entering the await (`initialDelay + k * interval`); a late check does not shift
+  the next ones, missed points are skipped.
 
 ### ProcessContext
 

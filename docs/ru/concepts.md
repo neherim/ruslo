@@ -73,7 +73,7 @@ BranchingStep<Validation> validateStep = context -> isValid(context) ? Validatio
 | Событие | Когда срабатывает | Обработчик |
 |---|---|---|
 | `message(type, handler, next \| routes)` | пришло сообщение типа `type` | `ProcessMessageHandler<T>` или `BranchingMessageHandler<T, O>` |
-| `every(interval, handler, next \| routes)` | каждые `interval` после входа в ожидание | `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
+| `every(interval, handler, next \| routes)` | каждые `interval`, по сетке от входа в ожидание | `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
 | `timeout(delay[, handler], next)` | однократно через `delay` после входа в ожидание | необязательный `ProcessTimerHandler` |
 
 В одном ожидании допускается не более одного `every` и не более одного `timeout`; их можно сочетать.
@@ -90,8 +90,8 @@ enum Payment { PAID, PENDING }
 ```
 
 **Цель события, равная самому ожиданию, означает «ждать дальше».** Это не повторный вход в состояние:
-обработанное сообщение удаляется, остальные сообщения и дедлайн `timeout` сохраняются, следующая проверка `every`
-назначается от момента обработки, строка в истории состояний не пишется. Так объявляются:
+обработанное сообщение удаляется, остальные сообщения и дедлайн `timeout` сохраняются, расписание `every`
+сохраняется, строка в истории состояний не пишется. Так объявляются:
 
 - периодический побочный эффект — `every(Duration.ofDays(1), sendReminder, WAITING_FOR_PAYMENT)`;
 - промежуточные сообщения — `message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`.
@@ -101,7 +101,9 @@ enum Payment { PAID, PENDING }
 
 `timeout` — жёсткий дедлайн: его цель не может быть самим ожиданием, и ошибка обработчика сообщения
 не продлевает ожидание. Первую проверку `every` можно выполнить сразу при входе в ожидание:
-`every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`.
+`every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`. Проверки идут по сетке
+`вход в ожидание + initialDelay + k * interval`: опоздавшая проверка не сдвигает следующие, пропущенные точки
+не выполняются.
 
 Если наступило несколько событий, обрабатывается самое раннее; точные правила — в [execution.md](execution.md#выбор-события-ожидания).
 

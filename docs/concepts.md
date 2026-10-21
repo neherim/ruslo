@@ -72,7 +72,7 @@ An await declares events:
 | Event | Fires when | Handler |
 |---|---|---|
 | `message(type, handler, next \| routes)` | a message of type `type` arrives | `ProcessMessageHandler<T>` or `BranchingMessageHandler<T, O>` |
-| `every(interval, handler, next \| routes)` | every `interval` after entering the await | `ProcessTimerHandler` or `BranchingTimerHandler<O>` |
+| `every(interval, handler, next \| routes)` | every `interval`, on a grid from entering the await | `ProcessTimerHandler` or `BranchingTimerHandler<O>` |
 | `timeout(delay[, handler], next)` | once, `delay` after entering the await | optional `ProcessTimerHandler` |
 
 An await allows at most one `every` and at most one `timeout`; they can be combined.
@@ -89,8 +89,8 @@ enum Payment { PAID, PENDING }
 ```
 
 **An event whose target is the await itself means "keep waiting".** This is not a re-entry: the handled message is
-removed, the other messages and the `timeout` deadline are kept, the next `every` check is scheduled from the
-moment of handling, and no state history row is written. Use it for:
+removed, the other messages and the `timeout` deadline are kept, the `every` schedule is kept, and no state history row
+is written. Use it for:
 
 - a periodic side effect: `every(Duration.ofDays(1), sendReminder, WAITING_FOR_PAYMENT)`;
 - intermediate messages: `message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`.
@@ -100,7 +100,9 @@ empty queue and a new deadline, go to a step that leads back to the await.
 
 `timeout` is a hard deadline: its target cannot be the await itself, and a message handler failure does not extend
 the await. The first `every` check can run right on entering the await:
-`every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`.
+`every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`. Checks follow the grid
+`entering the await + initialDelay + k * interval`: a late check does not shift the next ones, missed points are
+skipped.
 
 If several events are due, the earliest one is handled; the exact rules are in [execution.md](execution.md#await-event-selection).
 

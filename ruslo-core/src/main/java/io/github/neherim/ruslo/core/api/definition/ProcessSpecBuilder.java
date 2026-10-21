@@ -173,8 +173,8 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Sets the delay of the first check after entering the await; defaults to the interval.
-         * {@link Duration#ZERO} checks immediately.
+         * Sets the delay of the first check after entering the await, the start of the check grid; defaults to the
+         * interval. {@link Duration#ZERO} checks immediately.
          */
         public EveryOptions initialDelay(Duration initialDelay) {
             this.initialDelay = requireNonNull(initialDelay, "Initial delay cannot be null");
@@ -263,7 +263,11 @@ public class ProcessSpecBuilder {
 
         /**
          * Calls {@code handler} every {@code interval} and moves to {@code next}. If {@code next} is this await,
-         * the process keeps waiting and the next check is scheduled after {@code interval}.
+         * the process keeps waiting until the next check.
+         * <p>
+         * Checks follow a grid: entering the await plus {@code initialDelay} plus {@code k * interval}. A late check
+         * does not shift the next ones; missed points are skipped, and the next check is the first point after the
+         * check is handled.
          */
         public AwaitBuilder every(Duration interval, ProcessTimerHandler handler, ProcessState next) {
             return every(interval, handler, next, options -> {});
@@ -285,7 +289,8 @@ public class ProcessSpecBuilder {
 
         /**
          * Calls {@code handler} every {@code interval}; its outcome selects the target in {@code routes}.
-         * A target equal to this await keeps waiting until the next check.
+         * A target equal to this await keeps waiting until the next check. Checks follow the grid described in
+         * {@link #every(Duration, ProcessTimerHandler, ProcessState)}.
          */
         public <O extends Enum<O>> AwaitBuilder every(
                 Duration interval,

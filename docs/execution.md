@@ -44,8 +44,11 @@ Consequences:
   although `sendMessage` returned successfully;
 - a late `every` sees the current state of the external system: a check scheduled for 11:58
   and run at 12:01 may see a change made after the deadline;
-- `every` checks missed during downtime are not run in a batch: one runs, and the next is scheduled from the
-  moment of handling;
+- `every` checks missed during downtime are not run in a batch: one runs, and the next is the first point of the
+  grid (`entering the await + initialDelay + k * interval`) after it is handled;
+- a late check does not shift the grid, so the check after it may come sooner than `interval`: there is no minimum
+  interval between checks. With `every(10m)` and a deadline at 12:00, the 12:00 check runs before `timeout`
+  however late the previous checks were;
 - timers do not fire in status `FAILED`; after `resumeFailedProcess` the event is selected by these rules again.
 
 ## Concurrent access

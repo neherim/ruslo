@@ -475,7 +475,7 @@ class ProcessStepExecutionTest extends BaseTest {
     }
 
     @Test
-    void timerSelfTargetUsesHandlingTimeAndFailureKeepsDueTimer() {
+    void timerSelfTargetKeepsGridAndFailureKeepsDueTimer() {
         var clock = new MutableClock(Instant.parse("2026-09-24T10:00:00Z"));
         var fail = new AtomicBoolean(true);
         var handled = new AtomicInteger();
@@ -508,7 +508,7 @@ class ProcessStepExecutionTest extends BaseTest {
             engine.resumeFailedProcess(id);
             emulator(engine, 20).runOneStep(id);
             assertEquals(2, handled.get());
-            assertEquals(clock.instant().plusSeconds(5),
+            assertEquals(firstDue.plusSeconds(5),
                     engine.processes().byId(id).singleDetails().orElseThrow().scheduledAt().orElseThrow());
         } finally {
             engine.close();

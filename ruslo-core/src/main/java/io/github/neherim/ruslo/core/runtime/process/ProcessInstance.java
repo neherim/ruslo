@@ -158,10 +158,14 @@ public final class ProcessInstance {
         recomputeAvailability();
     }
 
-    /** Reschedules the timer after a successful event and clears the errors of its previous attempts. */
+    /**
+     * Schedules the next {@code every} check at the first point of the await's grid after now, skipping missed points,
+     * and clears the errors of its previous attempts.
+     */
     public void rescheduleTimer() {
-        var await = (AwaitState) getStateSpec();
-        scheduledAt = clock.instant().plus(await.every().interval());
+        var interval = ((AwaitState) getStateSpec()).every().interval();
+        var missed = Duration.between(scheduledAt, clock.instant()).dividedBy(interval);
+        scheduledAt = scheduledAt.plus(interval.multipliedBy(missed + 1));
         resetAttemptsAndError();
         recomputeAvailability();
     }
