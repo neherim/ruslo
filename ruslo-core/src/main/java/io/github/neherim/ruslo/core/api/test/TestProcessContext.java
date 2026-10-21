@@ -10,6 +10,9 @@ import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
 import io.github.neherim.ruslo.core.utils.JsonUtils;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +32,7 @@ public final class TestProcessContext implements ProcessContext {
     private final ProcessStateId state;
     private final int attempt;
     private final String businessKey;
+    private final Clock clock;
     private final ProcessVariables variables;
 
     private TestProcessContext(Builder builder) {
@@ -38,6 +42,7 @@ public final class TestProcessContext implements ProcessContext {
         this.state = builder.state;
         this.attempt = builder.attempt;
         this.businessKey = builder.businessKey;
+        this.clock = builder.clock;
         this.variables = ProcessVariables.fromMap(builder.jsonMapper, builder.variables);
     }
 
@@ -48,7 +53,7 @@ public final class TestProcessContext implements ProcessContext {
 
     /**
      * Returns a builder. Defaults: random process and correlation ids, type and state {@code "test"}, attempt
-     * {@code 0}, no business key or variables.
+     * {@code 0}, no business key or variables, {@link #now()} from the system clock.
      */
     public static Builder builder() {
         return new Builder();
@@ -119,6 +124,11 @@ public final class TestProcessContext implements ProcessContext {
         return Optional.ofNullable(businessKey);
     }
 
+    @Override
+    public Instant now() {
+        return clock.instant();
+    }
+
     public static final class Builder {
         private UUID processId = UUID.randomUUID();
         private String correlationId = UUID.randomUUID().toString();
@@ -126,6 +136,7 @@ public final class TestProcessContext implements ProcessContext {
         private ProcessStateId state = ProcessState.of("test");
         private int attempt;
         private String businessKey;
+        private Clock clock = Clock.systemUTC();
         private ObjectMapper jsonMapper = JsonUtils.DEFAULT_OBJECT_MAPPER;
         private final Map<String, Object> variables = new LinkedHashMap<>();
 
@@ -163,6 +174,12 @@ public final class TestProcessContext implements ProcessContext {
 
         public Builder businessKey(String businessKey) {
             this.businessKey = businessKey;
+            return this;
+        }
+
+        /** Fixes {@link #now()} at {@code now}. */
+        public Builder now(Instant now) {
+            this.clock = Clock.fixed(Objects.requireNonNull(now, "Now must not be null"), ZoneOffset.UTC);
             return this;
         }
 

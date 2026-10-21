@@ -122,8 +122,11 @@ line where the target must become routes. `build()` checks that all enum constan
 ### ProcessContext
 
 `getVariable(type)` (nullable), `setVariable(type, value)`, `removeVariable(type)`, `processId()`,
-`processType()`, `state()`, `businessKey()`, `correlationId()`, `attempt()`.
+`processType()`, `state()`, `businessKey()`, `correlationId()`, `attempt()`, `now()`.
 
+- Take the time from `context.now()` (the engine clock), never `Instant.now()`: timers compare with the engine
+  clock, and in tests the emulator controls it. A deadline for `at`:
+  `context.setVariable(DUE, context.now().plus(Duration.ofMinutes(15)))`.
 - Variables and message payloads are stored as JSON (Jackson). Their class must be concrete and non-generic:
   wrap a `List`/`Map` in a record (`record OrderItems(List<String> ids) {}`).
 - Mutating an object returned by `getVariable` without calling `setVariable` is lost.
@@ -290,10 +293,10 @@ class OrderProcessTest {
   Results are `ProcessInstanceDetails`: check `state()`, `status()`, `lastError()`,
   `variables().get(TYPE)` (`Optional`).
 - Control time **only** through the emulator; the application's own `Clock` beans do not affect engine timers.
-  For an `at` deadline: `emulator.setTime(start)`, start the process with the deadline relative to `start`, then
-  `setTime(deadline)`.
+  For an `at` deadline: `emulator.setTime(start)`, start and run the process (its step writes the deadline from
+  `context.now()`), then `setTime(deadline)`.
 - `runUntilStop` stops at a step waiting for a retry delay; `runOneStep` runs it at once.
-- Unit-test a single handler with `TestProcessContext.builder().variable(TYPE, value).attempt(1).build()`;
+- Unit-test a single handler with `TestProcessContext.builder().variable(TYPE, value).attempt(1).now(instant).build()`;
   it round-trips variables through JSON like the engine does.
 - Test failures: make a dependency throw, then assert `status() == FAILED` / the fallback state and
   `lastError()`; advance time past `retryAfter` delays with `fastForwardTime`.

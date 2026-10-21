@@ -59,20 +59,20 @@ class OrderServiceTest {
 }
 ```
 
-Срок из переменной (`at`) тестируется через `setTime`: задайте время старта, передайте срок относительно него
-и переведите часы на срок:
+Срок из переменной (`at`) тестируется через `setTime`. Обработчики берут время из `context.now()` — часов
+движка, поэтому шаг, вычисляющий срок, видит время, заданное тестом:
 
 ```java
 var start = Instant.parse("2026-10-07T10:00:00Z");
 emulator.setTime(start);
-var processId = processEngine.newProcess(SeatReservationDefinition.TYPE)
-        .variable(SeatReservationDefinition.PAYMENT_DUE, start.plus(Duration.ofMinutes(15)))
-        .start();
-emulator.runUntilStop(processId);
+var processId = processEngine.newProcess(SeatReservationDefinition.TYPE).start();
+emulator.runUntilStop(processId);                    // шаг пишет PAYMENT_DUE = context.now() + 15 минут
 
-emulator.setTime(start.plus(Duration.ofMinutes(15)));
+emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
 assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
 ```
+
+Обработчик, вызывающий `Instant.now()`, видит системное время, и такой тест падает.
 
 Полные примеры в `ruslo-examples/cookbook`: рецепты `deadline` (таймер `at`), `subscription` (расписание по датам)
 и `retries` (повторы и запасное состояние).
@@ -112,6 +112,7 @@ assertEquals(Set.of("order", "paymentId"), context.variableNames());
 | `processType(ProcessType)`, `state(ProcessState)` | `"test"` |
 | `attempt(int)` | `0` |
 | `businessKey(String)` | нет |
+| `now(Instant)` | `now()` по системным часам |
 | `variable(VariableType<T>, T)`, `variable(String, Object)` | без переменных |
 | `jsonMapper(ObjectMapper)` | mapper движка по умолчанию; укажите тот же, что в `ProcessEngineBuilder.withJsonMapper` |
 

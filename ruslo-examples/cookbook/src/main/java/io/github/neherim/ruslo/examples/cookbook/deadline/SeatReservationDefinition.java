@@ -13,18 +13,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
 
 /**
  * Recipe: wait for an event until a deadline that can move.
  * <p>
- * Task: reserve a seat for an event and hold it until the payment deadline the booking service sets, usually 15
- * minutes. Support can extend the deadline. If the payment does not arrive in time, release the seat so another
- * customer can take it.
+ * Task: reserve a seat for an event and hold it for 15 minutes until payment. Support can extend the deadline. If the
+ * payment does not arrive in time, release the seat so another customer can take it.
  * <p>
  * How it works:
  * <ul>
- *   <li>The caller passes the deadline in variable {@link #PAYMENT_DUE} when starting the process.</li>
+ *   <li>Step {@link State#RESERVING} stores the deadline in variable {@link #PAYMENT_DUE}: {@code context.now()} plus
+ *       {@link #PAYMENT_TIME}. {@code context.now()} is the engine clock, so in tests the emulator moves it.</li>
  *   <li>Await {@link State#WAITING_FOR_PAYMENT} declares message {@link #PAYMENT_RECEIVED} and
  *       {@code at(PAYMENT_DUE, ...)}. Whichever comes first moves the process on. The engine compares the deadline
  *       with its clock: the step does not read and compare the time itself.</li>
@@ -40,13 +41,15 @@ import java.time.Instant;
  *   <li>After the deadline the process does not accept the message: {@code sendMessage} throws
  *       {@code MessageNotExpectedException}. The sender handles a late payment, for example by refunding it. Which
  *       event wins when a message and the deadline are close is described in {@code docs/execution.md}.</li>
- *   <li>Without the variable there is no timer: a reservation started without {@link #PAYMENT_DUE} waits for the
- *       payment forever. A fixed delay from entering the await is {@code after(delay, next)}.</li>
+ *   <li>Take the time from {@code context.now()}, not {@code Instant.now()}: a test cannot move the system clock.</li>
+ *   <li>Without the variable there is no timer: if the step did not write {@link #PAYMENT_DUE}, the reservation
+ *       would wait for the payment forever. A fixed delay that never moves is simpler as {@code after(delay, next)}.</li>
  * </ul>
  */
 @Component
 public class SeatReservationDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("SEAT_RESERVATION");
+    public static final Duration PAYMENT_TIME = Duration.ofMinutes(15);
     public static final VariableType<String> SEAT = VariableType.of("seat", String.class);
     public static final VariableType<Instant> PAYMENT_DUE = VariableType.of("paymentDue", Instant.class);
     public static final VariableType<String> PAYMENT_ID = VariableType.of("paymentId", String.class);
@@ -75,7 +78,9 @@ public class SeatReservationDefinition implements ProcessDefinition {
     }
 
     private static void reserveSeat(ProcessContext context) {
-        log.info("Seat {} reserved", context.getVariable(SEAT));
+        var due = context.now().plus(PAYMENT_TIME);
+        context.setVariable(PAYMENT_DUE, due);
+        log.info("Seat {} reserved until {}", context.getVariable(SEAT), due);
     }
 
     private static void releaseSeat(ProcessContext context) {

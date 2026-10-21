@@ -384,6 +384,11 @@ public final class ProcessInstance {
         return status == ProcessStatus.COMPLETED;
     }
 
+    /** Returns the current time of the engine clock. */
+    public Instant now() {
+        return clock.instant();
+    }
+
     public ProcessVariables getVariables() {
         return variables;
     }

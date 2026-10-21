@@ -1,5 +1,6 @@
 package io.github.neherim.ruslo.core.api.definition;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -56,4 +57,10 @@ public interface ProcessContext {
     int attempt();
 
     Optional<String> businessKey();
+
+    /**
+     * Returns the current time of the engine clock, the clock that timers and retries use. Use it instead of
+     * {@code Instant.now()}: in tests the emulator controls it.
+     */
+    Instant now();
 }

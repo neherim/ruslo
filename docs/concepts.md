@@ -108,6 +108,8 @@ Timer rules:
 A timer without a handler cannot target the await itself: it would do nothing. The first `every` check can run
 right on entering the await: `every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`.
 
+A moment for `at` is computed by a step or handler from `context.now()`, e.g.
+`context.setVariable(DUE_DATE, context.now().plus(Duration.ofMinutes(15)))`, or passed by the caller at start.
 A schedule by dates is an `at` whose handler writes the next date; the first date is written by the caller at start
 or by a step before the await:
 
@@ -154,6 +156,7 @@ A handler receives a `ProcessContext`:
 | `businessKey()` | Business key set at start through `newProcess(...).businessKey(...)` |
 | `correlationId()` | Id for logs: set through `newProcess(...).correlationId(...)`, otherwise taken from the caller thread's MDC or generated |
 | `attempt()` | Number of previous failed attempts in the current state |
+| `now()` | Current time of the engine clock, the one timers use; use it instead of `Instant.now()`, so the emulator controls it in tests |
 
 Variables and message payloads are stored in the database as JSON (Jackson). Process variables are kept in the
 `xs_process_instance.variables` column as one JSON object, e.g. `{"orderId":"A-1","amount":42}`;

@@ -61,6 +61,26 @@ class ProcessEngineEmulatorClockTest extends BaseTest {
     }
 
     @Test
+    void contextNowReturnsEngineClock() {
+        var clock = new MutableClock(ZoneOffset.UTC, Instant.parse("2026-10-07T10:00:00Z"), ChronoUnit.MICROS);
+        var seen = VariableType.of("seen", Instant.class);
+        ProcessDefinition definition = builder -> builder.type("NOW")
+            .initialState(State.START)
+            .step(State.START, context -> context.setVariable(seen, context.now()), State.DONE)
+            .terminal(State.DONE)
+            .build();
+        try (var engine = newProcessEngine(clock, definition)) {
+            var emulator = new ProcessEngineEmulator(engine);
+            var id = engine.newProcess(ProcessType.of("NOW")).start();
+            emulator.setTime(Instant.parse("2030-01-01T00:00:00Z"));
+
+            var done = emulator.runUntilStop(id);
+
+            assertEquals(Instant.parse("2030-01-01T00:00:00Z"), done.variables().get(seen).orElseThrow());
+        }
+    }
+
+    @Test
     void runUntilStopWaitsForStepRetryDelay() {
         var clock = new MutableClock(ZoneOffset.UTC, Instant.parse("2026-10-07T10:00:00Z"), ChronoUnit.MICROS);
         var fail = new AtomicBoolean(true);

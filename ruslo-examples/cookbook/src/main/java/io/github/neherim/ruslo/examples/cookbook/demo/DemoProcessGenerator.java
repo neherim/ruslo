@@ -22,7 +22,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
@@ -116,7 +115,6 @@ public class DemoProcessGenerator implements ApplicationRunner {
         for (var seat : new String[]{"A-1", "A-2"}) {
             processEngine.newProcess(SeatReservationDefinition.TYPE)
                 .variable(SeatReservationDefinition.SEAT, seat)
-                .variable(SeatReservationDefinition.PAYMENT_DUE, Instant.now().plus(Duration.ofMinutes(15)))
                 .start();
         }
     }

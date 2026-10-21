@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DeadlineTest {
     private static final String PAYMENT_ID = "pay-1";
     private static final Instant START = Instant.parse("2026-10-07T10:00:00Z");
-    private static final Instant DUE = START.plus(Duration.ofMinutes(15));
+    private static final Instant DUE = START.plus(SeatReservationDefinition.PAYMENT_TIME);
 
     @Autowired
     private ProcessEngine processEngine;
@@ -49,6 +49,7 @@ class DeadlineTest {
         var processId = startReservation();
         var waiting = emulator.runUntilStop(processId);
         assertTrue(waiting.state().is(SeatReservationDefinition.State.WAITING_FOR_PAYMENT));
+        assertEquals(DUE, waiting.variables().get(SeatReservationDefinition.PAYMENT_DUE).orElseThrow());
 
         // Before the deadline the process waits, after it the seat is released
         emulator.setTime(DUE.minusSeconds(1));
@@ -82,7 +83,6 @@ class DeadlineTest {
         emulator.setTime(START);
         return processEngine.newProcess(SeatReservationDefinition.TYPE)
             .variable(SeatReservationDefinition.SEAT, "A-" + UUID.randomUUID())
-            .variable(SeatReservationDefinition.PAYMENT_DUE, DUE)
             .start();
     }
 }

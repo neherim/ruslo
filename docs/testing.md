@@ -59,20 +59,20 @@ class OrderServiceTest {
 }
 ```
 
-A deadline from a variable (`at`) is tested with `setTime`: set the start time, pass the deadline relative to it and
-move the clock to the deadline:
+A deadline from a variable (`at`) is tested with `setTime`. Handlers take the time from `context.now()`, the engine
+clock, so a step that computes the deadline sees the time the test set:
 
 ```java
 var start = Instant.parse("2026-10-07T10:00:00Z");
 emulator.setTime(start);
-var processId = processEngine.newProcess(SeatReservationDefinition.TYPE)
-        .variable(SeatReservationDefinition.PAYMENT_DUE, start.plus(Duration.ofMinutes(15)))
-        .start();
-emulator.runUntilStop(processId);
+var processId = processEngine.newProcess(SeatReservationDefinition.TYPE).start();
+emulator.runUntilStop(processId);                    // the step writes PAYMENT_DUE = context.now() + 15 minutes
 
-emulator.setTime(start.plus(Duration.ofMinutes(15)));
+emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
 assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
 ```
+
+A handler that calls `Instant.now()` instead sees the system time, and such a test fails.
 
 Full examples in `ruslo-examples/cookbook`: the `deadline` recipe (`at` timer), the `subscription` recipe (schedule
 by dates) and the `retries` recipe (retries and fallback state).
@@ -112,6 +112,7 @@ assertEquals(Set.of("order", "paymentId"), context.variableNames());
 | `processType(ProcessType)`, `state(ProcessState)` | `"test"` |
 | `attempt(int)` | `0` |
 | `businessKey(String)` | none |
+| `now(Instant)` | `now()` from the system clock |
 | `variable(VariableType<T>, T)`, `variable(String, Object)` | no variables |
 | `jsonMapper(ObjectMapper)` | the engine's default mapper; set the same one as in `ProcessEngineBuilder.withJsonMapper` |
 
