@@ -196,8 +196,9 @@ public class ProcessSpec {
 
     /**
      * Event at the moment stored in {@code variable}; no variable, no timer, and a write of the variable moves the
-     * timer. A timer fires once per moment: with the await itself as the target it waits for a new value of the
-     * variable, so a handler that sets the next moment makes a schedule. {@code handler} returns the outcome of a
+     * timer. A timer fires once per moment within one entry of the await: with the await itself as the target it
+     * waits for a new value of the variable, so a handler that sets the next moment makes a schedule. Entering the
+     * await again with the same past moment fires the timer right away. {@code handler} returns the outcome of a
      * branching handler, {@code null} otherwise.
      */
     public record AtEvent(

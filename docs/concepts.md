@@ -102,7 +102,9 @@ Timer rules:
 3. **A timer fires once per moment.** The moment of `after` does not change within one entry, so it fires once per
    entry. After firing, `at` waits for a new value of its variable: a handler that writes the next date makes a
    schedule; a handler that does not write it leaves the await waiting for its other events. The process does not
-   fail in that case: it is the same as an await whose message never comes.
+   fail in that case: it is the same as an await whose message never comes. "Once" holds within one entry: entering
+   the await again with the same past moment fires `at` right away, so a loop "await → step → await" must move the
+   moment or leave.
 4. A handler error pauses the whole await until the retry: a due timer waits until the failed event is handled
    (see [execution.md](execution.md#await-event-selection)).
 

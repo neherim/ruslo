@@ -114,7 +114,8 @@ line where the target must become routes. `build()` checks that all enum constan
   (`fixed(maxRetries, delay)` + `fallbackState`) or catch the error in the handler.
 - A deadline that can move (extension by a message, a due date from the order) is `at(DUE_DATE, ...)` plus a
   message handler that writes `DUE_DATE` and targets the await itself. A schedule by calendar dates is `at` whose
-  handler writes the next date; compute it from the previous date, not from the current time.
+  handler writes the next date; compute it from the original date (e.g. sign-up date plus n months), not from the
+  previous date (the day drifts after a short month) and not from the current time.
 - Polling an external system: `every` with branching routes back to the same await. Do not build a
   "step → await → step" loop: re-entering an await clears the queue and resets `after`.
 - Run the first `every` check immediately: `every(interval, handler, next, o -> o.initialDelay(Duration.ZERO))`.

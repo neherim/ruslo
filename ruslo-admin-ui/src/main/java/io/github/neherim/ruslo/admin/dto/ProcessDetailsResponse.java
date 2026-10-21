@@ -12,6 +12,7 @@ import java.util.UUID;
  * Process page data, without the internal signal queue.
  *
  * @param stateDescription description of the current state if it differs from the state name
+ * @param timers           timers of the current await, as in {@link DefinitionResponse.StateResponse#timers()}
  */
 public record ProcessDetailsResponse(
         UUID id,
@@ -28,7 +29,7 @@ public record ProcessDetailsResponse(
         Map<String, String> variables,
         String stateKind,
         List<String> acceptedMessageTypes,
-        String timerDelay
+        String timers
 ) {
     public int variablesCount() {
         return variables.size();

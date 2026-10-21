@@ -75,6 +75,10 @@ class ProcessEngineAdminServiceGraphTest {
         assertThat(service.statesFor("GRAPH", "CHECK"))
             .extracting(DefinitionResponse.StateResponse::name, DefinitionResponse.StateResponse::description)
             .containsExactly(tuple("CHECK", "Check"), tuple("DONE", "Done"), tuple("WAIT", null));
+        assertThat(service.statesFor("GRAPH", "CHECK"))
+            .extracting(DefinitionResponse.StateResponse::name, DefinitionResponse.StateResponse::timers)
+            .containsExactly(tuple("CHECK", null), tuple("DONE", null),
+                    tuple("WAIT", "every 30s · after 1h30m · at dueDate"));
     }
 
     @Test

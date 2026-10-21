@@ -12,6 +12,8 @@ public record DefinitionResponse(
     /**
      * Public state properties; {@code description} is {@code null} if the state has no description other
      * than its name.
+     *
+     * @param timers the await timers, e.g. {@code every 10m · after 1h · at dueDate}; {@code null} if there are none
      */
     public record StateResponse(
             String name,
@@ -19,7 +21,7 @@ public record DefinitionResponse(
             String kind,
             String workerId,
             List<String> acceptedMessageTypes,
-            String timerDelay
+            String timers
     ) {
     }
 }

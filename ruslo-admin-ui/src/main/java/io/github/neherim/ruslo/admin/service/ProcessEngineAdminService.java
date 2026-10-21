@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Stream;
 
 /**
  * Admin UI operations on top of {@link ProcessEngine} and {@link ProcessEngineAdmin}. Exceptions of the engine
@@ -208,7 +209,7 @@ public class ProcessEngineAdminService {
                             state.description().equals(state.state().name()) ? null : state.description(),
                             state.kind().name(), state.workerId().map(WorkerId::name).orElse(null),
                             state.acceptedMessageTypes().stream().sorted().toList(),
-                            timerDelay(state)))
+                            timers(state)))
                     .sorted(Comparator.comparing(DefinitionResponse.StateResponse::name))
                     .toList());
     }
@@ -266,7 +267,7 @@ public class ProcessEngineAdminService {
                 process.variables().asJsonMap(),
                 stateInfo == null ? "UNKNOWN" : stateInfo.kind().name(),
                 stateInfo == null ? List.of() : stateInfo.acceptedMessageTypes().stream().sorted().toList(),
-                stateInfo == null ? null : timerDelay(stateInfo));
+                stateInfo == null ? null : timers(stateInfo));
     }
 
     /**
@@ -291,8 +292,14 @@ public class ProcessEngineAdminService {
         return result;
     }
 
-    private String timerDelay(ProcessSpecInfo.StateInfo state) {
-        return state.everyInterval().or(state::afterDelay).map(Object::toString).orElse(null);
+    /** Returns the timers of the state as on the graph edges, e.g. {@code every 10m · after 1h · at dueDate}. */
+    private String timers(ProcessSpecInfo.StateInfo state) {
+        var timers = Stream.of(state.everyInterval().map(interval -> "every " + shortDuration(interval)),
+                state.afterDelay().map(delay -> "after " + shortDuration(delay)),
+                state.atVariable().map(variable -> "at " + variable))
+            .flatMap(Optional::stream)
+            .toList();
+        return timers.isEmpty() ? null : String.join(" · ", timers);
     }
 
     private Optional<ProcessSpecInfo> findDefinition(String typeName) {

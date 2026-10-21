@@ -142,8 +142,8 @@
                     <span>State kind</span>
                     <strong th:text="${process.stateKind}">STEP</strong>
                     <small class="hero-field-note"
-                           th:if="${process.timerDelay != null}"
-                           th:text="|Timer ${process.timerDelay}|">Timer PT5M</small>
+                           th:if="${process.timers != null}"
+                           th:text="${process.timers}">every 10m · after 1h · at dueDate</small>
                 </div>
                 <div class="hero-field">
                     <span>Attempt</span>

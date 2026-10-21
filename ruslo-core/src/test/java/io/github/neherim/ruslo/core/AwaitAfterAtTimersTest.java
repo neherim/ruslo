@@ -4,16 +4,17 @@ import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.definition.*;
+import io.github.neherim.ruslo.core.api.test.MutableClock;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Timestamp;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -31,7 +32,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
     private static final MessageType<Instant> MOVE = MessageType.of("MOVE", Instant.class);
     private static final VariableType<Instant> DUE = VariableType.of("due", Instant.class);
-    private final TestClock clock = new TestClock();
+    private final MutableClock clock = new MutableClock(ZoneOffset.UTC, instant("11:00:00"), ChronoUnit.MICROS);
     private final List<String> log = new ArrayList<>();
     private ProcessStep againStep = context -> {};
     private ProcessEngine engine;
@@ -113,7 +114,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
         at("12:00:00");
         run(id);
         assertEquals(Optional.of(instant("12:00:00").plus(Duration.ofDays(1))), details(id).nextRunAt());
-        clock.now = instant("12:00:00").plus(Duration.ofDays(1));
+        clock.setTime(instant("12:00:00").plus(Duration.ofDays(1)));
         run(id);
         assertEquals(List.of("at", "at"), log);
         assertEquals(Optional.empty(), details(id).nextRunAt());
@@ -456,7 +457,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
     private ProcessInstanceDetails retryUntilFailed(UUID id) {
         var details = details(id);
         for (var i = 0; i < 10 && details.status() == ProcessStatus.ACTIVE; i++) {
-            clock.now = details.nextRunAt().orElseThrow();
+            clock.setTime(details.nextRunAt().orElseThrow());
             details = run(id);
         }
         assertEquals(ProcessStatus.FAILED, details.status());
@@ -468,30 +469,11 @@ class AwaitAfterAtTimersTest extends BaseTest {
     }
 
     private void at(String time) {
-        clock.now = instant(time);
+        clock.setTime(instant(time));
     }
 
     private static Instant instant(String time) {
         return Instant.parse("2026-09-24T" + time + "Z");
-    }
-
-    private static final class TestClock extends Clock {
-        private Instant now;
-
-        @Override
-        public ZoneId getZone() {
-            return ZoneId.of("UTC");
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
-            return now;
-        }
     }
 
     private enum State implements ProcessState {

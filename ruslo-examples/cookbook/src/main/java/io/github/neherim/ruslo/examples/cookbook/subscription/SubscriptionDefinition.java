@@ -28,10 +28,10 @@ import java.time.ZoneOffset;
  * <ul>
  *   <li>The process starts right in await {@link State#ACTIVE}: there is no step, the first period is already paid.
  *       The process business key is the subscription id.</li>
- *   <li>The caller passes the first charge date in variable {@link #NEXT_CHARGE_AT}. {@code at(NEXT_CHARGE_AT, ...)}
- *       in {@link State#ACTIVE} charges the fee on that date.</li>
- *   <li>A successful charge writes the next date, one calendar month later, and targets the await itself: "wait
- *       for the next date". A timer fires once per moment, so the new value of the variable makes the schedule.
+ *   <li>The caller passes the sign-up date in variable {@link #SUBSCRIBED_AT} and the first charge date, computed
+ *       by {@link #nextChargeAt}, in {@link #NEXT_CHARGE_AT}. {@code at(NEXT_CHARGE_AT, ...)} in
+ *       {@link State#ACTIVE} charges the fee on that date.</li>
+ *   <li>A successful charge writes the next date and targets the await itself: "wait for the next date". A timer fires once per moment, so the new value of the variable makes the schedule.
  *       A bank decline leads to {@link State#SUSPENDED}.</li>
  *   <li>Message {@link #CANCEL} is declared in the same await, next to {@code at}: whichever event comes first is
  *       handled. A cancelled subscription is not charged again.</li>
@@ -44,8 +44,9 @@ import java.time.ZoneOffset;
  *   <li>The schedule continues only while the handler writes the next date. A handler that does not write it does
  *       not fail: the subscription keeps waiting for {@link #CANCEL}. Use {@code at} for calendar dates; {@code every}
  *       is an interval, "every 30 days", not "on the 5th of every month".</li>
- *   <li>The next date is computed from the previous planned date, not from the time of handling: a late or
- *       retried charge does not shift the schedule.</li>
+ *   <li>The next date is counted from the sign-up date, not from the previous charge date: otherwise the day drifts
+ *       after a short month (31 January, 28 February, 28 March). It is not counted from the time of handling either:
+ *       a late or retried charge does not shift the schedule.</li>
  *   <li>Do not keep payment history in variables: all variables are stored as one JSON in the process row and are
  *       read on every event. The history lives in billing.</li>
  *   <li>Subscriptions live for years, while the definition changes with the application. Do not remove or rename
@@ -55,6 +56,7 @@ import java.time.ZoneOffset;
 @Component
 public class SubscriptionDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("SUBSCRIPTION");
+    public static final VariableType<Instant> SUBSCRIBED_AT = VariableType.of("subscribedAt", Instant.class);
     public static final VariableType<Instant> NEXT_CHARGE_AT = VariableType.of("nextChargeAt", Instant.class);
     public static final VariableType<String> CARD_TOKEN = VariableType.of("cardToken", String.class);
     public static final VariableType<String> CANCELLATION_REASON = VariableType.of("cancellationReason", String.class);
@@ -82,9 +84,16 @@ public class SubscriptionDefinition implements ProcessDefinition {
             .build();
     }
 
-    /** Returns the same moment one calendar month later, in UTC. */
-    public static Instant nextMonth(Instant moment) {
-        return moment.atZone(ZoneOffset.UTC).plusMonths(1).toInstant();
+    /**
+     * Returns the first charge date after {@code previous}: the sign-up date plus a whole number of calendar months,
+     * in UTC. A day missing in a short month moves to its last day only for that month.
+     */
+    public static Instant nextChargeAt(Instant subscribedAt, Instant previous) {
+        var start = subscribedAt.atZone(ZoneOffset.UTC);
+        for (var months = 1;; months++) {
+            var next = start.plusMonths(months).toInstant();
+            if (next.isAfter(previous)) return next;
+        }
     }
 
     /** Stands for a charge in billing; a successful charge sets the next charge date. */
@@ -93,7 +102,8 @@ public class SubscriptionDefinition implements ProcessDefinition {
         var paid = !DECLINED_CARD.equals(cardToken);
         log.info("Subscription {} charged to {}: paid={}", context.businessKey().orElseThrow(), cardToken, paid);
         if (!paid) return Billing.DECLINED;
-        context.setVariable(NEXT_CHARGE_AT, nextMonth(context.getVariable(NEXT_CHARGE_AT)));
+        context.setVariable(NEXT_CHARGE_AT,
+                nextChargeAt(context.getVariable(SUBSCRIBED_AT), context.getVariable(NEXT_CHARGE_AT)));
         return Billing.PAID;
     }
 
