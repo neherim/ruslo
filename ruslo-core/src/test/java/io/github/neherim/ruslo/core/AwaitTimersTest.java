@@ -44,7 +44,7 @@ class AwaitTimersTest extends BaseTest {
     }
 
     @Test
-    void deadlineWinsFailedMessageInRetryBackoff() {
+    void failedMessageIsRetriedBeforeDeadline() {
         var engine = engine("T2", (context, message) -> {
             log.add(message.payload());
             throw new IllegalStateException("boom");
@@ -55,8 +55,10 @@ class AwaitTimersTest extends BaseTest {
             engine.sendMessage(id, SIGNAL, "first");
             run(engine, id);
             at("12:00:00");
-            assertEquals("TIMEOUT_DONE", run(engine, id).state().name());
-            assertEquals(List.of("first", "timeout"), log);
+            assertEquals(1, run(engine, id).attempt());
+            at("12:04:00");
+            assertEquals(2, run(engine, id).attempt());
+            assertEquals(List.of("first", "first"), log);
         } finally {
             engine.close();
         }

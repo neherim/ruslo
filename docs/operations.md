@@ -72,6 +72,8 @@ Two rules:
    without a `next_run_at` change takes effect only at the old `next_run_at`. After changing timer columns, set
    `next_run_at = current_timestamp`: the engine takes the process, selects the due events and recomputes
    `next_run_at` itself. A process taken with no due event only recomputes it: no handler, no attempt, no history.
+   During a retry backoff (`attempt > 0`) `next_run_at` is the retry time: the engine does not move it for new
+   messages or a moved `at`. "Run now" in a backoff retries the failed event right away, with its attempts kept.
 2. **Fencing.** A non-transactional worker checks `lease_owner` and `row_version` and may silently overwrite a
    change. Change only rows with `lease_owner is null`, and always with `row_version = row_version + 1`.
 

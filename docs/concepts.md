@@ -103,7 +103,8 @@ Timer rules:
    entry. After firing, `at` waits for a new value of its variable: a handler that writes the next date makes a
    schedule; a handler that does not write it leaves the await waiting for its other events. The process does not
    fail in that case: it is the same as an await whose message never comes.
-4. A due timer fires even while another event waits for a retry: a handler error does not extend the wait.
+4. A handler error pauses the whole await until the retry: a due timer waits until the failed event is handled
+   (see [execution.md](execution.md#await-event-selection)).
 
 A timer without a handler cannot target the await itself: it would do nothing. The first `every` check can run
 right on entering the await: `every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`.

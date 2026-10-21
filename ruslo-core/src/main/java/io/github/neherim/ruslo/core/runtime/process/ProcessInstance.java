@@ -147,9 +147,9 @@ public final class ProcessInstance {
     }
 
     /**
-     * Queues the message for the current await and updates its next run. The event comes from
-     * {@link #expectedMessageEvent}, so the current state awaits it. A {@code FAILED} process only queues the message;
-     * it is handled after resume.
+     * Queues the message for the current await and updates its next run, except during a {@link #hasRetryBackoff()
+     * retry backoff}. The event comes from {@link #expectedMessageEvent}, so the current state awaits it. A
+     * {@code FAILED} process only queues the message; it is handled after resume.
      */
     public void appendMessage(MessageEvent<?> event, Object payload, UUID messageId, Instant receivedAt) {
         messages.append(event.type(), payload, messageId, receivedAt);
@@ -165,30 +165,27 @@ public final class ProcessInstance {
 
     /**
      * Selects the await event to handle now: the due event with the earliest time; on a tie message, {@code every},
-     * {@code after}, {@code at}. During a retry backoff the earliest due event is the failed one, and a due timer
-     * other than it wins: a handler error does not postpone a timer.
+     * {@code after}, {@code at}.
      *
      * @return empty if no event is due
      * @throws RuntimeException if the {@code at} variable cannot be read as {@link Instant}
      */
     public Optional<DueEvent> dueAwaitEvent() {
-        var due = dueEvents();
-        if (due.isEmpty()) return Optional.empty();
-        var earliest = due.getFirst();
-        if (hasRetryBackoff()) {
-            var timer = due.stream()
-                .filter(event -> event.getKey() != earliest.getKey() && event.getKey() != AwaitEvent.MESSAGE)
-                .findFirst();
-            if (timer.isPresent()) return Optional.of(new DueEvent(timer.get().getKey(), timer.get().getValue(), true));
-        }
-        return Optional.of(new DueEvent(earliest.getKey(), earliest.getValue(), false));
+        var now = clock.instant();
+        var times = new EnumMap<AwaitEvent, Instant>(AwaitEvent.class);
+        messages.peekFirst().ifPresent(message -> times.put(AwaitEvent.MESSAGE, message.receivedAt()));
+        times.putAll(timerMoments());
+        return times.entrySet()
+            .stream()
+            .filter(event -> !event.getValue().isAfter(now))
+            .min(Map.Entry.<AwaitEvent, Instant>comparingByValue().thenComparing(Map.Entry.comparingByKey()))
+            .map(event -> new DueEvent(event.getKey(), event.getValue()));
     }
 
     /**
-     * Finishes a timer handled with the await itself as the target: {@code every} moves to its next grid point
-     * (missed points are skipped), {@code after} is off until the await is entered again, {@code at} is off until
-     * its variable changes. Clears the errors of previous attempts, unless the timer won over another event waiting
-     * for a retry: that event is then retried next, with its attempts kept.
+     * Finishes a timer handled with the await itself as the target and clears the errors of previous attempts:
+     * {@code every} moves to its next grid point (missed points are skipped), {@code after} is off until the await is
+     * entered again, {@code at} is off until its variable changes.
      */
     public void timerFired(DueEvent event) {
         switch (event.type()) {
@@ -201,7 +198,7 @@ public final class ProcessInstance {
             case AT -> atFiredDueAt = event.moment();
             case MESSAGE -> throw new IllegalArgumentException("Not a timer: " + event.type());
         }
-        if (!event.preemptsRetry()) resetAttemptsAndError();
+        resetAttemptsAndError();
         recomputeNextRun();
     }
 
@@ -215,25 +212,11 @@ public final class ProcessInstance {
     }
 
     /**
-     * Schedules a retry of the failed step or event after {@code delay} of engine time. In an await, an enabled
-     * timer that comes earlier wakes the process at its moment: an event failure does not postpone a timer.
+     * Runs the step or await again after {@code delay} of engine time; in an await this starts a
+     * {@link #hasRetryBackoff() retry backoff}.
      */
     public void scheduleRetryAfter(Duration delay, String error) {
-        var retryAt = clock.instant().plus(delay);
-        if (currentAwait() != null) {
-            // The process is reloaded after the rollback, so the selection repeats the failed run.
-            var failed = dueAwaitEvent().map(DueEvent::type).orElse(null);
-            var retried = dueEvents().stream().findFirst().map(Map.Entry::getKey).orElse(null);
-            nextRunAt = timerMoments().entrySet()
-                .stream()
-                .filter(timer -> timer.getKey() != failed && timer.getKey() != retried)
-                .map(Map.Entry::getValue)
-                .filter(moment -> moment.isBefore(retryAt))
-                .min(Comparator.naturalOrder())
-                .orElse(retryAt);
-        } else {
-            nextRunAt = retryAt;
-        }
+        nextRunAt = clock.instant().plus(delay);
         attempt++;
         lastError = Objects.requireNonNull(error);
     }
@@ -268,19 +251,6 @@ public final class ProcessInstance {
             .orElse(null);
     }
 
-    /** Returns the due events of the current await and their times, ordered by time, on a tie by kind. */
-    private List<Map.Entry<AwaitEvent, Instant>> dueEvents() {
-        var now = clock.instant();
-        var times = new EnumMap<AwaitEvent, Instant>(AwaitEvent.class);
-        messages.peekFirst().ifPresent(message -> times.put(AwaitEvent.MESSAGE, message.receivedAt()));
-        times.putAll(timerMoments());
-        return times.entrySet()
-            .stream()
-            .filter(event -> !event.getValue().isAfter(now))
-            .sorted(Map.Entry.<AwaitEvent, Instant>comparingByValue().thenComparing(Map.Entry.comparingByKey()))
-            .toList();
-    }
-
     /** Returns the moments of the enabled timers of the current await; empty for a step or terminal state. */
     private Map<AwaitEvent, Instant> timerMoments() {
         var moments = new EnumMap<AwaitEvent, Instant>(AwaitEvent.class);
@@ -302,20 +272,17 @@ public final class ProcessInstance {
         return value == null ? null : value.truncatedTo(ChronoUnit.MICROS);
     }
 
-    /** Updates the next run after a write of the current await's {@code at} variable. */
+    /**
+     * Updates the next run after a write of the current await's {@code at} variable, except during a
+     * {@link #hasRetryBackoff() retry backoff}.
+     */
     private void atVariableChanged(String name) {
         var await = currentAwait();
-        if (status != ProcessStatus.ACTIVE || await == null || await.at() == null
+        if (status != ProcessStatus.ACTIVE || hasRetryBackoff() || await == null || await.at() == null
                 || !await.at().variable().name().equals(name)) {
             return;
         }
-        if (!hasRetryBackoff()) {
-            recomputeNextRun();
-            return;
-        }
-        // During a retry backoff nextRunAt is the retry time: a moved deadline only wakes the process earlier.
-        var at = timerMoments().get(AwaitEvent.AT);
-        if (at != null && (nextRunAt == null || at.isBefore(nextRunAt))) nextRunAt = at;
+        recomputeNextRun();
     }
 
     private AwaitState awaitState() {
@@ -334,7 +301,9 @@ public final class ProcessInstance {
     }
 
     /**
-     * Returns whether the process waits for a retry: {@code nextRunAt} is then the retry time, not the next event.
+     * Returns whether the process waits for a retry after an error. {@code nextRunAt} is then the retry time: new
+     * messages and moved timers do not wake the process before it. After the backoff an await selects its event by
+     * the usual rule, see {@link #dueAwaitEvent()}.
      */
     public boolean hasRetryBackoff() {
         return attempt > 0;
@@ -465,10 +434,9 @@ public final class ProcessInstance {
     /**
      * Await event selected by {@link #dueAwaitEvent()}.
      *
-     * @param moment        the event time: message receive time or timer moment
-     * @param preemptsRetry the event wins over another event waiting for a retry
+     * @param moment the event time: message receive time or timer moment
      */
-    public record DueEvent(AwaitEvent type, Instant moment, boolean preemptsRetry) {
+    public record DueEvent(AwaitEvent type, Instant moment) {
     }
 
     @Override

@@ -41,23 +41,29 @@ downtime (the `at` handler can skip past dates itself). A variable that cannot b
 string of another format written through the admin API, is an error of the writer: the write throws, the process is
 unchanged.
 
-**Hard deadline.** A handler error does not extend the wait. While the process waits to retry a failed event, a due
-timer other than that event wakes the process and wins. If its target is the await itself, the failed event is
-retried right after it, with its attempt count kept. A failed `every`, `after` or `at` handler is retried by
-[`onError`](error-handling.md); the timer stays on until it is handled successfully.
+**Retry backoff.** A handler error pauses the whole await: until the retry time the process does not run, and new
+messages, due timers and writes of the `at` variable do not wake it. After the pause the event is selected by the
+rules above, usually the failed one: its time is earlier than the others. An error postpones handling but does not
+change the order of events, so the result does not depend on temporary failures. A failed `every`, `after` or `at`
+handler is retried by [`onError`](error-handling.md); the timer stays on until it is handled successfully.
+
+The cost: if a message accepted at 11:59 keeps failing, a deadline at 12:00 does not fire until the message is
+handled or the process leaves the await by its error policy; with unlimited retries it never fires. For a hard
+deadline, limit the retries (`ProcessErrorHandler.fixed(maxRetries, delay)` with a `fallbackState`) or catch the
+error in the handler and return an outcome that keeps the await waiting.
 
 Example (`after(1h)` from entering the await at 11:00, so the deadline is 12:00):
 
 | Situation | Result |
 |---|---|
 | Message accepted at 11:59, handling started at 12:01 | the message is handled |
-| Message accepted at 11:59, its handling failed and was scheduled for retry at 12:05 | `after` fires at 12:00 |
-| Message accepted at 11:59, handling at 12:01 failed and was scheduled for retry at 12:06 | `after` fires right away |
+| Message accepted at 11:59, its handling failed and was scheduled for retry at 12:05 | the message is retried at 12:05, `after` waits for it |
+| Message accepted at 11:59, handling at 12:01 failed and was scheduled for retry at 12:06 | the message is retried at 12:06, `after` waits for it |
 | Message accepted at 11:30, its handling failed and was scheduled for retry at 11:35 | the message is retried at 11:35 |
-| Message accepted at 11:59, handled at 12:01 with the await itself as the target | `after` fires next |
+| Message accepted at 11:59, handled at 12:01 with the await itself as the target | `after` fires right after it |
 | Message accepted at 12:00:30, handling started at 12:01 | `after` fires, the message is removed with the queue |
-| `after` handler failed at 12:00 and was scheduled for retry at 12:05, `at` is 12:02 | `at` fires at 12:02 |
-| A message moved `at` from 13:00 to 11:32 during a retry backoff until 11:35 | `at` fires at 11:32 |
+| `after` handler failed at 12:00 and was scheduled for retry at 12:05, `at` is 12:02 | `after` is retried at 12:05, `at` waits for it |
+| A message accepted at 11:30 failed and was scheduled for retry at 11:35; `at` was moved from 13:00 to 11:32 | the message is retried at 11:35 |
 
 Consequences:
 

@@ -108,8 +108,9 @@ line where the target must become routes. `build()` checks that all enum constan
   (`every(Duration.ofDays(1), sendReminder, WAITING)`, a one-time `after(Duration.ofDays(3), remind, WAITING)`)
   and intermediate messages.
 - Any transition to another state closes the await and **drops unprocessed messages**.
-- Timers are hard deadlines: a due timer fires even while another event waits for a retry. On a tie: message,
-  `every`, `after`, `at`.
+- The earliest due event is handled first; on a tie: message, `every`, `after`, `at`. A retry backoff pauses the
+  whole await: a due timer waits until the failed event is handled. For a hard deadline, limit retries
+  (`fixed(maxRetries, delay)` + `fallbackState`) or catch the error in the handler.
 - A deadline that can move (extension by a message, a due date from the order) is `at(DUE_DATE, ...)` plus a
   message handler that writes `DUE_DATE` and targets the await itself. A schedule by calendar dates is `at` whose
   handler writes the next date; compute it from the previous date, not from the current time.

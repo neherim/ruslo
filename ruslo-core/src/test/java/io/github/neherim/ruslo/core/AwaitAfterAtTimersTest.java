@@ -205,25 +205,29 @@ class AwaitAfterAtTimersTest extends BaseTest {
     }
 
     @Test
-    void dueAtWinsOverFailedAfterInBackoff() {
+    void dueAtWaitsForBackoffOfFailedAfter() {
+        var fail = new AtomicBoolean(true);
         engine(ProcessErrorHandler.fixed(3, Duration.ofMinutes(5)), await -> await
             .message(SIGNAL, (context, message) -> {}, State.MSG_DONE)
             .after(Duration.ofHours(1), context -> {
-                throw new IllegalStateException("boom");
+                if (fail.getAndSet(false)) throw new IllegalStateException("boom");
             }, State.AFTER_DONE)
             .at(DUE, State.AT_DONE));
         var id = start(instant("12:02:00"));
         at("12:00:00");
         run(id);
-        assertEquals(Optional.of(instant("12:02:00")), details(id).nextRunAt());
+        assertEquals(Optional.of(instant("12:05:00")), details(id).nextRunAt());
         at("12:02:00");
-        assertEquals("AT_DONE", run(id).state().name());
+        assertEquals("WAIT", run(id).state().name());
+        at("12:05:00");
+        assertEquals("AFTER_DONE", run(id).state().name());
     }
 
     @Test
-    void dueAfterRunsRightAfterFailedEarlierMessage() {
+    void failedMessageIsRetriedBeforeDueAfter() {
         engine(ProcessErrorHandler.fixed(3, Duration.ofMinutes(5)), await -> await
             .message(SIGNAL, (context, message) -> {
+                log.add("message");
                 throw new IllegalStateException("boom");
             }, State.MSG_DONE)
             .after(Duration.ofHours(1), State.AFTER_DONE));
@@ -232,12 +236,50 @@ class AwaitAfterAtTimersTest extends BaseTest {
         engine.sendMessage(id, SIGNAL, "m");
         at("12:01:00");
         assertEquals(1, run(id).attempt());
-        assertEquals(Optional.of(instant("12:00:00")), details(id).nextRunAt());
-        assertEquals("AFTER_DONE", run(id).state().name());
+        assertEquals(Optional.of(instant("12:06:00")), details(id).nextRunAt());
+        var failed = retryUntilFailed(id);
+        assertEquals("WAIT", failed.state().name());
+        assertEquals(List.of("message", "message", "message", "message"), log);
     }
 
     @Test
-    void atShortenedDuringBackoffWakesProcess() {
+    void longMessageAttemptOutlivingAfterIsRetriedFirst() {
+        engine(ProcessErrorHandler.fixed(3, Duration.ofMinutes(5)), await -> await
+            .message(SIGNAL, (context, message) -> {
+                log.add("message");
+                if (log.size() == 1) {
+                    at("12:01:00");
+                    throw new IllegalStateException("boom");
+                }
+            }, State.MSG_DONE)
+            .after(Duration.ofHours(1), State.AFTER_DONE));
+        var id = start();
+        at("11:59:00");
+        engine.sendMessage(id, SIGNAL, "m");
+        run(id);
+        assertEquals(Optional.of(instant("12:06:00")), details(id).nextRunAt());
+        at("12:06:00");
+        assertEquals("MSG_DONE", run(id).state().name());
+    }
+
+    @Test
+    void messageDuringBackoffDoesNotChangeNextRun() {
+        engine(ProcessErrorHandler.fixed(3, Duration.ofMinutes(30)), await -> await
+            .message(SIGNAL, (context, message) -> {}, State.MSG_DONE)
+            .after(Duration.ofHours(1), context -> {
+                throw new IllegalStateException("boom");
+            }, State.AFTER_DONE));
+        var id = start();
+        at("12:00:00");
+        run(id);
+        at("12:10:00");
+        engine.sendMessage(id, SIGNAL, "m");
+        assertEquals(Optional.of(instant("12:30:00")), details(id).nextRunAt());
+        assertEquals("WAIT", run(id).state().name());
+    }
+
+    @Test
+    void atShortenedDuringBackoffDoesNotWakeProcess() {
         engine(ProcessErrorHandler.fixed(3, Duration.ofMinutes(5)), await -> await
             .message(SIGNAL, (context, message) -> {
                 throw new IllegalStateException("boom");
@@ -249,13 +291,48 @@ class AwaitAfterAtTimersTest extends BaseTest {
         run(id);
         assertEquals(Optional.of(instant("11:35:00")), details(id).nextRunAt());
         new ProcessEngineAdmin(engine).setProcessVariable(id, DUE, instant("11:32:00"));
-        assertEquals(Optional.of(instant("11:32:00")), details(id).nextRunAt());
+        assertEquals(Optional.of(instant("11:35:00")), details(id).nextRunAt());
         at("11:32:00");
+        assertEquals(1, run(id).attempt());
+        at("11:35:00");
+        assertEquals(2, run(id).attempt());
+        var failed = retryUntilFailed(id);
+        assertEquals("WAIT", failed.state().name());
+    }
+
+    @Test
+    void atMovedBeforeFailedMessageFiresAfterBackoff() {
+        engine(ProcessErrorHandler.fixed(3, Duration.ofMinutes(5)), await -> await
+            .message(SIGNAL, (context, message) -> {
+                throw new IllegalStateException("boom");
+            }, State.MSG_DONE)
+            .at(DUE, State.AT_DONE));
+        var id = start(instant("13:00:00"));
+        at("11:30:00");
+        engine.sendMessage(id, SIGNAL, "m");
+        run(id);
+        new ProcessEngineAdmin(engine).setProcessVariable(id, DUE, instant("11:20:00"));
+        at("11:35:00");
         assertEquals("AT_DONE", run(id).state().name());
     }
 
     @Test
-    void everyDuringBackoffKeepsAttemptsOfFailedMessage() {
+    void atMovedLaterDuringBackoffKeepsRetryTime() {
+        engine(ProcessErrorHandler.fixed(3, Duration.ofMinutes(5)), await -> await
+            .message(SIGNAL, (context, message) -> {
+                throw new IllegalStateException("boom");
+            }, State.MSG_DONE)
+            .at(DUE, State.AT_DONE));
+        var id = start(instant("11:40:00"));
+        at("11:30:00");
+        engine.sendMessage(id, SIGNAL, "m");
+        run(id);
+        new ProcessEngineAdmin(engine).setProcessVariable(id, DUE, instant("12:30:00"));
+        assertEquals(Optional.of(instant("11:35:00")), details(id).nextRunAt());
+    }
+
+    @Test
+    void everyDoesNotRunDuringBackoff() {
         engine(ProcessErrorHandler.fixed(1, Duration.ofMinutes(30)), await -> await
             .message(SIGNAL, (context, message) -> {
                 throw new IllegalStateException("boom");
@@ -268,8 +345,10 @@ class AwaitAfterAtTimersTest extends BaseTest {
         assertEquals(1, run(id).attempt());
         at("11:10:00");
         assertEquals(1, run(id).attempt());
-        assertEquals(List.of("every"), log);
+        assertEquals(Optional.of(instant("11:35:00")), details(id).nextRunAt());
+        at("11:35:00");
         assertEquals(ProcessStatus.FAILED, run(id).status());
+        assertEquals(List.of(), log);
     }
 
     @Test
@@ -339,6 +418,17 @@ class AwaitAfterAtTimersTest extends BaseTest {
 
     private ProcessInstanceDetails run(UUID id) {
         return emulator(engine, 20).runOneStep(id);
+    }
+
+    /** Runs every retry at its time until the process stops in {@code FAILED}. */
+    private ProcessInstanceDetails retryUntilFailed(UUID id) {
+        var details = details(id);
+        for (var i = 0; i < 10 && details.status() == ProcessStatus.ACTIVE; i++) {
+            clock.now = details.nextRunAt().orElseThrow();
+            details = run(id);
+        }
+        assertEquals(ProcessStatus.FAILED, details.status());
+        return details;
     }
 
     private ProcessInstanceDetails details(UUID id) {

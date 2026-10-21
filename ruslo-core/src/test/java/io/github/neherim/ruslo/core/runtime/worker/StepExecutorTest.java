@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
 
@@ -102,14 +103,14 @@ class StepExecutorTest {
     }
 
     @Test
-    void deadlineWinsEventInRetryBackoff() {
+    void retryBackoffKeepsOrderOfEvents() {
         var process = awaitProcess(State.DONE);
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", UUID.randomUUID(), NOW);
         process.scheduleRetryAfter(Duration.ofMinutes(10), "boom");
-        assertEquals(process.getAfterDueAt(), process.getNextRunAt());
-        clock.now = process.getAfterDueAt().orElseThrow();
+        assertEquals(Optional.of(NOW.plus(Duration.ofMinutes(10))), process.getNextRunAt());
+        clock.now = process.getNextRunAt().orElseThrow();
         executor.executeNextProcessStep(process);
-        assertEquals(State.EXPIRED.name(), process.getState().name());
+        assertEquals(State.DONE.name(), process.getState().name());
     }
 
     /** A process awaiting in WAIT with a deadline in one minute; the message leads to {@code messageTarget}. */
