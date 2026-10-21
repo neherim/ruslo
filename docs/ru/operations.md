@@ -42,7 +42,7 @@ Optional<ProcessInstanceDetails> order = processEngine.processes().byBusinessKey
 |---|---|
 | `processEngine.resumeFailedProcess(id)` | Возобновляет процесс из `FAILED`: упавший шаг или событие выполняется снова; `ProcessStatusException`, если процесс не в `FAILED` (активен или завершён) |
 | `processEngineAdmin.moveProcessToState(id, state)` | Переводит процесс в любое объявленное состояние, в том числе из `FAILED`; очередь сообщений и ошибка сбрасываются, вход в terminal завершает процесс |
-| `processEngineAdmin.setProcessVariable(id, type, value)` | Меняет переменную процесса; запись переменной `at` текущего ожидания двигает его таймер, значение не типа `Instant` отклоняется |
+| `processEngineAdmin.setProcessVariable(id, type, value)` | Меняет переменную процесса; запись переменной `at` текущего ожидания двигает его таймер; значение переменной `at` не типа `Instant` отклоняется в любом состоянии |
 | `processEngineAdmin.removeProcessVariable(id, name)` | Удаляет переменную процесса; удаление переменной `at` текущего ожидания выключает его таймер |
 | `processEngineAdmin.countIncompleteProcessesByType(overdueAt)` | Число процессов в `ACTIVE` и `FAILED` по типам и число просроченных: в `ACTIVE` с `nextRunAt` не позже `overdueAt`, в том числе с необработанным сообщением и наступившим таймером |
 | `processEngineAdmin.listApplicationInstances()` | Зарегистрированные инстансы движка, число захваченных ими процессов и срок регистрации |
@@ -76,7 +76,9 @@ Optional<ProcessInstanceDetails> order = processEngine.processes().byBusinessKey
 2. **Fencing.** Нетранзакционный worker сверяет `lease_owner` и `row_version` и может молча затереть правку.
    Правьте только строки с `lease_owner is null` и всегда с `row_version = row_version + 1`.
 
-Рецепты (срок `at` меняется через `setProcessVariable`, а не в SQL):
+Рецепты (срок `at` меняется через `setProcessVariable`, а не в SQL: переменная `at`, записанная в SQL не как
+`Instant`, — системная ошибка, и движок откладывает процесс на 60 секунд при каждом запуске, пока значение не
+исправят):
 
 ```sql
 -- Запустить сейчас

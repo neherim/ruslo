@@ -37,9 +37,10 @@ does not make a loop. The value is compared with microsecond precision, the prec
 
 A moment in the past or equal to now is an event that is already due, selected by the usual rules: the process
 entered the await after the deadline, a message moved the deadline into the past, or dates were missed during
-downtime (the `at` handler can skip past dates itself). A variable that cannot be read as `Instant`, for example a
-string of another format written through the admin API, is an error of the writer: the write throws, the process is
-unchanged.
+downtime (the `at` handler can skip past dates itself). A variable used by `at` in any await of the process must be
+an `Instant` in every state. A value that cannot be read as `Instant` is an error of the writer: the write throws
+`IllegalArgumentException` and the process is unchanged. From a handler or step it is a handler error, retried by
+[`onError`](error-handling.md); from `setProcessVariable` or from the start variables the operation throws.
 
 **Retry backoff.** A handler error pauses the whole await: until the retry time the process does not run, and new
 messages, due timers and writes of the `at` variable do not wake it. After the pause the event is selected by the

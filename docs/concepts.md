@@ -97,7 +97,7 @@ Timer rules:
 1. `every(interval)` fires repeatedly, on the grid `entering the await + initialDelay + k * interval`: a late check
    does not shift the next ones, missed points are skipped. `after(delay)` fires `delay` after entering the await.
    `at(variable)` fires at the moment stored in the variable: no variable, no timer; the variable changed, the timer
-   moved.
+   moved. The variable is always an `Instant`, in every state and at start: another value is rejected on write.
 2. Each timer is declared at most once per await; any of them can be combined.
 3. **A timer fires once per moment.** The moment of `after` does not change within one entry, so it fires once per
    entry. After firing, `at` waits for a new value of its variable: a handler that writes the next date makes a

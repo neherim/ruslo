@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /** Process instance and atomic operations on its execution state. */
@@ -56,6 +57,11 @@ public final class ProcessInstance {
         this.clock = Objects.requireNonNull(clock);
     }
 
+    /**
+     * Creates a process in the initial state.
+     *
+     * @throws IllegalArgumentException if a variable used by an {@code at} timer cannot be read as {@link Instant}
+     */
     public static ProcessInstance createNew(
             UUID id,
             String businessKey,
@@ -66,6 +72,9 @@ public final class ProcessInstance {
             Instant startAt,
             Clock clock
     ) {
+        for (var name : spec.getAtVariableNames()) {
+            checkAtVariable(name, () -> variables.getVariable(name, Instant.class));
+        }
         var process = new ProcessInstance(id, businessKey, spec, variables, messages, correlationId, clock);
         process.enterStateAt(spec.getInitialState(), startAt);
         return process;
@@ -285,6 +294,16 @@ public final class ProcessInstance {
         recomputeNextRun();
     }
 
+    /** Checks the value of an {@code at} variable before it is stored. */
+    private static void checkAtVariable(String name, Supplier<Instant> read) {
+        try {
+            read.get();
+        } catch (RuntimeException ex) {
+            throw new IllegalArgumentException("Variable " + name + " is used by an at timer and must be an Instant",
+                    ex);
+        }
+    }
+
     private AwaitState awaitState() {
         return (AwaitState) getStateSpec();
     }
@@ -369,9 +388,12 @@ public final class ProcessInstance {
     /**
      * Sets the variable. A write of the current await's {@code at} variable moves its timer.
      *
-     * @throws RuntimeException if the value of the {@code at} variable cannot be read as {@link Instant}
+     * @throws IllegalArgumentException if the variable is used by an {@code at} timer of any await and the value
+     *                                  cannot be read as {@link Instant}; the process is then unchanged
      */
     public void setVariable(String name, Object value) {
+        if (spec.getAtVariableNames().contains(name))
+            checkAtVariable(name, () -> variables.convert(value, Instant.class));
         variables.setVariable(name, value);
         atVariableChanged(name);
     }

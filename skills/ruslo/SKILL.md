@@ -98,7 +98,8 @@ line where the target must become routes. `build()` checks that all enum constan
   another state.
 - `after(delay)` fires `delay` after entering the await. `at(variable)` fires at the `Instant` stored in the
   variable (`VariableType<Instant>`): no variable, no timer; writing the variable (handler, step, admin) moves the
-  timer, earlier or later.
+  timer, earlier or later. The variable must be an `Instant` in every state and at start: writing another value
+  throws `IllegalArgumentException` (a handler error in a step or handler).
 - **A timer fires once per moment.** `after` fires once per entry of the await. After firing, `at` waits for a new
   value: a handler that writes the next date makes a schedule; one that does not leaves the await waiting for its
   other events (no error). Writing the same value does not fire it again.

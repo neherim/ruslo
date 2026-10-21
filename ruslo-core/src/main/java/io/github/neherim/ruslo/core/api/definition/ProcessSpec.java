@@ -24,6 +24,7 @@ public class ProcessSpec {
     private final Map<String, String> stateDescriptions;
     private final ProcessErrorHandler processErrorHandler;
     private final ProcessStateId fallbackState;
+    private final Set<String> atVariableNames;
 
     ProcessSpec(
             ProcessTypeId type,
@@ -41,6 +42,11 @@ public class ProcessSpec {
         this.stateDescriptions = Map.copyOf(stateDescriptions);
         this.processErrorHandler = processErrorHandler;
         this.fallbackState = fallbackState;
+        this.atVariableNames = stateSpecs.values()
+            .stream()
+            .filter(spec -> spec instanceof AwaitState await && await.at() != null)
+            .map(spec -> ((AwaitState) spec).at().variable().name())
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     public ProcessTypeId getType() {
@@ -109,6 +115,11 @@ public class ProcessSpec {
             return await.messages().stream().map(e -> e.type().name()).collect(Collectors.toUnmodifiableSet());
         }
         return Set.of();
+    }
+
+    /** Returns the names of the variables used by {@code at} timers of any await; their values are always {@link Instant}. */
+    public Set<String> getAtVariableNames() {
+        return atVariableNames;
     }
 
     public ProcessErrorHandler getProcessErrorHandler() {

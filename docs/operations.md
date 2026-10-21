@@ -43,7 +43,7 @@ variable, and a timer that is off is visible by `nextRunAt`.
 |---|---|
 | `processEngine.resumeFailedProcess(id)` | Resumes a process from `FAILED`: the failed step or event runs again; `ProcessStatusException` if the process is not in `FAILED` (active or completed) |
 | `processEngineAdmin.moveProcessToState(id, state)` | Moves the process to any declared state, including from `FAILED`; the message queue and the error are cleared, entering a terminal state completes the process |
-| `processEngineAdmin.setProcessVariable(id, type, value)` | Changes a process variable; writing the `at` variable of the current await moves its timer, a value that is not an `Instant` is rejected |
+| `processEngineAdmin.setProcessVariable(id, type, value)` | Changes a process variable; writing the `at` variable of the current await moves its timer; a value of an `at` variable that is not an `Instant` is rejected in any state |
 | `processEngineAdmin.removeProcessVariable(id, name)` | Removes a process variable; removing the `at` variable of the current await turns its timer off |
 | `processEngineAdmin.countIncompleteProcessesByType(overdueAt)` | Number of processes in `ACTIVE` and `FAILED` per type and number of overdue ones: in `ACTIVE` with `nextRunAt` not later than `overdueAt`, including an unhandled message and a due timer |
 | `processEngineAdmin.listApplicationInstances()` | Registered engine instances, the number of processes they have claimed and the registration expiry |
@@ -77,7 +77,9 @@ Two rules:
 2. **Fencing.** A non-transactional worker checks `lease_owner` and `row_version` and may silently overwrite a
    change. Change only rows with `lease_owner is null`, and always with `row_version = row_version + 1`.
 
-Recipes (the `at` deadline is changed through `setProcessVariable`, not in SQL):
+Recipes (the `at` deadline is changed through `setProcessVariable`, not in SQL: an `at` variable written in SQL
+as something other than an `Instant` is a system error, and the engine postpones the process by 60 seconds on every
+run until the value is fixed):
 
 ```sql
 -- Run now

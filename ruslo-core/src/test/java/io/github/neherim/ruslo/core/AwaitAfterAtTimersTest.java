@@ -33,6 +33,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
     private static final VariableType<Instant> DUE = VariableType.of("due", Instant.class);
     private final TestClock clock = new TestClock();
     private final List<String> log = new ArrayList<>();
+    private ProcessStep againStep = context -> {};
     private ProcessEngine engine;
 
     @AfterEach
@@ -151,13 +152,44 @@ class AwaitAfterAtTimersTest extends BaseTest {
         var id = start(instant("12:00:00"));
         var admin = new ProcessEngineAdmin(engine);
         var text = VariableType.of(DUE.name(), String.class);
-        assertThrows(RuntimeException.class, () -> admin.setProcessVariable(id, text, "next Monday"));
+        assertThrows(IllegalArgumentException.class, () -> admin.setProcessVariable(id, text, "next Monday"));
         assertEquals(Optional.of(instant("12:00:00")), details(id).variables().get(DUE));
         assertEquals(Optional.of(instant("12:00:00")), details(id).nextRunAt());
         assertTrue(admin.removeProcessVariable(id, DUE.name()));
         assertEquals(Optional.empty(), details(id).nextRunAt());
         at("13:00:00");
         assertEquals("WAIT", run(id).state().name());
+    }
+
+    @Test
+    void stringWrittenToAtVariableInAnotherStateFailsTheStep() {
+        againStep = context -> context.setVariable(DUE.name(), "next Monday");
+        engine(ProcessErrorHandler.fixed(3, Duration.ofMinutes(5)), await -> await
+            .message(SIGNAL, (context, message) -> {}, State.AGAIN)
+            .at(DUE, State.AT_DONE));
+        var id = start();
+        engine.sendMessage(id, SIGNAL, "m");
+        run(id);
+        var details = run(id);
+        assertEquals("AGAIN", details.state().name());
+        assertEquals(ProcessStatus.ACTIVE, details.status());
+        assertEquals(1, details.attempt());
+        assertTrue(details.lastError().orElseThrow().startsWith("IllegalArgumentException"));
+        assertEquals(Optional.of(instant("11:05:00")), details.nextRunAt());
+        var text = VariableType.of(DUE.name(), String.class);
+        assertThrows(IllegalArgumentException.class,
+                () -> new ProcessEngineAdmin(engine).setProcessVariable(id, text, "next Monday"));
+        assertEquals(Optional.empty(), details(id).variables().get(DUE));
+    }
+
+    @Test
+    void stringAtVariableOnStartIsRejected() {
+        engine(await -> await.message(SIGNAL, (context, message) -> {}, State.MSG_DONE).at(DUE, State.AT_DONE));
+        var start = engine.newProcess(ProcessType.of("TIMERS"))
+            .businessKey("bad-due")
+            .variable(VariableType.of(DUE.name(), String.class), "next Monday");
+        assertThrows(IllegalArgumentException.class, start::start);
+        assertEquals(List.of(), engine.processes().byBusinessKey("bad-due").list());
     }
 
     @Test
@@ -393,7 +425,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
             .onError(errorHandler)
             .initialState(State.WAIT)
             .await(State.WAIT, await)
-            .step(State.AGAIN, context -> {}, State.WAIT)
+            .step(State.AGAIN, againStep, State.WAIT)
             .terminal(State.MSG_DONE)
             .terminal(State.AFTER_DONE)
             .terminal(State.AT_DONE)
