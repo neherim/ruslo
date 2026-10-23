@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +24,16 @@ class TestProcessContextTest {
     private static final VariableType<Order> ORDER = VariableType.of("order", Order.class);
 
     record Order(String product, BigDecimal amount, List<String> tags) {
+    }
+
+    @Test
+    void nowIsFixedByBuilderAndSystemTimeByDefault() {
+        var fixed = Instant.parse("2026-10-07T10:00:00Z");
+        assertEquals(fixed, TestProcessContext.builder().now(fixed).build().now());
+
+        var before = Instant.now();
+        var now = TestProcessContext.create().now();
+        assertFalse(now.isBefore(before));
     }
 
     @Test

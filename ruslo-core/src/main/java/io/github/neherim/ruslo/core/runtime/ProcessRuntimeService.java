@@ -192,7 +192,7 @@ public class ProcessRuntimeService {
                             "only an ACTIVE process runs steps");
                 }
                 if (process.getStateSpec() instanceof ProcessSpec.AwaitState
-                        && process.getAvailableAt().map(time -> time.isAfter(clock.instant())).orElse(true)) {
+                        && process.getNextRunAt().map(time -> time.isAfter(clock.instant())).orElse(true)) {
                     return false;
                 }
                 stepExecutor.executeNextProcessStep(process);
@@ -240,7 +240,7 @@ public class ProcessRuntimeService {
     /**
      * Counts incomplete processes per type.
      *
-     * @param overdueAt an {@code ACTIVE} process scheduled at or before this moment counts as overdue
+     * @param overdueAt an {@code ACTIVE} process with {@code nextRunAt} at or before this moment counts as overdue
      */
     public List<ProcessTypeCounts> countIncompleteProcessesByType(Instant overdueAt) {
         return processInstanceDao.countIncompleteByType(overdueAt);

@@ -3,6 +3,7 @@ package io.github.neherim.ruslo.core.api.definition;
 import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,7 @@ public class ProcessSpec {
     private final Map<String, String> stateDescriptions;
     private final ProcessErrorHandler processErrorHandler;
     private final ProcessStateId fallbackState;
+    private final Set<String> atVariableNames;
 
     ProcessSpec(
             ProcessTypeId type,
@@ -40,6 +42,11 @@ public class ProcessSpec {
         this.stateDescriptions = Map.copyOf(stateDescriptions);
         this.processErrorHandler = processErrorHandler;
         this.fallbackState = fallbackState;
+        this.atVariableNames = stateSpecs.values()
+            .stream()
+            .filter(spec -> spec instanceof AwaitState await && await.at() != null)
+            .map(spec -> ((AwaitState) spec).at().variable().name())
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     public ProcessTypeId getType() {
@@ -110,6 +117,11 @@ public class ProcessSpec {
         return Set.of();
     }
 
+    /** Returns the names of the variables used by {@code at} timers of any await; their values are always {@link Instant}. */
+    public Set<String> getAtVariableNames() {
+        return atVariableNames;
+    }
+
     public ProcessErrorHandler getProcessErrorHandler() {
         return processErrorHandler;
     }
@@ -133,12 +145,13 @@ public class ProcessSpec {
             implements StateSpec {
     }
 
-    /** Await state and its events; {@code every} and {@code timeout} are nullable. */
+    /** Await state and its events; {@code every}, {@code after} and {@code at} are nullable. */
     public record AwaitState(
             ProcessStateId state,
             List<MessageEvent<?>> messages,
             EveryEvent every,
-            TimeoutEvent timeout
+            AfterEvent after,
+            AtEvent at
     ) implements StateSpec {
         public AwaitState {
             messages = List.copyOf(messages);
@@ -160,7 +173,8 @@ public class ProcessSpec {
     }
 
     /**
-     * Periodic event: first fires {@code initialDelay} after entering the await, then every {@code interval}.
+     * Periodic event: fires at entering the await plus {@code initialDelay} plus {@code k * interval}. The interval
+     * counts from the planned points, not from handling; missed points are skipped.
      * {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
      * A target equal to the await itself keeps waiting.
      */
@@ -172,8 +186,26 @@ public class ProcessSpec {
     ) {
     }
 
-    /** Await deadline with a nullable {@code handler} and an unconditional target {@code next}. */
-    public record TimeoutEvent(Duration delay, ProcessTimerHandler handler, ProcessStateId next) {
+    /**
+     * One-time event {@code delay} after entering the await. A timer fires once per moment: with the await itself as
+     * the target it is off until the await is entered again. {@code handler} returns the outcome of a branching
+     * handler, {@code null} otherwise.
+     */
+    public record AfterEvent(Duration delay, Function<ProcessContext, Enum<?>> handler, Exit exit) {
+    }
+
+    /**
+     * Event at the moment stored in {@code variable}; no variable, no timer, and a write of the variable moves the
+     * timer. A timer fires once per moment within one entry of the await: with the await itself as the target it
+     * waits for a new value of the variable, so a handler that sets the next moment makes a schedule. Entering the
+     * await again with the same past moment fires the timer right away. {@code handler} returns the outcome of a
+     * branching handler, {@code null} otherwise.
+     */
+    public record AtEvent(
+            VariableType<Instant> variable,
+            Function<ProcessContext, Enum<?>> handler,
+            Exit exit
+    ) {
     }
 
     /** Where the process goes after a step or event. */

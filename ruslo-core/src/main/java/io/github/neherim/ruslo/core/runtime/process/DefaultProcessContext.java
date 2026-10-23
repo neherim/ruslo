@@ -2,6 +2,7 @@ package io.github.neherim.ruslo.core.runtime.process;
 
 import io.github.neherim.ruslo.core.api.definition.*;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -70,5 +71,10 @@ public class DefaultProcessContext implements ProcessContext {
     @Override
     public Optional<String> businessKey() {
         return processInstance.getBusinessKey();
+    }
+
+    @Override
+    public Instant now() {
+        return processInstance.now();
     }
 }

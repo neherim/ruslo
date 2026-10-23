@@ -22,14 +22,14 @@ public final class LeaseDao {
                 where p.worker_id = ?
                   and p.status = 'ACTIVE'
                   and p.lease_owner is null
-                  and p.available_at <= ?
+                  and p.next_run_at <= ?
                   and exists (
                       select 1
                       from xs_application_instance a
                       where a.id = ?
                         and a.expires_at >= current_timestamp
                   )
-                order by p.available_at, p.id
+                order by p.next_run_at, p.id
                 limit ?
                 for update of p skip locked
             )
@@ -50,27 +50,27 @@ public final class LeaseDao {
                     where p.worker_id = ?
                       and p.status = 'ACTIVE'
                       and p.lease_owner is null
-                      and p.available_at <= ?
+                      and p.next_run_at <= ?
                       and exists (
                           select 1
                           from xs_application_instance a
                           where a.id = ?
                             and a.expires_at >= current_timestamp
                       )
-                    order by p.available_at, p.id
+                    order by p.next_run_at, p.id
                     limit ?
                     for update skip locked
                 )
             ) claimed
-            order by claimed.available_at, claimed.id
+            order by claimed.next_run_at, claimed.id
             """;
-    private static final String NEXT_AVAILABLE_AT_SQL = """
-            select min(available_at)
+    private static final String NEXT_RUN_AT_SQL = """
+            select min(next_run_at)
             from xs_process_instance
             where worker_id = ?
               and status = 'ACTIVE'
               and lease_owner is null
-              and available_at is not null
+              and next_run_at is not null
             """;
     private static final String RELEASE_SQL = """
             update xs_process_instance
@@ -106,11 +106,11 @@ public final class LeaseDao {
     }
 
     /**
-     * Returns the earliest {@code available_at} of an unclaimed process of the worker, including one already passed;
+     * Returns the earliest {@code next_run_at} of an unclaimed process of the worker, including one already passed;
      * empty if no process is waiting.
      */
-    public Optional<Instant> findNextAvailableAt(WorkerId workerId) {
-        return database.queryForObject(NEXT_AVAILABLE_AT_SQL,
+    public Optional<Instant> findNextRunAt(WorkerId workerId) {
+        return database.queryForObject(NEXT_RUN_AT_SQL,
                 rs -> DateTimeUtils.toInstant(rs.getTimestamp(1)), workerId.name());
     }
 

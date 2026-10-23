@@ -75,8 +75,8 @@ public final class WorkerTestFixture {
 
     /** Leases the given process through a regular bounded worker claim. */
     public ProcessLease claim(ProcessInstance process) {
-        database.update("update xs_process_instance set scheduled_at = ?, available_at = ? where id = ?",
-                java.sql.Timestamp.from(Instant.EPOCH), java.sql.Timestamp.from(Instant.EPOCH), process.getId());
+        database.update("update xs_process_instance set next_run_at = ? where id = ?",
+                java.sql.Timestamp.from(Instant.EPOCH), process.getId());
         var lease = leaseDao.claimReadyForWorker(instanceId, process.getWorkerId().orElseThrow(), 1, now())
             .stream()
             .findFirst()

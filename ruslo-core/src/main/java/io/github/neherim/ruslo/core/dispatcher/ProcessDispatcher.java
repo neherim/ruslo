@@ -21,7 +21,7 @@ public interface ProcessDispatcher {
      * Returns the earliest readiness time of a process this dispatcher could claim. The scheduler uses it to wake up
      * by a timer due time instead of waiting a full poll interval.
      *
-     * @return the earliest {@code available_at}, possibly already passed; empty if there is nothing to wait for
+     * @return the earliest {@code next_run_at}, possibly already passed; empty if there is nothing to wait for
      */
-    Optional<Instant> nextAvailableAt();
+    Optional<Instant> nextRunAt();
 }

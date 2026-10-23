@@ -43,7 +43,7 @@
                 <th class="col-state">State</th>
                 <th class="col-business">Business key</th>
                 <th class="col-time">Created</th>
-                <th class="col-time">Scheduled</th>
+                <th class="col-time">Next run</th>
             </tr>
             </thead>
             <tbody>
@@ -74,11 +74,11 @@
                           th:text="${process.createdAt}">—</time>
                 </td>
                 <td>
-                    <time th:if="${process.scheduledAt != null}"
+                    <time th:if="${process.nextRunAt != null}"
                           class="local-date-time"
-                          th:datetime="${process.scheduledAt}"
-                          th:text="${process.scheduledAt}">—</time>
-                    <span th:if="${process.scheduledAt == null}" class="muted">—</span>
+                          th:datetime="${process.nextRunAt}"
+                          th:text="${process.nextRunAt}">—</time>
+                    <span th:if="${process.nextRunAt == null}" class="muted">—</span>
                 </td>
             </tr>
             </tbody>

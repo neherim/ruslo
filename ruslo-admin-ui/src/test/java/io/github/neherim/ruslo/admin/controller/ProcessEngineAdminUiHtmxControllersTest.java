@@ -43,7 +43,7 @@ class ProcessEngineAdminUiHtmxControllersTest {
         assertThat(service.zone).isEqualTo(ZoneId.of("Europe/Berlin"));
         assertThat(html)
             .contains("href=\"processes?status=FAILED\"")
-            .contains("href=\"processes?status=ACTIVE&amp;scheduledAtTo=2026-10-11T10:15&amp;timeZone=Europe/Berlin\"")
+            .contains("href=\"processes?status=ACTIVE&amp;nextRunAtTo=2026-10-11T10:15&amp;timeZone=Europe/Berlin\"")
             .contains("href=\"processes?typeName=ORDER&amp;status=FAILED\"")
             .contains("metric-value numeric is-failed")
             .contains("<strong>4</strong> failed")

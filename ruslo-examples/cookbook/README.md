@@ -29,14 +29,14 @@ the application tables used by the recipes are in [`src/main/resources/schema.sq
 | [`retries`](src/main/java/io/github/neherim/ruslo/examples/cookbook/retries) | [`NotificationDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/retries/NotificationDefinition.java) | External service temporarily unavailable: retries with growing delay, a fallback state, no retries for unrecoverable errors | [`docs/error-handling.md`](../../docs/error-handling.md) |
 | [`failandresume`](src/main/java/io/github/neherim/ruslo/examples/cookbook/failandresume) | [`InvoiceDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/failandresume/InvoiceDefinition.java) | Unrecoverable error: stop the process, find it, fix the data and continue | [`docs/error-handling.md`](../../docs/error-handling.md) |
 | [`transactionalstart`](src/main/java/io/github/neherim/ruslo/examples/cookbook/transactionalstart) | [`PurchaseOrderDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/transactionalstart/PurchaseOrderDefinition.java) | Save an order and start its process in one transaction | [`docs/execution.md`](../../docs/execution.md) |
-| [`deadline`](src/main/java/io/github/neherim/ruslo/examples/cookbook/deadline) | [`SeatReservationDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/deadline/SeatReservationDefinition.java) | Wait 15 minutes for payment, otherwise release the reservation | [`docs/concepts.md`](../../docs/concepts.md) |
+| [`deadline`](src/main/java/io/github/neherim/ruslo/examples/cookbook/deadline) | [`SeatReservationDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/deadline/SeatReservationDefinition.java) | Wait for payment until a deadline that can be extended, otherwise release the reservation | [`docs/concepts.md`](../../docs/concepts.md) |
 | [`webhook`](src/main/java/io/github/neherim/ruslo/examples/cookbook/webhook) | [`IdentityVerificationDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/webhook/IdentityVerificationDefinition.java) | Accept an external service callback: find the process by business key, deliver the message, ignore a repeated callback | [`docs/guarantees.md`](../../docs/guarantees.md) |
 | [`fanout`](src/main/java/io/github/neherim/ruslo/examples/cookbook/fanout) | [`FileImportDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/fanout/FileImportDefinition.java) | Split work into parts, process each in its own process and wait for all of them | [`docs/concepts.md`](../../docs/concepts.md) |
 | [`polling`](src/main/java/io/github/neherim/ruslo/examples/cookbook/polling) | [`ReportGenerationDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/polling/ReportGenerationDefinition.java) | Long external job: poll its status, cancel on a deadline | [`docs/concepts.md`](../../docs/concepts.md) |
 | [`externalcall`](src/main/java/io/github/neherim/ruslo/examples/cookbook/externalcall) | [`CardPaymentDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/externalcall/CardPaymentDefinition.java) | Slow payment API call: a non-transactional worker with limited concurrency, no double charge on retry | [`docs/workers.md`](../../docs/workers.md), [`docs/guarantees.md`](../../docs/guarantees.md) |
 | [`batch`](src/main/java/io/github/neherim/ruslo/examples/cookbook/batch) | [`BonusAccrualDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/batch/BonusAccrualDefinition.java) | Process a large table in chunks and continue where it stopped after a failure | [`docs/execution.md`](../../docs/execution.md) |
 | [`approval`](src/main/java/io/github/neherim/ruslo/examples/cookbook/approval) | [`ExpenseApprovalDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/approval/ExpenseApprovalDefinition.java) | Human approval: on a deadline escalate to the next approver and restart the wait | [`docs/concepts.md`](../../docs/concepts.md) |
-| [`subscription`](src/main/java/io/github/neherim/ruslo/examples/cookbook/subscription) | [`SubscriptionDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/subscription/SubscriptionDefinition.java) | Long-lived process: monthly charge until the subscription is cancelled or the bank declines | [`docs/concepts.md`](../../docs/concepts.md) |
+| [`subscription`](src/main/java/io/github/neherim/ruslo/examples/cookbook/subscription) | [`SubscriptionDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/subscription/SubscriptionDefinition.java) | Long-lived process: monthly charge on the sign-up day until the subscription is cancelled or the bank declines | [`docs/concepts.md`](../../docs/concepts.md) |
 | [`cancellation`](src/main/java/io/github/neherim/ruslo/examples/cookbook/cancellation) | [`OrderDeliveryDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/cancellation/OrderDeliveryDefinition.java) | Cancel a long process on user request at any stage, including while the process is executing a step | [`docs/execution.md`](../../docs/execution.md) |
 
 ## Demo
@@ -63,13 +63,14 @@ recipe with different outcomes. Things to try in Admin UI:
   repeat is ignored, `handledEvents` still holds one id. Then send
   `{"applicationId":"application-501","eventId":"e2","status":"APPROVED"}`.
 - `FILE_IMPORT`: find the `FILE_IMPORT_PART` parts by the parent's correlation id.
-- `SEAT_RESERVATION`: after 15 minutes an unpaid reservation is released by `timeout`.
+- `SEAT_RESERVATION`: after 15 minutes an unpaid reservation is released by `at`; send `extendPaymentDue`, e.g.
+  `"2030-01-01T00:00:00Z"`, to move the deadline.
 - `REPORT_GENERATION`: the status is polled every 2 minutes; the report is ready by the third check.
 - `CARD_PAYMENT`: the charge runs on `io-worker`; one payment is approved, one amount over 1000 is declined by the bank.
 - `BONUS_ACCRUAL`: the state history shows the `ACCRUING` step repeating chunk by chunk.
 - `EXPENSE_APPROVAL`: send the `decision` message, e.g. `{"approver":"alice","approved":true}`.
 - `SUBSCRIPTION`: send the `cancel` message, e.g. `"Too expensive"`. `subscription-402` has a declined card: after
-  30 days it goes to `SUSPENDED`.
+  a month it goes to `SUSPENDED`.
 - `ORDER_DELIVERY`: send `cancel` (`"Changed my mind"`) while waiting for payment or the courier; after `handedToCourier`
   the order is completed and does not accept cancellation.
 

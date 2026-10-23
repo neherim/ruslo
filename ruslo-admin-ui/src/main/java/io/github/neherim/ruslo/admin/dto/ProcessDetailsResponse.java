@@ -12,6 +12,7 @@ import java.util.UUID;
  * Process page data, without the internal signal queue.
  *
  * @param stateDescription description of the current state if it differs from the state name
+ * @param timers           timers of the current await, as in {@link DefinitionResponse.StateResponse#timers()}
  */
 public record ProcessDetailsResponse(
         UUID id,
@@ -19,7 +20,7 @@ public record ProcessDetailsResponse(
         String state,
         String stateDescription,
         ProcessStatus status,
-        Instant scheduledAt,
+        Instant nextRunAt,
         String businessKey,
         String correlationId,
         int attempt,
@@ -28,7 +29,7 @@ public record ProcessDetailsResponse(
         Map<String, String> variables,
         String stateKind,
         List<String> acceptedMessageTypes,
-        String timerDelay
+        String timers
 ) {
     public int variablesCount() {
         return variables.size();
@@ -54,7 +55,7 @@ public record ProcessDetailsResponse(
      * The status is hashed by name so the version does not depend on the JVM.
      */
     public String version() {
-        return Integer.toHexString(Objects.hash(state, status.name(), scheduledAt, businessKey, attempt,
+        return Integer.toHexString(Objects.hash(state, status.name(), nextRunAt, businessKey, attempt,
                 lastError, stateHistory, variables));
     }
 }

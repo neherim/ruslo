@@ -12,8 +12,8 @@ final class ProcessSearchCriteria {
     private ProcessStatus status;
     private boolean attempted;
     private String businessKey;
-    private Instant scheduledAtFrom;
-    private Instant scheduledAtTo;
+    private Instant nextRunAtFrom;
+    private Instant nextRunAtTo;
     private Instant createdAtFrom;
     private Instant createdAtTo;
     private String correlationId;
@@ -67,20 +67,20 @@ final class ProcessSearchCriteria {
         this.businessKey = businessKey;
     }
 
-    Instant scheduledAtFrom() {
-        return scheduledAtFrom;
+    Instant nextRunAtFrom() {
+        return nextRunAtFrom;
     }
 
-    void scheduledAtFrom(Instant scheduledAtFrom) {
-        this.scheduledAtFrom = scheduledAtFrom;
+    void nextRunAtFrom(Instant nextRunAtFrom) {
+        this.nextRunAtFrom = nextRunAtFrom;
     }
 
-    Instant scheduledAtTo() {
-        return scheduledAtTo;
+    Instant nextRunAtTo() {
+        return nextRunAtTo;
     }
 
-    void scheduledAtTo(Instant scheduledAtTo) {
-        this.scheduledAtTo = scheduledAtTo;
+    void nextRunAtTo(Instant nextRunAtTo) {
+        this.nextRunAtTo = nextRunAtTo;
     }
 
     Instant createdAtFrom() {

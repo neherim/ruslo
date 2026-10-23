@@ -73,6 +73,11 @@ public class ProcessVariables {
         return variables.remove(name) != null;
     }
 
+    /** Returns the value as {@link #getVariable} would read it after {@link #setVariable}. */
+    public <T> T convert(Object value, Class<T> clazz) {
+        return objectMapper.treeToValue(objectMapper.valueToTree(value), clazz);
+    }
+
     public <T> T getVariable(String name, Class<T> clazz) {
         var jsonValue = variables.get(name);
         if (jsonValue == null) {

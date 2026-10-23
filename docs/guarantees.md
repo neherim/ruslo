@@ -44,7 +44,7 @@ How to assign another worker to a step: [workers.md](workers.md).
   error: `IllegalArgumentException`, and the transaction is marked rollback-only.
 - A process in `FAILED` accepts messages of its await: they wait in the queue and are handled after `resumeFailedProcess`.
 - A successful return from `sendMessage` means the message is stored, **not** that its handler will be called.
-  If another await event (e.g. `timeout`) fires first and the process leaves the await, unhandled messages are
+  If another await event (e.g. `after`) fires first and the process leaves the await, unhandled messages are
   removed.
 - **`sendMessage` is not idempotent.** Sending the same payload again queues a second message.
   If the sender may repeat the call (e.g. after a timeout), the handler must detect duplicates,
@@ -57,7 +57,7 @@ How to assign another worker to a step: [workers.md](workers.md).
 
 ## Time
 
-- Timers (`timeout`, `every`, `retryAfter`) never fire before their scheduled time.
+- Timers (`every`, `after`, `at`, `retryAfter`) never fire before their scheduled time.
   Before pausing, the dispatcher reads the due time of the nearest process from the database and wakes up for it,
   so on an idle node a timer fires almost on time. A delay of up to `ruslo.dispatcher.max-interval`
   (10 seconds by default) is possible if the timer was scheduled on another node while this one was sleeping, and

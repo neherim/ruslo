@@ -13,8 +13,8 @@
                         th:text="${dashboard.failedCount}">0</strong>
             </a>
             <a class="hero-number"
-               th:href="@{processes(status='ACTIVE',scheduledAtTo=${dashboard.overdueAt},timeZone=${dashboard.timeZone})}"
-               title="Active processes scheduled more than a minute ago and still not executed">
+               th:href="@{processes(status='ACTIVE',nextRunAtTo=${dashboard.overdueAt},timeZone=${dashboard.timeZone})}"
+               title="Active processes whose next run passed more than a minute ago">
                 <span>Overdue</span>
                 <strong class="metric-value numeric"
                         th:classappend="${dashboard.overdueCount > 0 ? 'is-overdue' : ''}"
@@ -58,7 +58,7 @@
                            th:classappend="${counts.active == 0 ? 'zero' : ''}"><strong th:text="${counts.active}">0</strong> active</a>
                         <a th:href="@{processes(typeName=${definition.type},status='FAILED')}"
                            th:classappend="${counts.failed == 0 ? 'zero' : 'is-failed'}"><strong th:text="${counts.failed}">0</strong> failed</a>
-                        <a th:href="@{processes(typeName=${definition.type},status='ACTIVE',scheduledAtTo=${dashboard.overdueAt},timeZone=${dashboard.timeZone})}"
+                        <a th:href="@{processes(typeName=${definition.type},status='ACTIVE',nextRunAtTo=${dashboard.overdueAt},timeZone=${dashboard.timeZone})}"
                            th:classappend="${counts.overdue == 0 ? 'zero' : 'is-overdue'}"><strong th:text="${counts.overdue}">0</strong> overdue</a>
                     </div>
                 </div>

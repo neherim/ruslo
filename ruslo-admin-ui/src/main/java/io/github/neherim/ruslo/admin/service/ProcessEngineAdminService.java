@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Stream;
 
 /**
  * Admin UI operations on top of {@link ProcessEngine} and {@link ProcessEngineAdmin}. Exceptions of the engine
@@ -36,7 +37,7 @@ public class ProcessEngineAdminService {
 
     /**
      * Returns the dashboard summary: counters of unfinished processes by type and engine instances. A process is
-     * overdue if it is {@code ACTIVE} and its scheduled time passed more than a minute ago, as on the process page;
+     * overdue if it is {@code ACTIVE} and its next run passed more than a minute ago, as on the process page;
      * the boundary is truncated to the minute so it can be passed to the process list filter.
      *
      * @param zone browser time zone for the overdue boundary
@@ -208,7 +209,7 @@ public class ProcessEngineAdminService {
                             state.description().equals(state.state().name()) ? null : state.description(),
                             state.kind().name(), state.workerId().map(WorkerId::name).orElse(null),
                             state.acceptedMessageTypes().stream().sorted().toList(),
-                            timerDelay(state)))
+                            timers(state)))
                     .sorted(Comparator.comparing(DefinitionResponse.StateResponse::name))
                     .toList());
     }
@@ -218,7 +219,8 @@ public class ProcessEngineAdminService {
             case STEP -> null;
             case MESSAGE -> transition.messageType().orElse(null);
             case EVERY -> "every " + state.everyInterval().map(this::shortDuration).orElse("");
-            case TIMEOUT -> "timeout " + state.timeoutDelay().map(this::shortDuration).orElse("");
+            case AFTER -> "after " + state.afterDelay().map(this::shortDuration).orElse("");
+            case AT -> "at " + state.atVariable().orElse("");
         };
         var outcome = transition.outcome().orElse(null);
         if (event == null) return outcome;
@@ -236,7 +238,7 @@ public class ProcessEngineAdminService {
                 process.state().name(),
                 process.status(),
                 process.createdAt(),
-                process.scheduledAt().orElse(null),
+                process.nextRunAt().orElse(null),
                 process.businessKey().orElse(null));
     }
 
@@ -256,7 +258,7 @@ public class ProcessEngineAdminService {
                         ? null
                         : stateInfo.description(),
                 process.status(),
-                process.scheduledAt().orElse(null),
+                process.nextRunAt().orElse(null),
                 process.businessKey().orElse(null),
                 process.correlationId(),
                 process.attempt(),
@@ -265,7 +267,7 @@ public class ProcessEngineAdminService {
                 process.variables().asJsonMap(),
                 stateInfo == null ? "UNKNOWN" : stateInfo.kind().name(),
                 stateInfo == null ? List.of() : stateInfo.acceptedMessageTypes().stream().sorted().toList(),
-                stateInfo == null ? null : timerDelay(stateInfo));
+                stateInfo == null ? null : timers(stateInfo));
     }
 
     /**
@@ -290,8 +292,14 @@ public class ProcessEngineAdminService {
         return result;
     }
 
-    private String timerDelay(ProcessSpecInfo.StateInfo state) {
-        return state.everyInterval().or(state::timeoutDelay).map(Object::toString).orElse(null);
+    /** Returns the timers of the state as on the graph edges, e.g. {@code every 10m · after 1h · at dueDate}. */
+    private String timers(ProcessSpecInfo.StateInfo state) {
+        var timers = Stream.of(state.everyInterval().map(interval -> "every " + shortDuration(interval)),
+                state.afterDelay().map(delay -> "after " + shortDuration(delay)),
+                state.atVariable().map(variable -> "at " + variable))
+            .flatMap(Optional::stream)
+            .toList();
+        return timers.isEmpty() ? null : String.join(" · ", timers);
     }
 
     private Optional<ProcessSpecInfo> findDefinition(String typeName) {

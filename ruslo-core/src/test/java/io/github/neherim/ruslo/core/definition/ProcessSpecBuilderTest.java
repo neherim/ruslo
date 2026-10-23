@@ -5,6 +5,7 @@ import io.github.neherim.ruslo.core.api.definition.ProcessSpec.*;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -19,6 +20,7 @@ class ProcessSpecBuilderTest {
     private static final MessageType<String> MESSAGE = MessageType.of("MESSAGE", String.class);
     private static final ProcessMessageHandler<String> ON_MESSAGE = (context, message) -> {};
     private static final ProcessTimerHandler ON_TIMER = context -> {};
+    private static final VariableType<Instant> DUE_DATE = VariableType.of("dueDate", Instant.class);
 
     @Test
     void buildsStepAwaitAndTerminal() {
@@ -29,7 +31,7 @@ class ProcessSpecBuilderTest {
             .step(State.OTHER, STEP, State.DONE, options -> options.worker(new WorkerId("OWN_WORKER")))
             .await(State.WAIT, await -> await.message(MESSAGE, ON_MESSAGE, State.WAIT)
                 .every(Duration.ofSeconds(1), ON_TIMER, State.WAIT)
-                .timeout(Duration.ofSeconds(2), State.DONE))
+                .after(Duration.ofSeconds(2), State.DONE))
             .terminal(State.DONE)
             .build();
         assertInstanceOf(StepState.class, spec.getStateSpec(State.START));
@@ -44,7 +46,25 @@ class ProcessSpecBuilderTest {
         var await = (AwaitState) spec.getStateSpec(State.WAIT);
         assertEquals(Duration.ofSeconds(1), await.every().interval());
         assertEquals(Duration.ofSeconds(1), await.every().initialDelay());
-        assertEquals(Duration.ofSeconds(2), await.timeout().delay());
+        assertEquals(Duration.ofSeconds(2), await.after().delay());
+    }
+
+    @Test
+    void combinesAllTimersAndAllowsSelfTargetWithHandler() {
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.every(Duration.ofMinutes(1), ON_TIMER, State.WAIT)
+                .after(Duration.ofHours(1), ON_TIMER, State.WAIT)
+                .at(DUE_DATE, context -> Outcome.A, routes -> routes
+                    .on(Outcome.A, State.WAIT)
+                    .on(Outcome.B, State.DONE)))
+            .terminal(State.DONE)
+            .build();
+        var await = (AwaitState) spec.getStateSpec(State.WAIT);
+        assertEquals(Duration.ofHours(1), await.after().delay());
+        assertEquals(new Target(State.WAIT.id()), await.after().exit());
+        assertEquals(DUE_DATE, await.at().variable());
+        assertInstanceOf(ProcessSpec.Routes.class, await.at().exit());
     }
 
     @Test
@@ -94,7 +114,7 @@ class ProcessSpecBuilderTest {
             .step(State.OTHER, STEP, State.WAIT)
             .await(State.WAIT, await -> await
                 .message(MESSAGE, ON_MESSAGE, State.AFTER)
-                .timeout(Duration.ofDays(3), State.DONE))
+                .after(Duration.ofDays(3), State.DONE))
             .step(State.AFTER, STEP, State.DONE)
             .terminal(State.DONE)
             .build();
@@ -135,7 +155,7 @@ class ProcessSpecBuilderTest {
             .on(Outcome.A, State.DONE)
             .on(Outcome.B, State.OTHER)).build());
         assertRejected("is not declared", () -> startWithStep().await(State.WAIT,
-                await -> await.timeout(Duration.ofSeconds(1), State.OTHER))
+                await -> await.after(Duration.ofSeconds(1), State.OTHER))
             .build());
         assertRejected("at least one on", () -> start().step(State.START, BRANCHING, routes -> {}));
         assertRejected("Duplicate outcome", () -> start().step(State.START, BRANCHING, routes -> routes
@@ -153,10 +173,13 @@ class ProcessSpecBuilderTest {
         assertRejected("Duplicate every", () -> startWithStep().await(State.WAIT, await -> await
             .every(Duration.ofSeconds(1), ON_TIMER, State.DONE)
             .every(Duration.ofSeconds(1), ON_TIMER, State.DONE)));
-        assertRejected("Duplicate timeout", () -> startWithStep().await(State.WAIT, await -> await
-            .timeout(Duration.ofSeconds(1), State.DONE)
-            .timeout(Duration.ofSeconds(1), State.DONE)));
-        assertRejected("no message, every or timeout", () -> startWithStep().await(State.WAIT, await -> {})
+        assertRejected("Duplicate after", () -> startWithStep().await(State.WAIT, await -> await
+            .after(Duration.ofSeconds(1), State.DONE)
+            .after(Duration.ofSeconds(1), State.DONE)));
+        assertRejected("Duplicate at", () -> startWithStep().await(State.WAIT, await -> await
+            .at(DUE_DATE, State.DONE)
+            .at(DUE_DATE, ON_TIMER, State.DONE)));
+        assertRejected("no message, every, after or at", () -> startWithStep().await(State.WAIT, await -> {})
             .terminal(State.DONE)
             .build());
         assertRejected("no event leading to another state", () -> startWithStep().await(State.WAIT,
@@ -169,10 +192,23 @@ class ProcessSpecBuilderTest {
                     .on(Outcome.B, State.WAIT)))
             .terminal(State.DONE)
             .build());
+        assertRejected("no event leading to another state", () -> startWithStep().await(State.WAIT,
+                await -> await.after(Duration.ofSeconds(1), ON_TIMER, State.WAIT)
+                    .at(DUE_DATE, context -> Outcome.A, routes -> routes
+                        .on(Outcome.A, State.WAIT)
+                        .on(Outcome.B, State.WAIT)))
+            .terminal(State.DONE)
+            .build());
         assertRejected("cannot target its own await state", () -> startWithStep().await(State.WAIT,
-                await -> await.timeout(Duration.ofSeconds(1), State.WAIT)));
+                await -> await.after(Duration.ofSeconds(1), State.WAIT)));
+        assertRejected("cannot target its own await state", () -> startWithStep().await(State.WAIT,
+                await -> await.at(DUE_DATE, State.WAIT)));
+        assertRejected("do not cover all constants", () -> startWithStep().await(State.WAIT,
+                await -> await.at(DUE_DATE, context -> Outcome.A, routes -> routes.on(Outcome.A, State.DONE)))
+            .terminal(State.DONE)
+            .build());
         assertRejected("must be positive", () -> startWithStep().await(State.WAIT,
-                await -> await.timeout(Duration.ZERO, State.DONE)));
+                await -> await.after(Duration.ZERO, State.DONE)));
         assertRejected("must be positive", () -> startWithStep().await(State.WAIT,
                 await -> await.every(Duration.ofSeconds(-1), ON_TIMER, State.DONE)));
         assertRejected("cannot be negative", () -> startWithStep().await(State.WAIT,
@@ -180,10 +216,10 @@ class ProcessSpecBuilderTest {
                         options -> options.initialDelay(Duration.ofSeconds(-1)))));
         assertRejected("conflicting payload classes", () -> startWithStep().await(State.WAIT, await -> await
             .message(MESSAGE, ON_MESSAGE, State.WAIT)
-            .timeout(Duration.ofSeconds(1), State.DONE))
+            .after(Duration.ofSeconds(1), State.DONE))
             .await(State.OTHER, await -> await.message(MessageType.of("MESSAGE", Integer.class),
                     (context, message) -> {}, State.OTHER)
-                .timeout(Duration.ofSeconds(1), State.DONE))
+                .after(Duration.ofSeconds(1), State.DONE))
             .terminal(State.DONE)
             .build());
     }

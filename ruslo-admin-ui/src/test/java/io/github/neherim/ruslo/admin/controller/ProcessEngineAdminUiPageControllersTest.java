@@ -324,7 +324,7 @@ class ProcessEngineAdminUiPageControllersTest {
             .contains("<span>Business key</span>")
             .contains("th:text=\"${process.businessKey ?: '—'}\"")
             .contains("<span>Correlation id</span>")
-            .contains("<span>Scheduled</span>")
+            .contains("<span>Next run</span>")
             .contains("copyButton(${process.id}, 'Copy process ID')")
             .contains("copyButton(${process.businessKey}, 'Copy business key')")
             .contains("copyButton(${process.correlationId}, 'Copy correlation id')")
@@ -442,14 +442,14 @@ class ProcessEngineAdminUiPageControllersTest {
                         new StateHistoryResponse("START", Instant.parse("2026-05-01T10:00:00Z"), false),
                         new StateHistoryResponse("WAIT", Instant.parse("2026-05-01T10:01:00Z"), true)),
                 Map.of("customer", "{\"name\":\"Ada\"}", "amount", "42"),
-                "AWAIT", List.of("payment"), "PT5M");
+                "AWAIT", List.of("payment"), "every 10m · after 1h · at dueDate");
 
         var html = renderDetails(process);
 
         assertThat(html)
             .contains("class=\"badge status-active\"")
             .contains(">Waiting for payment</small>")
-            .contains("Timer PT5M")
+            .contains(">every 10m · after 1h · at dueDate</small>")
             .contains("data-copy=\"" + processId + "\"")
             .contains("data-copy=\"biz-1\"")
             .contains("data-copy=\"trace-1\"")

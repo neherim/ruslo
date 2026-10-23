@@ -52,7 +52,7 @@ class ProcessEngineManagementTest extends BaseTest {
         ProcessDefinition definition = builder -> builder.type(type)
             .initialState(State.START)
             .step(State.START, context -> {}, State.WAIT)
-            .await(State.WAIT, await -> await.timeout(Duration.ofSeconds(20), State.DONE))
+            .await(State.WAIT, await -> await.after(Duration.ofSeconds(20), State.DONE))
             .terminal(State.DONE)
             .build();
         var engine = newProcessEngineWith(definition);
@@ -66,12 +66,45 @@ class ProcessEngineManagementTest extends BaseTest {
             new ProcessEngineAdmin(engine).moveProcessToState(id, State.WAIT);
             var waiting = engine.processes().byId(id).singleDetails().orElseThrow();
             assertEquals(ProcessStatus.ACTIVE, waiting.status());
-            assertTrue(waiting.scheduledAt().isEmpty());
+            assertTrue(waiting.nextRunAt().isPresent());
             new ProcessEngineAdmin(engine).moveProcessToState(id, State.DONE);
             assertEquals(ProcessStatus.COMPLETED,
                     engine.processes().byId(id).singleDetails().orElseThrow().status());
             assertThrows(RuntimeException.class,
                     () -> new ProcessEngineAdmin(engine).moveProcessToState(id, State.START));
+        } finally {
+            engine.close();
+        }
+    }
+
+    @Test
+    void overdueCountsDueAwaitTimerAndUnhandledMessage() {
+        var signal = MessageType.of("SIGNAL", String.class);
+        var withAfter = ProcessType.of("OVERDUE_AFTER");
+        var withMessage = ProcessType.of("OVERDUE_MESSAGE");
+        var engine = newProcessEngineWith(
+                builder -> builder.type(withAfter)
+                    .initialState(State.WAIT)
+                    .await(State.WAIT, await -> await.after(Duration.ofHours(1), State.DONE))
+                    .terminal(State.DONE)
+                    .build(),
+                builder -> builder.type(withMessage)
+                    .initialState(State.WAIT)
+                    .await(State.WAIT, await -> await.message(signal, (context, message) -> {}, State.DONE))
+                    .terminal(State.DONE)
+                    .build());
+        try {
+            var admin = new ProcessEngineAdmin(engine);
+            var now = Instant.now();
+            engine.newProcess(withAfter).start();
+            var waiting = engine.newProcess(withMessage).start();
+            assertEquals(List.of(new ProcessTypeCounts(withAfter.id(), 1, 0, 0),
+                    new ProcessTypeCounts(withMessage.id(), 1, 0, 0)),
+                    admin.countIncompleteProcessesByType(now.plus(Duration.ofMinutes(59))));
+            engine.sendMessage(waiting, signal, "unhandled");
+            assertEquals(List.of(new ProcessTypeCounts(withAfter.id(), 1, 0, 1),
+                    new ProcessTypeCounts(withMessage.id(), 1, 0, 1)),
+                    admin.countIncompleteProcessesByType(now.plus(Duration.ofHours(2))));
         } finally {
             engine.close();
         }

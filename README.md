@@ -72,7 +72,7 @@ public class OrderProcess extends SpringProcessDefinition {
                 .step(CREATED, bean(ReserveStockStep.class), WAITING_FOR_PAYMENT)
                 .await(WAITING_FOR_PAYMENT, await -> await
                         .message(PAYMENT_CONFIRMED, bean(PaymentHandler.class), PAID)
-                        .timeout(Duration.ofHours(2), CANCELLED))
+                        .after(Duration.ofHours(2), CANCELLED))
                 .terminal(PAID)
                 .terminal(CANCELLED)
                 .build();

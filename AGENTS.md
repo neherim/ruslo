@@ -135,7 +135,7 @@ Spring property values map to these modes as:
 - Each claim stores the UUID of the current instance registration in `lease_owner` (new on every start and after a lost registration is re-registered); business-state fencing uses `lease_owner + row_version`.
 - Claim and release do not change `row_version`; release checks the current owner.
 - Transactional workers retain a row lock while executing; non-transactional workers validate owner and row version.
-- Instance liveness (`xs_application_instance.expires_at`) uses database time (`current_timestamp`); process readiness (`available_at`) uses the engine clock.
+- Instance liveness (`xs_application_instance.expires_at`) uses database time (`current_timestamp`); process readiness (`next_run_at`) uses the engine clock.
 - `lease_owner` has no foreign key. Recovery deletes expired registrations and releases every lease whose owner is not registered, skipping locked rows (`FOR UPDATE SKIP LOCKED`); skipped rows are released on the next tick.
 
 ### Database Schema

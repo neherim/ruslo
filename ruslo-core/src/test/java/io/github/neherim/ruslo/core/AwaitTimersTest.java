@@ -44,7 +44,7 @@ class AwaitTimersTest extends BaseTest {
     }
 
     @Test
-    void deadlineWinsFailedMessageInRetryBackoff() {
+    void failedMessageIsRetriedBeforeDeadline() {
         var engine = engine("T2", (context, message) -> {
             log.add(message.payload());
             throw new IllegalStateException("boom");
@@ -55,8 +55,10 @@ class AwaitTimersTest extends BaseTest {
             engine.sendMessage(id, SIGNAL, "first");
             run(engine, id);
             at("12:00:00");
-            assertEquals("TIMEOUT_DONE", run(engine, id).state().name());
-            assertEquals(List.of("first", "timeout"), log);
+            assertEquals(1, run(engine, id).attempt());
+            at("12:04:00");
+            assertEquals(2, run(engine, id).attempt());
+            assertEquals(List.of("first", "first"), log);
         } finally {
             engine.close();
         }
@@ -209,6 +211,105 @@ class AwaitTimersTest extends BaseTest {
     }
 
     @Test
+    void lateEveryDoesNotShiftNextCheck() {
+        var engine = engine(everyDefinition("T14", Duration.ofMinutes(10), context -> log.add("every"), State.WAIT));
+        try {
+            var id = start(engine, "T14", "11:00:00");
+            at("11:10:05");
+            run(engine, id);
+            at("11:19:59");
+            run(engine, id);
+            assertEquals(List.of("every"), log);
+            at("11:20:00");
+            run(engine, id);
+            assertEquals(List.of("every", "every"), log);
+        } finally {
+            engine.close();
+        }
+    }
+
+    @Test
+    void missedGridPointsAreSkipped() {
+        var engine = engine(everyDefinition("T15", Duration.ofMinutes(10), context -> log.add("every"), State.WAIT));
+        try {
+            var id = start(engine, "T15", "11:00:00");
+            at("11:35:00");
+            run(engine, id);
+            run(engine, id);
+            at("11:39:59");
+            run(engine, id);
+            assertEquals(List.of("every"), log);
+            at("11:40:00");
+            run(engine, id);
+            assertEquals(List.of("every", "every"), log);
+        } finally {
+            engine.close();
+        }
+    }
+
+    @Test
+    void everyOnDeadlinePointRunsBeforeTimeoutDespiteLateChecks() {
+        var engine = engine(definition("T16", (context, message) -> handled(message), State.MSG_DONE,
+                Duration.ofMinutes(10), context -> log.add("every"), State.WAIT, noRetry()));
+        try {
+            var id = start(engine, "T16", "11:00:00");
+            for (var minute = 10; minute <= 50; minute += 10) {
+                at("11:" + minute + ":05");
+                assertEquals("WAIT", run(engine, id).state().name());
+            }
+            at("12:00:00");
+            assertEquals("WAIT", run(engine, id).state().name());
+            assertEquals("TIMEOUT_DONE", run(engine, id).state().name());
+            assertEquals(List.of("every", "every", "every", "every", "every", "every", "timeout"), log);
+        } finally {
+            engine.close();
+        }
+    }
+
+    @Test
+    void everyRetryKeepsGrid() {
+        var fail = new AtomicBoolean(true);
+        var engine = engine(definition("T17", (context, message) -> handled(message), State.MSG_DONE,
+                Duration.ofMinutes(10), context -> {
+                    log.add("every");
+                    if (fail.getAndSet(false)) throw new IllegalStateException("boom");
+                }, State.WAIT, ProcessErrorHandler.fixed(1, Duration.ofMinutes(7))));
+        try {
+            var id = start(engine, "T17", "11:00:00");
+            at("11:10:00");
+            run(engine, id);
+            at("11:17:00");
+            run(engine, id);
+            assertEquals(List.of("every", "every"), log);
+            at("11:19:59");
+            run(engine, id);
+            assertEquals(List.of("every", "every"), log);
+            at("11:20:00");
+            run(engine, id);
+            assertEquals(List.of("every", "every", "every"), log);
+        } finally {
+            engine.close();
+        }
+    }
+
+    @Test
+    void everyHandledExactlyOnGridPointSchedulesNextPoint() {
+        var engine = engine(everyDefinition("T18", Duration.ofMinutes(10), context -> log.add("every"), State.WAIT));
+        try {
+            var id = start(engine, "T18", "11:00:00");
+            at("11:10:00");
+            run(engine, id);
+            run(engine, id);
+            assertEquals(List.of("every"), log);
+            at("11:20:00");
+            run(engine, id);
+            assertEquals(List.of("every", "every"), log);
+        } finally {
+            engine.close();
+        }
+    }
+
+    @Test
     void failedProcessIsNotWokenByDeadlineAndResumeRepeatsEarliestEvent() {
         var fail = new AtomicBoolean(true);
         var engine = engine("T9", (context, message) -> {
@@ -243,7 +344,7 @@ class AwaitTimersTest extends BaseTest {
                 .message(SIGNAL, (context, message) -> {
                     throw new IllegalStateException("boom");
                 }, State.MSG_DONE)
-                .timeout(Duration.ofHours(1), State.TIMEOUT_DONE))
+                .after(Duration.ofHours(1), State.TIMEOUT_DONE))
             .step(State.FALLBACK, context -> {}, State.MSG_DONE)
             .terminal(State.MSG_DONE)
             .terminal(State.TIMEOUT_DONE)
@@ -275,7 +376,7 @@ class AwaitTimersTest extends BaseTest {
             .await(State.WAIT, await -> {
                 await.message(SIGNAL, onMessage, messageTarget);
                 if (every != null) await.every(every, onEvery, everyTarget);
-                await.timeout(Duration.ofHours(1), context -> log.add("timeout"), State.TIMEOUT_DONE);
+                await.after(Duration.ofHours(1), context -> log.add("timeout"), State.TIMEOUT_DONE);
             })
             .terminal(State.MSG_DONE)
             .terminal(State.EVERY_DONE)
@@ -294,7 +395,7 @@ class AwaitTimersTest extends BaseTest {
             .await(State.WAIT, await -> await
                 .every(Duration.ofMinutes(10), onEvery, everyTarget,
                         options -> options.initialDelay(initialDelay))
-                .timeout(Duration.ofHours(1), State.TIMEOUT_DONE))
+                .after(Duration.ofHours(1), State.TIMEOUT_DONE))
             .terminal(State.EVERY_DONE)
             .terminal(State.TIMEOUT_DONE)
             .build();

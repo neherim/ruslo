@@ -29,8 +29,9 @@ typed way: `details.variables().get(AMOUNT)` returns an `Optional` of the variab
 
 ## Timers and retries
 
-`every` and `timeout` timers and `retryAfter` delays come due when the emulator moves time
-(`fastForwardTime` or `setTime`). The application's own `Clock` beans do not affect the engine clock:
+`every`, `after` and `at` timers and `retryAfter` delays, of steps too, come due when the emulator moves time
+(`fastForwardTime` or `setTime`): `runUntilStop` stops at a step waiting for a retry, `runOneStep` runs it at once.
+The application's own `Clock` beans do not affect the engine clock:
 
 ```java
 @ProcessEngineTest
@@ -50,7 +51,7 @@ class OrderServiceTest {
         var waiting = emulator.runUntilStop(processId);
         assertTrue(waiting.state().is(State.WAITING_FOR_DELIVERY_TIMER));
 
-        emulator.fastForwardTime(Duration.ofSeconds(11));   // the await timeout is 10 seconds
+        emulator.fastForwardTime(Duration.ofSeconds(11));   // the await waits after(10 seconds)
 
         var completed = emulator.runUntilStop(processId);
         assertEquals(ProcessStatus.COMPLETED, completed.status());
@@ -58,8 +59,23 @@ class OrderServiceTest {
 }
 ```
 
-Full examples in `ruslo-examples/cookbook`: the `deadline` recipe (timer) and the `retries` recipe (retries and
-fallback state).
+A deadline from a variable (`at`) is tested with `setTime`. Handlers take the time from `context.now()`, the engine
+clock, so a step that computes the deadline sees the time the test set:
+
+```java
+var start = Instant.parse("2026-10-07T10:00:00Z");
+emulator.setTime(start);
+var processId = processEngine.newProcess(SeatReservationDefinition.TYPE).start();
+emulator.runUntilStop(processId);                    // the step writes PAYMENT_DUE = context.now() + 15 minutes
+
+emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
+assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
+```
+
+A handler that calls `Instant.now()` instead sees the system time, and such a test fails.
+
+Full examples in `ruslo-examples/cookbook`: the `deadline` recipe (`at` timer), the `subscription` recipe (schedule
+by dates) and the `retries` recipe (retries and fallback state).
 
 Control time through the emulator; there is no need to inject the engine clock into the test. To set your own
 initial clock, declare a `MutableClock` bean (`core.api.test`) named `processEngineClock` with
@@ -96,6 +112,7 @@ assertEquals(Set.of("order", "paymentId"), context.variableNames());
 | `processType(ProcessType)`, `state(ProcessState)` | `"test"` |
 | `attempt(int)` | `0` |
 | `businessKey(String)` | none |
+| `now(Instant)` | `now()` from the system clock |
 | `variable(VariableType<T>, T)`, `variable(String, Object)` | no variables |
 | `jsonMapper(ObjectMapper)` | the engine's default mapper; set the same one as in `ProcessEngineBuilder.withJsonMapper` |
 

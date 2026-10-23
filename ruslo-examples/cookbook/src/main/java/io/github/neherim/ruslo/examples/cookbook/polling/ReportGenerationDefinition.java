@@ -26,13 +26,13 @@ import java.time.Duration;
  *       {@link State#REPORT_FAILED}.</li>
  *   <li>{@code initialDelay} postpones the first check: the report is never ready right after the order.
  *       Subsequent checks run every {@link #POLL_INTERVAL}.</li>
- *   <li>{@code timeout} is the overall deadline: it counts from entering the await, and checks targeting the await
+ *   <li>{@code after} is the overall deadline: it counts from entering the await, and checks targeting the await
  *       itself do not reset it. The deadline handler cancels the job at the service.</li>
  * </ul>
  * <p>
  * Pitfalls:
  * <ul>
- *   <li>Do not poll with a "check step → await → step" loop: each entry into the await restarts {@code timeout},
+ *   <li>Do not poll with a "check step → await → step" loop: each entry into the await restarts {@code after},
  *       and the deadline never comes. Recipe {@code approval} uses this loop on purpose, to give a new approver a
  *       new deadline.</li>
  *   <li>The {@code every} handler runs on the transactional {@code DEFAULT} worker and holds a DB connection while
@@ -72,7 +72,7 @@ public class ReportGenerationDefinition implements ProcessDefinition {
                             .on(ReportStatus.READY, State.COMPLETED)
                             .on(ReportStatus.FAILED, State.REPORT_FAILED),
                         options -> options.initialDelay(FIRST_CHECK_DELAY))
-                .timeout(REPORT_DEADLINE, this::cancel, State.TIMED_OUT))
+                .after(REPORT_DEADLINE, this::cancel, State.TIMED_OUT))
             .terminal(State.COMPLETED)
             .terminal(State.REPORT_FAILED)
             .terminal(State.TIMED_OUT)

@@ -33,16 +33,16 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
         clock.setTime(now);
         var process = factory.newInstance(TYPE, now, null, "routing", Map.of());
         assertEquals(ACTION_WORKER, process.getWorkerId().orElseThrow());
-        assertEquals(now, process.getAvailableAt().orElseThrow());
+        assertEquals(now, process.getNextRunAt().orElseThrow());
         dao.insert(process);
 
         process.enterState(State.WAIT);
         assertEquals(WorkerId.DEFAULT, process.getWorkerId().orElseThrow());
-        assertEquals(now.plusSeconds(2), process.getDeadlineAt().orElseThrow());
-        assertTrue(process.getScheduledAt().isEmpty());
+        assertEquals(now.plusSeconds(2), process.getAfterDueAt().orElseThrow());
+        assertTrue(process.getEveryDueAt().isEmpty());
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "payload",
                 java.util.UUID.randomUUID(), now.plusSeconds(1));
-        assertEquals(now.plusSeconds(1), process.getAvailableAt().orElseThrow());
+        assertEquals(now.plusSeconds(1), process.getNextRunAt().orElseThrow());
         dao.update(process);
         var restored = dao.findById(process.getId()).orElseThrow();
         assertEquals("payload",
@@ -51,13 +51,13 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
         clock.setTime(now.plusSeconds(3));
         restored.enterState(State.WAIT);
         assertTrue(restored.getMessages().isEmpty());
-        assertEquals(now.plusSeconds(5), restored.getDeadlineAt().orElseThrow());
+        assertEquals(now.plusSeconds(5), restored.getAfterDueAt().orElseThrow());
         clock.setTime(now.plusSeconds(4));
         restored.enterState(State.DONE);
         assertEquals(ProcessStatus.COMPLETED, restored.getStatus());
         assertTrue(restored.getWorkerId().isEmpty());
-        assertTrue(restored.getAvailableAt().isEmpty());
-        assertTrue(restored.getDeadlineAt().isEmpty());
+        assertTrue(restored.getNextRunAt().isEmpty());
+        assertTrue(restored.getAfterDueAt().isEmpty());
         dao.update(restored);
         assertEquals(ProcessStatus.COMPLETED, dao.findById(process.getId()).orElseThrow().getStatus());
     }
@@ -69,7 +69,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
             .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL,
                     (context, message) -> {}, State.WAIT)
-                .timeout(Duration.ofSeconds(2), State.DONE))
+                .after(Duration.ofSeconds(2), State.DONE))
             .terminal(State.DONE)
             .build();
         return new ProcessInstanceFactory(clock, JsonUtils.DEFAULT_OBJECT_MAPPER,

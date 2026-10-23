@@ -78,7 +78,7 @@ class LeaseDaoTest {
     }
 
     @Test
-    void shouldFindNextAvailableAtAmongUnclaimedActiveProcessesOfWorker() {
+    void shouldFindNextRunAtAmongUnclaimedActiveProcessesOfWorker() {
         insertWaiting(uuid(1));
         insertReady(uuid(2), NOW.plusSeconds(30), ProcessStatus.ACTIVE, TEST_WORKER);
         insertReady(uuid(3), NOW.plusSeconds(10), ProcessStatus.ACTIVE, TEST_WORKER);
@@ -87,8 +87,8 @@ class LeaseDaoTest {
         insertReady(uuid(6), NOW.minusSeconds(1), ProcessStatus.ACTIVE, TEST_WORKER);
         leaseDao.claimReadyForWorker(ownerId, TEST_WORKER, 1, NOW);
 
-        assertEquals(Optional.of(NOW.plusSeconds(10)), leaseDao.findNextAvailableAt(TEST_WORKER));
-        assertEquals(Optional.empty(), leaseDao.findNextAvailableAt(new WorkerId("missing")));
+        assertEquals(Optional.of(NOW.plusSeconds(10)), leaseDao.findNextRunAt(TEST_WORKER));
+        assertEquals(Optional.empty(), leaseDao.findNextRunAt(new WorkerId("missing")));
     }
 
     @Test
@@ -176,20 +176,19 @@ class LeaseDaoTest {
         return id;
     }
 
-    private void insertReady(UUID id, Instant scheduledAt, ProcessStatus status, WorkerId workerId) {
+    private void insertReady(UUID id, Instant nextRunAt, ProcessStatus status, WorkerId workerId) {
         database.update("""
                 insert into xs_process_instance
-                    (id, create_at, state, worker_id, status, type, scheduled_at, available_at)
-                values (?, current_timestamp, 'STARTED', ?, ?, 'lease_test', ?, ?)
-                """, id, workerId.name(), status.name(),
-                Timestamp.from(scheduledAt), Timestamp.from(scheduledAt));
+                    (id, created_at, state, worker_id, status, type, next_run_at)
+                values (?, current_timestamp, 'STARTED', ?, ?, 'lease_test', ?)
+                """, id, workerId.name(), status.name(), Timestamp.from(nextRunAt));
     }
 
     private void insertWaiting(UUID id) {
         database.update("""
                 insert into xs_process_instance
-                    (id, create_at, state, worker_id, status, type, scheduled_at, available_at)
-                values (?, current_timestamp, 'STARTED', 'lease-worker', 'ACTIVE', 'lease_test', null, null)
+                    (id, created_at, state, worker_id, status, type, next_run_at)
+                values (?, current_timestamp, 'STARTED', 'lease-worker', 'ACTIVE', 'lease_test', null)
                 """, id);
     }
 

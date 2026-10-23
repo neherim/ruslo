@@ -32,15 +32,20 @@ variable class, `details.variables().asJsonMap()` returns the JSON text of the v
 The last error format is described in [error-handling.md](error-handling.md#guarantees).
 The message queue is not visible through the read API.
 
+`nextRunAt` is when the engine next takes the process: a step, a retry, a queued message or a timer. It is empty if
+the process waits only for messages, is in `FAILED` or completed. Search by it with `byNextRunAtFrom` /
+`byNextRunAtTo`. The moments of individual timers are not in the read API: the `at` moment is the value of its
+variable, and a timer that is off is visible by `nextRunAt`.
+
 ## Manual intervention
 
 | Operation | What it does |
 |---|---|
 | `processEngine.resumeFailedProcess(id)` | Resumes a process from `FAILED`: the failed step or event runs again; `ProcessStatusException` if the process is not in `FAILED` (active or completed) |
 | `processEngineAdmin.moveProcessToState(id, state)` | Moves the process to any declared state, including from `FAILED`; the message queue and the error are cleared, entering a terminal state completes the process |
-| `processEngineAdmin.setProcessVariable(id, type, value)` | Changes a process variable |
-| `processEngineAdmin.removeProcessVariable(id, name)` | Removes a process variable |
-| `processEngineAdmin.countIncompleteProcessesByType(overdueAt)` | Number of processes in `ACTIVE` and `FAILED` per type and number of overdue ones: in `ACTIVE` with `scheduledAt` not later than `overdueAt` |
+| `processEngineAdmin.setProcessVariable(id, type, value)` | Changes a process variable; writing the `at` variable of the current await moves its timer; a value of an `at` variable that is not an `Instant` is rejected in any state |
+| `processEngineAdmin.removeProcessVariable(id, name)` | Removes a process variable; removing the `at` variable of the current await turns its timer off |
+| `processEngineAdmin.countIncompleteProcessesByType(overdueAt)` | Number of processes in `ACTIVE` and `FAILED` per type and number of overdue ones: in `ACTIVE` with `nextRunAt` not later than `overdueAt`, including an unhandled message and a due timer |
 | `processEngineAdmin.listApplicationInstances()` | Registered engine instances, the number of processes they have claimed and the registration expiry |
 
 `processEngineAdmin` is a `ProcessEngineAdmin` instance: in Spring Boot it is a ready bean; without Spring it is
@@ -50,6 +55,58 @@ A process in `FAILED` keeps accepting messages of its await (`sendMessage`): the
 
 The same operations are available in the [Admin UI](admin-ui.md).
 
+## Editing timers in SQL
+
+While investigating an incident you may change timer columns of `xs_process_instance` directly:
+
+| Column | Meaning |
+|---|---|
+| `next_run_at` | When the engine next takes the process: a step, a retry, a message or a timer; `null` if it waits only for messages, is in `FAILED` or completed |
+| `every_due_at` | The next grid point of `every`; `null` for a step and an await without `every` |
+| `after_due_at` | The `after` deadline; `null` if it has fired or `after` is not declared |
+| `at_fired_due_at` | The `at` moment (the variable value) already handled in this entry of the await; reset on entering the await |
+
+Two rules:
+
+1. **The engine computes `next_run_at`** from the timer columns, the message queue and the retry. A timer change
+   without a `next_run_at` change takes effect only at the old `next_run_at`. After changing timer columns, set
+   `next_run_at = current_timestamp`: the engine takes the process, selects the due events and recomputes
+   `next_run_at` itself. A process taken with no due event only recomputes it: no handler, no attempt, no history.
+   During a retry backoff (`attempt > 0`) `next_run_at` is the retry time: the engine does not move it for new
+   messages or a moved `at`. "Run now" in a backoff retries the failed event right away, with its attempts kept.
+2. **Fencing.** A non-transactional worker checks `lease_owner` and `row_version` and may silently overwrite a
+   change. Change only rows with `lease_owner is null`, and always with `row_version = row_version + 1`.
+
+Recipes (the `at` deadline is changed through `setProcessVariable`, not in SQL: an `at` variable written in SQL
+as something other than an `Instant` is a system error, and the engine postpones the process by 60 seconds on every
+run until the value is fixed):
+
+```sql
+-- Run now
+update xs_process_instance
+set next_run_at = current_timestamp, row_version = row_version + 1
+where id = ? and status = 'ACTIVE' and lease_owner is null;
+
+-- Extend the after deadline by a day
+update xs_process_instance
+set after_due_at = after_due_at + interval '1 day', next_run_at = current_timestamp,
+    row_version = row_version + 1
+where id = ? and status = 'ACTIVE' and lease_owner is null;
+
+-- Fire at again for the current value of its variable
+update xs_process_instance
+set at_fired_due_at = null, next_run_at = current_timestamp, row_version = row_version + 1
+where id = ? and status = 'ACTIVE' and lease_owner is null;
+
+-- Move the every grid
+update xs_process_instance
+set every_due_at = timestamp with time zone '2026-10-21 12:00:00+00', next_run_at = current_timestamp,
+    row_version = row_version + 1
+where id = ? and status = 'ACTIVE' and lease_owner is null;
+```
+
+An `update` that changed no rows hit a claimed process: repeat it.
+
 ## Retention of completed processes
 
 The engine does not delete completed processes: `xs_process_instance` rows with status `COMPLETED` and their history
@@ -57,7 +114,7 @@ in `xs_process_state_hist` stay in the database. Delete them yourself on a sched
 
 ```sql
 delete from xs_process_instance
-where status = 'COMPLETED' and update_at < now() - interval '90 days';
+where status = 'COMPLETED' and updated_at < now() - interval '90 days';
 ```
 
 If you do not need the state history, disable it with `ruslo.history.enabled=false`.
