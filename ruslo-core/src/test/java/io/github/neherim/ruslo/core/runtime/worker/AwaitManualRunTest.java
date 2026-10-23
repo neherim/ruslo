@@ -5,7 +5,6 @@ import io.github.neherim.ruslo.core.api.definition.*;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -23,7 +22,8 @@ class AwaitManualRunTest extends BaseTest {
             .build();
         var fixture = WorkerTestFixture.with(database, definition);
         var process = fixture.insertNewProcess(ProcessType.of("MANUAL_RUN"), "correlation");
-        var deadline = process.getAfterDueAt().orElseThrow().truncatedTo(ChronoUnit.MICROS);
+        // The database rounds the clock's nanoseconds, so the deadline is taken as stored.
+        var deadline = fixture.dao().findById(process.getId()).orElseThrow().getAfterDueAt().orElseThrow();
 
         fixture.transactionalWorker().tryExecute(fixture.task(process));
 
