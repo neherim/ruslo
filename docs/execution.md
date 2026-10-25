@@ -28,15 +28,19 @@ An event is due when its time is not later than the engine clock. Among due even
 is handled. On a tie the order is: message, `every`, `after`, `at`; messages with the same time go in arrival order.
 The moment the dispatcher reached the process does not affect the choice.
 
-**Timer moments.** After a successful `every` the next check is the first grid point after the handling. After a
-successful `after` the timer is off until the await is entered again. The `at` moment is taken from the process
+**Taking the event.** The engine takes the selected event before calling its handler: it removes the message, moves
+`every` to the first grid point after the current time, turns `after` off until the await is entered again and
+cancels the `at` timer. If the handler leaves the await, the new state does not need any of it; if it keeps waiting,
+the await goes on with the next events. If the handler fails, the transaction is rolled back together with taking
+the event: the message is back in the queue, the timer is set again, and the retry selects the same event.
+
+**Timer moments.** The `at` moment is taken from the process
 timer the current await declares: `setTimer` and `cancelTimer` (in a handler, a step, or `setProcessTimer` /
 `cancelProcessTimer` in the admin API) move it at once, without entering the await again. Entering an await does not
 change process timers.
 
-When `at` is selected, the engine cancels its timer and then calls the handler, in one transaction. A handler that
-sets the timer again sets the next moment; one that does not leaves `at` off. If the handler fails, the transaction
-is rolled back together with the cancellation: the timer is set again, and the retry selects the same event.
+Since the `at` timer is cancelled before the handler, a handler that sets the timer again sets the next moment; one
+that does not leaves `at` off.
 
 A moment in the past or equal to now is an event that is already due, selected by the usual rules: the process
 entered the await after the deadline, a message moved the deadline into the past, or dates were missed during
@@ -78,7 +82,7 @@ Consequences:
 - a late `every` sees the current state of the external system: a check scheduled for 11:58
   and run at 12:01 may see a change made after the deadline;
 - `every` checks missed during downtime are not run in a batch: one runs, and the next is the first point of the
-  grid after it is handled;
+  grid after it starts; a point passed while the check ran fires right after it;
 - a late check does not shift the grid, so the check after it may come sooner than `interval`: there is no minimum
   interval between checks. With `every(10m)` and a deadline at 12:00, the 12:00 check runs before `after`
   however late the previous checks were;

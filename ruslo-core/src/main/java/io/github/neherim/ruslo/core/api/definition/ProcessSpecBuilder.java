@@ -269,7 +269,7 @@ public class ProcessSpecBuilder {
          * <p>
          * Checks follow a grid: entering the await plus {@code initialDelay} plus {@code k * interval}. A late check
          * does not shift the next ones; missed points are skipped, and the next check is the first point after the
-         * check is handled.
+         * check starts.
          */
         public AwaitBuilder every(Duration interval, ProcessTimerHandler handler, ProcessState next) {
             return every(interval, handler, next, options -> {});

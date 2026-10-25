@@ -54,10 +54,8 @@ public final class ProcessMessages {
         return entries.isEmpty() ? Optional.empty() : Optional.of(entries.getFirst());
     }
 
-    public void remove(UUID id) {
-        if (!entries.removeIf(entry -> entry.id().equals(id))) {
-            throw new IllegalStateException("Selected message is no longer pending: " + id);
-        }
+    public void removeFirst() {
+        entries.removeFirst();
     }
 
     public void clear() {

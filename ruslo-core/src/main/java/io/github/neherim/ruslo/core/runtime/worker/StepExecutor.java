@@ -6,7 +6,6 @@ import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.DefaultProcessContext;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
-import io.github.neherim.ruslo.core.runtime.process.ProcessInstance.DueEvent;
 import io.github.neherim.ruslo.core.runtime.process.ProcessMessages.PendingMessage;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.UUIDGenerator;
@@ -88,50 +87,53 @@ public class StepExecutor {
     }
 
     /**
-     * Executes the event selected by {@link ProcessInstance#dueAwaitEvent()}. Without a due event, e.g. after a
-     * manual change of {@code next_run_at}, only the next run is recomputed: no attempt and no history row.
-     * The {@code at} timer is cancelled before its handler; a handler failure rolls the cancellation back.
+     * Executes the event selected by {@link ProcessInstance#dueAwaitEvent()}: the event is
+     * {@link ProcessInstance#takeAwaitEvent taken} before its handler. Without a due event, e.g. after a manual
+     * change of {@code next_run_at}, only the next run is recomputed: no attempt and no history row.
      */
     private boolean executeAwait(ProcessInstance process, AwaitState spec) {
         var due = process.dueAwaitEvent();
         if (due.isEmpty()) {
-            process.skipRun();
+            process.stayInAwait();
             return false;
         }
         var event = due.get();
+        var message = process.getMessages().peekFirst();
+        process.takeAwaitEvent(event);
         var context = new DefaultProcessContext(process);
-        switch (event.type()) {
-            case MESSAGE -> executeQueuedMessage(process, context);
-            case EVERY -> executeTimer(process, context, event, spec.every().handler(), spec.every().exit(), "every");
-            case AFTER -> executeTimer(process, context, event, spec.after().handler(), spec.after().exit(), "after");
-            case AT -> {
-                process.fireAtTimer();
-                executeTimer(process, context, event, spec.at().handler(), spec.at().exit(), "at");
-            }
-        }
+        var stays = switch (event) {
+            case MESSAGE -> executeQueuedMessage(process, context, message.orElseThrow());
+            case EVERY -> executeTimer(process, context, spec.every().handler(), spec.every().exit(), "every");
+            case AFTER -> executeTimer(process, context, spec.after().handler(), spec.after().exit(), "after");
+            case AT -> executeTimer(process, context, spec.at().handler(), spec.at().exit(), "at");
+        };
+        if (stays) process.stayInAwait();
         return true;
     }
 
-    private static void executeTimer(
+    /** Returns {@code true} if the process stays in the current await. */
+    private static boolean executeTimer(
             ProcessInstance process,
             DefaultProcessContext context,
-            DueEvent event,
             Function<ProcessContext, Enum<?>> handler,
             Exit exit,
             String name
     ) {
         var outcome = invokeHandler(() -> handler.apply(context));
-        if (applyAwait(outcome, exit, process, name)) process.timerFired(event);
+        return applyAwait(outcome, exit, process, name);
     }
 
-    /** Executes the first queued message and removes it if the process stays in the current await. */
-    private void executeQueuedMessage(ProcessInstance process, DefaultProcessContext context) {
-        var pending = process.getMessages().peekFirst().orElseThrow();
+    /** Executes the queued message. Returns {@code true} if the process stays in the current await. */
+    private boolean executeQueuedMessage(
+            ProcessInstance process,
+            DefaultProcessContext context,
+            PendingMessage pending
+    ) {
         var event = process.getProcessSpec()
             .getMessageEvent(pending.type(), process.getState())
             .orElseThrow(() -> new IllegalStateException("Queued message " + pending.type()
                     + " is not expected in state " + process.getState().name()));
-        if (convertAndExecute(process, context, event, pending)) process.consumeMessage(pending.id());
+        return convertAndExecute(process, context, event, pending);
     }
 
     /** Converts the stored message to the handler type {@code T} from the definition and executes it. */
@@ -156,8 +158,8 @@ public class StepExecutor {
     }
 
     /**
-     * Applies the await event result. A target equal to the current await is not an entry: the process is
-     * unchanged, and the caller finishes the event (removes the message, turns the timer to its next moment).
+     * Applies the await event result. A target equal to the current await is not an entry: the process state is
+     * unchanged.
      *
      * @return {@code true} if the process stays in the current await
      */

@@ -157,20 +157,13 @@ public final class ProcessInstance {
         if (status == ProcessStatus.ACTIVE && !hasRetryBackoff()) recomputeNextRun();
     }
 
-    /** Removes a handled message and clears the errors of its previous attempts. */
-    public void consumeMessage(UUID messageId) {
-        messages.remove(messageId);
-        resetAttemptsAndError();
-        recomputeNextRun();
-    }
-
     /**
      * Selects the await event to handle now: the due event with the earliest time; on a tie message, {@code every},
      * {@code after}, {@code at}.
      *
      * @return empty if no event is due
      */
-    public Optional<DueEvent> dueAwaitEvent() {
+    public Optional<AwaitEvent> dueAwaitEvent() {
         var now = clock.instant();
         var times = new EnumMap<AwaitEvent, Instant>(AwaitEvent.class);
         messages.peekFirst().ifPresent(message -> times.put(AwaitEvent.MESSAGE, message.receivedAt()));
@@ -179,44 +172,36 @@ public final class ProcessInstance {
             .stream()
             .filter(event -> !event.getValue().isAfter(now))
             .min(Map.Entry.<AwaitEvent, Instant>comparingByValue().thenComparing(Map.Entry.comparingByKey()))
-            .map(event -> new DueEvent(event.getKey(), event.getValue()));
+            .map(Map.Entry::getKey);
     }
 
     /**
-     * Finishes a timer handled with the await itself as the target and clears the errors of previous attempts:
-     * {@code every} moves to its next grid point (missed points are skipped), {@code after} is off until the await is
-     * entered again; the {@code at} timer was already cancelled by {@link #fireAtTimer()}, a timer set again by the
-     * handler stays.
+     * Takes the selected await event before its handler runs, without moving the next run: removes the first queued
+     * message, moves {@code every} to the first grid point after now (missed points are skipped), turns {@code after}
+     * off until the await is entered again, cancels the {@code at} timer, so the handler may set it again.
+     * <p>
+     * Leaving the await resets all of this anyway; a handler failure discards it, since the process is then neither
+     * stored nor committed.
      */
-    public void timerFired(DueEvent event) {
-        switch (event.type()) {
+    public void takeAwaitEvent(AwaitEvent event) {
+        switch (event) {
+            case MESSAGE -> messages.removeFirst();
             case EVERY -> {
                 var interval = awaitState().every().interval();
                 var missed = Duration.between(everyDueAt, clock.instant()).dividedBy(interval);
                 everyDueAt = everyDueAt.plus(interval.multipliedBy(missed + 1));
             }
             case AFTER -> afterDueAt = null;
-            case AT -> {
-            }
-            case MESSAGE -> throw new IllegalArgumentException("Not a timer: " + event.type());
+            case AT -> timers.cancel(awaitState().at().timer().name());
         }
-        resetAttemptsAndError();
-        recomputeNextRun();
     }
 
     /**
-     * Cancels the process timer of the current await's {@code at} before its handler runs, without moving the next
-     * run: the handler result enters a state or finishes the event with {@link #timerFired}.
+     * Finishes an await run that keeps the process in the await: clears the errors of previous attempts and
+     * recomputes the next run. Also finishes a run without a due event, e.g. after a manual change of
+     * {@code next_run_at}: a retry whose event is no longer due is dropped.
      */
-    public void fireAtTimer() {
-        timers.cancel(awaitState().at().timer().name());
-    }
-
-    /**
-     * Recomputes the next run when the process was taken with no due event, e.g. after a manual change of
-     * {@code next_run_at}. A retry whose event is no longer due is dropped.
-     */
-    public void skipRun() {
+    public void stayInAwait() {
         resetAttemptsAndError();
         recomputeNextRun();
     }
@@ -443,14 +428,6 @@ public final class ProcessInstance {
         EVERY,
         AFTER,
         AT
-    }
-
-    /**
-     * Await event selected by {@link #dueAwaitEvent()}.
-     *
-     * @param moment the event time: message receive time or timer moment
-     */
-    public record DueEvent(AwaitEvent type, Instant moment) {
     }
 
     @Override

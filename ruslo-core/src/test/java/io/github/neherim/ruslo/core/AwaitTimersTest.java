@@ -248,6 +248,26 @@ class AwaitTimersTest extends BaseTest {
     }
 
     @Test
+    void gridPointPassedDuringCheckFiresRightAfterIt() {
+        var engine = engine(everyDefinition("T15B", Duration.ofMinutes(10), context -> {
+            log.add("every");
+            if (log.size() == 1) at("11:21:00");
+        }, State.WAIT));
+        try {
+            var id = start(engine, "T15B", "11:00:00");
+            at("11:10:00");
+            run(engine, id);
+            run(engine, id);
+            assertEquals(List.of("every", "every"), log);
+            at("11:29:59");
+            run(engine, id);
+            assertEquals(List.of("every", "every"), log);
+        } finally {
+            engine.close();
+        }
+    }
+
+    @Test
     void everyOnDeadlinePointRunsBeforeTimeoutDespiteLateChecks() {
         var engine = engine(definition("T16", (context, message) -> handled(message), State.MSG_DONE,
                 Duration.ofMinutes(10), context -> log.add("every"), State.WAIT, noRetry()));
