@@ -43,7 +43,7 @@ class ProcessEngineAdminUiHtmxControllersTest {
         assertThat(service.zone).isEqualTo(ZoneId.of("Europe/Berlin"));
         assertThat(html)
             .contains("href=\"processes?status=FAILED\"")
-            .contains("href=\"processes?status=ACTIVE&amp;scheduledAtTo=2026-10-11T10:15&amp;timeZone=Europe/Berlin\"")
+            .contains("href=\"processes?status=ACTIVE&amp;nextRunAtTo=2026-10-11T10:15&amp;timeZone=Europe/Berlin\"")
             .contains("href=\"processes?typeName=ORDER&amp;status=FAILED\"")
             .contains("metric-value numeric is-failed")
             .contains("<strong>4</strong> failed")
@@ -117,7 +117,7 @@ class ProcessEngineAdminUiHtmxControllersTest {
                 Map.of(
                         "amount", "42",
                         "customer", "{\"name\":\"Ada\"}"),
-                "AWAIT", List.of("payment", "shipping"), null);
+                "AWAIT", List.of("payment", "shipping"), null, List.of());
         var controller = new ProcessesAdminController(new ProcessDetailsAdminService(process));
         var response = new MockHttpServletResponse();
 
@@ -314,6 +314,75 @@ class ProcessEngineAdminUiHtmxControllersTest {
             .doesNotHaveEvent("processDetailsChanged");
     }
 
+    @Test
+    void setTimerShouldReadMomentInBrowserTimeZoneAndTriggerProcessDetailsRefresh() {
+        var processId = UUID.randomUUID();
+        var adminService = new TimerAdminService();
+        var controller = new ProcessesAdminController(adminService);
+        var response = new MockHttpServletResponse();
+        var model = new ConcurrentModel();
+
+        var viewName = controller.setTimer(processId, "paymentDue", "2026-05-01T12:30:00", "Europe/Berlin",
+                new MockHttpServletRequest(), response, model);
+
+        assertThat(viewName).isEqualTo("ruslo-admin/shared/fragments :: statusLine");
+        assertThat(adminService.timerProcessId).isEqualTo(processId);
+        assertThat(adminService.timerName).isEqualTo("paymentDue");
+        assertThat(adminService.timerMoment).isEqualTo("2026-05-01T12:30:00");
+        assertThat(adminService.timerZone).isEqualTo(ZoneId.of("Europe/Berlin"));
+        assertThat(model.getAttribute("status")).isEqualTo("Timer set");
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThatTrigger(response)
+            .hasEvent("processDetailsChanged")
+            .hasToast("success", "Timer set");
+    }
+
+    @Test
+    void setTimerShouldReturnErrorStatusForUndeclaredTimer() {
+        var controller = new ProcessesAdminController(new TimerAdminService(
+                new IllegalArgumentException("Timer oldDue is not used by any at of process ORDER")));
+        var response = new MockHttpServletResponse();
+        var model = new ConcurrentModel();
+
+        controller.setTimer(UUID.randomUUID(), "oldDue", "2026-05-01T12:30:00", null, new MockHttpServletRequest(),
+                response, model);
+
+        assertThat(model.getAttribute("error")).isEqualTo(true);
+        assertThat(response.getStatus()).isEqualTo(422);
+        assertThatTrigger(response)
+            .hasToast("error", "Timer oldDue is not used by any at of process ORDER")
+            .doesNotHaveEvent("processDetailsChanged");
+    }
+
+    @Test
+    void cancelTimerShouldTriggerRefreshWhenCancelledAndReportInfoWhenNotSet() {
+        var processId = UUID.randomUUID();
+        var adminService = new TimerAdminService();
+        var controller = new ProcessesAdminController(adminService);
+        var response = new MockHttpServletResponse();
+        var model = new ConcurrentModel();
+
+        controller.cancelTimer(processId, "paymentDue", new MockHttpServletRequest(), response, model);
+
+        assertThat(adminService.cancelledProcessId).isEqualTo(processId);
+        assertThat(adminService.cancelledName).isEqualTo("paymentDue");
+        assertThat(model.getAttribute("status")).isEqualTo("Timer cancelled");
+        assertThatTrigger(response)
+            .hasEvent("processDetailsChanged")
+            .hasToast("success", "Timer cancelled");
+
+        var notSetResponse = new MockHttpServletResponse();
+        var notSetModel = new ConcurrentModel();
+        new ProcessesAdminController(new TimerAdminService(false)).cancelTimer(processId, "paymentDue",
+                new MockHttpServletRequest(), notSetResponse, notSetModel);
+
+        assertThat(notSetModel.getAttribute("status")).isEqualTo("Timer was not set");
+        assertThat(notSetResponse.getStatus()).isEqualTo(200);
+        assertThatTrigger(notSetResponse)
+            .hasToast("info", "Timer was not set")
+            .doesNotHaveEvent("processDetailsChanged");
+    }
+
     private static TriggerAssert assertThatTrigger(MockHttpServletResponse response) {
         return new TriggerAssert(response.getHeader("HX-Trigger"));
     }
@@ -368,7 +437,7 @@ class ProcessEngineAdminUiHtmxControllersTest {
                 null,
                 List.of(new StateHistoryResponse(state, Instant.parse("2026-05-01T10:00:00Z"), false)),
                 Map.of("amount", "42"),
-                "STEP", List.of(), null);
+                "STEP", List.of(), null, List.of());
     }
 
     private static class ProcessDetailsAdminService extends DefinitionsAdminService {
@@ -446,6 +515,52 @@ class ProcessEngineAdminUiHtmxControllersTest {
             removedProcessId = processId;
             removedName = name;
             return removed;
+        }
+    }
+
+    private static class TimerAdminService extends DefinitionsAdminService {
+        private final RuntimeException failure;
+        private final boolean cancelled;
+        private UUID timerProcessId;
+        private String timerName;
+        private String timerMoment;
+        private ZoneId timerZone;
+        private UUID cancelledProcessId;
+        private String cancelledName;
+
+        private TimerAdminService() {
+            this(null, true);
+        }
+
+        private TimerAdminService(boolean cancelled) {
+            this(null, cancelled);
+        }
+
+        private TimerAdminService(RuntimeException failure) {
+            this(failure, true);
+        }
+
+        private TimerAdminService(RuntimeException failure, boolean cancelled) {
+            this.failure = failure;
+            this.cancelled = cancelled;
+        }
+
+        @Override
+        public void setTimer(UUID processId, String name, String moment, ZoneId zone) {
+            if (failure != null) {
+                throw failure;
+            }
+            timerProcessId = processId;
+            timerName = name;
+            timerMoment = moment;
+            timerZone = zone;
+        }
+
+        @Override
+        public boolean cancelTimer(UUID processId, String name) {
+            cancelledProcessId = processId;
+            cancelledName = name;
+            return cancelled;
         }
     }
 

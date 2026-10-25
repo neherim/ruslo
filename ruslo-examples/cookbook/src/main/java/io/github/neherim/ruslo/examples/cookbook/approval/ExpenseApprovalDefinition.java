@@ -24,11 +24,12 @@ import java.util.Map;
  * <p>
  * How it works:
  * <ul>
- *   <li>Await {@link State#WAITING_FOR_DECISION} waits for message {@link #DECISION} with a {@code timeout}, as in
- *       recipe {@code deadline}.</li>
+ *   <li>Await {@link State#WAITING_FOR_DECISION} waits for message {@link #DECISION} with an {@code after}
+ *       deadline.</li>
  *   <li>On the deadline step {@link State#ESCALATING} passes the approval to the manager ({@link #APPROVER}) and
  *       returns the process to step {@link State#REQUESTING}, which leads back to the await. Entering the await again
- *       restarts its deadline: this is the only way to reset a deadline.</li>
+ *       restarts its {@code after} deadline: this is the only way to reset it. A deadline stored in a variable
+ *       ({@code at}) moves without re-entering the await: recipe {@code deadline}.</li>
  *   <li>If there is no manager, the process ends in {@link State#EXPIRED}.</li>
  * </ul>
  * <p>
@@ -65,7 +66,7 @@ public class ExpenseApprovalDefinition implements ProcessDefinition {
                 .message(DECISION, ExpenseApprovalDefinition::onDecision, routes -> routes
                     .on(Outcome.APPROVED, State.APPROVED)
                     .on(Outcome.REJECTED, State.REJECTED))
-                .timeout(DECISION_DEADLINE, State.ESCALATING))
+                .after(DECISION_DEADLINE, State.ESCALATING))
             .step(State.ESCALATING, ExpenseApprovalDefinition::escalate, routes -> routes
                 .on(Escalation.ESCALATED, State.REQUESTING)
                 .on(Escalation.NO_ONE_LEFT, State.EXPIRED))

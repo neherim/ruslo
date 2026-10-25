@@ -27,7 +27,7 @@ class ProcessMessagesTest {
         var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, json);
         assertEquals(firstId, restored.peekFirst().orElseThrow().id());
         assertEquals("one", restored.convert(restored.peekFirst().orElseThrow(), FIRST).payload());
-        restored.remove(firstId);
+        restored.removeFirst();
         assertEquals(secondId, restored.peekFirst().orElseThrow().id());
         restored.clear();
         assertEquals("[]", restored.serializeToString());
@@ -41,7 +41,7 @@ class ProcessMessagesTest {
         messages.append(FIRST, null, UUID.randomUUID(), now);
         var first = messages.peekFirst().orElseThrow();
         assertNull(messages.convert(first, FIRST).payload());
-        messages.remove(first.id());
+        messages.removeFirst();
         assertFalse(messages.isEmpty());
     }
 
@@ -56,13 +56,7 @@ class ProcessMessagesTest {
         var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER,
                 messages.serializeToString());
         assertEquals(largerId, restored.peekFirst().orElseThrow().id());
-        restored.remove(largerId);
+        restored.removeFirst();
         assertEquals(smallerId, restored.peekFirst().orElseThrow().id());
-    }
-
-    @Test
-    void rejectsRemovingAbsentSignal() {
-        var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
-        assertThrows(IllegalStateException.class, () -> messages.remove(UUID.randomUUID()));
     }
 }

@@ -20,6 +20,7 @@ public record ProcessSpecInfo(
      * State of the definition.
      *
      * @param description from {@link io.github.neherim.ruslo.core.api.definition.ProcessState#description()}
+     * @param atTimer     name of the process timer the {@code at} event waits for
      */
     public record StateInfo(
             ProcessStateId state,
@@ -27,8 +28,9 @@ public record ProcessSpecInfo(
             StateKind kind,
             Optional<WorkerId> workerId,
             Set<String> acceptedMessageTypes,
-            Optional<Duration> timeoutDelay,
             Optional<Duration> everyInterval,
+            Optional<Duration> afterDelay,
+            Optional<String> atTimer,
             List<TransitionInfo> transitions
     ) {
     }
@@ -58,6 +60,7 @@ public record ProcessSpecInfo(
         STEP,
         MESSAGE,
         EVERY,
-        TIMEOUT
+        AFTER,
+        AT
     }
 }

@@ -26,12 +26,12 @@ import java.util.UUID;
 /** Reads and writes process instances and their state history. */
 public class ProcessInstanceDao {
     private static final String STATE_COLUMNS = """
-            state, worker_id, status, variables, messages, attempt, last_error,
-              scheduled_at, available_at, deadline_at""";
+            state, worker_id, status, variables, timers, messages, attempt, last_error,
+              next_run_at, every_due_at, after_due_at""";
 
     private static final String SET_STATE = """
-            state = ?, worker_id = ?, status = ?, variables = ?, messages = ?, attempt = ?, last_error = ?,
-              scheduled_at = ?, available_at = ?, deadline_at = ?, row_version = row_version + 1, update_at = ?
+            state = ?, worker_id = ?, status = ?, variables = ?, timers = ?, messages = ?, attempt = ?, last_error = ?,
+              next_run_at = ?, every_due_at = ?, after_due_at = ?, row_version = row_version + 1, updated_at = ?
             """;
 
     private static final String SELECT_PROCESS_SQL = "select id, business_key, type, correlation_id, row_version, "
@@ -42,7 +42,7 @@ public class ProcessInstanceDao {
     private static final String FOR_UPDATE = " for update";
 
     private static final String INSERT_PROCESS_SQL = "insert into xs_process_instance (" + STATE_COLUMNS
-            + ", create_at, id, business_key, type, correlation_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            + ", created_at, id, business_key, type, correlation_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String UPDATE_PROCESS_SQL = "update xs_process_instance set " + SET_STATE + " where id = ?";
 
@@ -56,10 +56,10 @@ public class ProcessInstanceDao {
             update xs_process_instance set
               attempt = attempt + 1,
               last_error = ?,
-              available_at = ?,
+              next_run_at = ?,
               lease_owner = null,
               row_version = row_version + 1,
-              update_at = ?
+              updated_at = ?
             where id = ? and lease_owner = ?
             """;
 
@@ -71,7 +71,7 @@ public class ProcessInstanceDao {
             select type,
                    sum(case when status = 'ACTIVE' then 1 else 0 end) as active_count,
                    sum(case when status = 'FAILED' then 1 else 0 end) as failed_count,
-                   sum(case when status = 'ACTIVE' and scheduled_at <= ? then 1 else 0 end) as overdue_count
+                   sum(case when status = 'ACTIVE' and next_run_at <= ? then 1 else 0 end) as overdue_count
             from xs_process_instance
             where status <> 'COMPLETED'
             group by type
@@ -84,12 +84,12 @@ public class ProcessInstanceDao {
 
     private static final String READY_FOR_WORKER_CONDITION = """
             from xs_process_instance
-            where worker_id = ? and status = 'ACTIVE' and lease_owner is null and available_at <= ?
+            where worker_id = ? and status = 'ACTIVE' and lease_owner is null and next_run_at <= ?
             """;
 
     private static final String COUNT_READY_FOR_WORKER_SQL = "select count(*) " + READY_FOR_WORKER_CONDITION;
 
-    private static final String OLDEST_READY_FOR_WORKER_SQL = "select min(available_at) " + READY_FOR_WORKER_CONDITION;
+    private static final String OLDEST_READY_FOR_WORKER_SQL = "select min(next_run_at) " + READY_FOR_WORKER_CONDITION;
 
     private static final String INSERT_PROCESS_STATE_HIST_SQL = """
             insert into xs_process_state_hist (id, link_process_instance, state, changed_at)
@@ -157,12 +157,13 @@ public class ProcessInstanceDao {
                 rs.getString("correlation_id"),
                 ProcessStatus.valueOf(rs.getString("status")),
                 rs.getString("variables"),
+                rs.getString("timers"),
                 rs.getString("messages"),
                 rs.getInt("attempt"),
                 rs.getString("last_error"),
-                DateTimeUtils.toInstant(rs.getTimestamp("scheduled_at")),
-                DateTimeUtils.toInstant(rs.getTimestamp("available_at")),
-                DateTimeUtils.toInstant(rs.getTimestamp("deadline_at")));
+                DateTimeUtils.toInstant(rs.getTimestamp("next_run_at")),
+                DateTimeUtils.toInstant(rs.getTimestamp("every_due_at")),
+                DateTimeUtils.toInstant(rs.getTimestamp("after_due_at")));
     }
 
     private ClaimedProcess mapClaimedProcessRow(ResultSet rs, ProcessLease lease) throws SQLException {
@@ -224,9 +225,9 @@ public class ProcessInstanceDao {
      *
      * @throws LeaseLostException if the lease is lost
      */
-    public void postponeClaimed(ProcessLease lease, Instant availableAt, String error) {
+    public void postponeClaimed(ProcessLease lease, Instant nextRunAt, String error) {
         var updated = database.update(POSTPONE_CLAIMED_PROCESS_SQL,
-                error, availableAt, clock.instant(), lease.processId(), lease.ownerId());
+                error, nextRunAt, clock.instant(), lease.processId(), lease.ownerId());
         if (updated != 1) {
             throw new LeaseLostException(lease.processId());
         }
@@ -239,12 +240,13 @@ public class ProcessInstanceDao {
                 process.getWorkerId().map(WorkerId::name).orElse(null),
                 process.getStatus().name(),
                 process.getVariables().serializeToString(),
+                process.getTimers().serializeToString(),
                 process.getMessages().serializeToString(),
                 process.getAttempt(),
                 process.getLastError().orElse(null),
-                process.getScheduledAt().orElse(null),
-                process.getAvailableAt().orElse(null),
-                process.getDeadlineAt().orElse(null)));
+                process.getNextRunAt().orElse(null),
+                process.getEveryDueAt().orElse(null),
+                process.getAfterDueAt().orElse(null)));
         params.addAll(Arrays.asList(tail));
         return params.toArray();
     }
@@ -258,7 +260,7 @@ public class ProcessInstanceDao {
     /**
      * Counts incomplete processes per type in one query, ordered by type name.
      *
-     * @param overdueAt an {@code ACTIVE} process with {@code scheduled_at <= overdueAt} counts as overdue
+     * @param overdueAt an {@code ACTIVE} process with {@code next_run_at <= overdueAt} counts as overdue
      */
     public List<ProcessTypeCounts> countIncompleteByType(Instant overdueAt) {
         return database.queryForList(COUNT_INCOMPLETE_BY_TYPE_SQL, rs -> new ProcessTypeCounts(
@@ -281,7 +283,7 @@ public class ProcessInstanceDao {
     }
 
     /**
-     * Returns how long the oldest ready unclaimed process of the worker has been waiting since {@code available_at};
+     * Returns how long the oldest ready unclaimed process of the worker has been waiting since {@code next_run_at};
      * zero if there is none.
      */
     public Duration oldestReadyAgeForWorker(WorkerId workerId) {

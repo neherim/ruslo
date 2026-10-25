@@ -53,7 +53,7 @@ class ProcessDispatchSchedulerTest {
     @Test
     void shouldWakeUpWhenNextProcessBecomesAvailable() {
         var dispatcher = new BacklogDispatcher(0);
-        dispatcher.nextAvailableAt = Instant.now().plusMillis(300);
+        dispatcher.nextRunAt = Instant.now().plusMillis(300);
         var scheduler = new ProcessDispatchScheduler(Duration.ofSeconds(30), Duration.ofSeconds(30), dispatcher,
                 new ProcessDispatchSignal(), Clock.systemUTC());
         try {
@@ -66,9 +66,9 @@ class ProcessDispatchSchedulerTest {
     }
 
     @Test
-    void pastNextAvailableAtShouldKeepBackoff() throws InterruptedException {
+    void pastNextRunAtShouldKeepBackoff() throws InterruptedException {
         var dispatcher = new BacklogDispatcher(0);
-        dispatcher.nextAvailableAt = Instant.now().minusSeconds(1);
+        dispatcher.nextRunAt = Instant.now().minusSeconds(1);
         var scheduler = new ProcessDispatchScheduler(Duration.ofSeconds(30), Duration.ofSeconds(30), dispatcher,
                 new ProcessDispatchSignal(), Clock.systemUTC());
         try {
@@ -98,7 +98,7 @@ class ProcessDispatchSchedulerTest {
             }
 
             @Override
-            public Optional<Instant> nextAvailableAt() {
+            public Optional<Instant> nextRunAt() {
                 return Optional.empty();
             }
         };
@@ -151,7 +151,7 @@ class ProcessDispatchSchedulerTest {
     private static final class BacklogDispatcher implements ProcessDispatcher {
         private final AtomicInteger remaining;
         private final AtomicInteger cycles = new AtomicInteger();
-        private volatile Instant nextAvailableAt;
+        private volatile Instant nextRunAt;
 
         private BacklogDispatcher(int successfulCycles) {
             remaining = new AtomicInteger(successfulCycles);
@@ -164,8 +164,8 @@ class ProcessDispatchSchedulerTest {
         }
 
         @Override
-        public Optional<Instant> nextAvailableAt() {
-            return Optional.ofNullable(nextAvailableAt);
+        public Optional<Instant> nextRunAt() {
+            return Optional.ofNullable(nextRunAt);
         }
     }
 }

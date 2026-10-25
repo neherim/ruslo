@@ -20,33 +20,78 @@ timer stays for a retry. The [error policy](error-handling.md) applies next.
 One run of an await handles **at most one** event. Every event has a time:
 
 - a message: the moment `sendMessage` stored it;
-- `every`: the scheduled check time;
-- `timeout`: the deadline.
+- `every`: the planned grid point, `entering the await + initialDelay + k * interval`;
+- `after`: entering the await plus `delay`, computed on entering;
+- `at`: the moment of its process timer, if the timer is set.
 
-Among due events, the one with the smallest time is handled. On a tie the order is: message, `every`, `timeout`;
-messages with the same time go in arrival order. The moment the dispatcher reached the process does not affect the
-choice. The only exception: if the process is waiting to retry a failed event, a due deadline wins, so a handler
-error does not extend the await.
+An event is due when its time is not later than the engine clock. Among due events, the one with the smallest time
+is handled. On a tie the order is: message, `every`, `after`, `at`; messages with the same time go in arrival order.
+The moment the dispatcher reached the process does not affect the choice.
 
-Example (deadline at 12:00):
+**Taking the event.** The engine takes the selected event before calling its handler: it removes the message, moves
+`every` to the first grid point after the current time, turns `after` off until the await is entered again and
+cancels the `at` timer. If the handler leaves the await, the new state does not need any of it; if it keeps waiting,
+the await goes on with the next events. If the handler fails, the transaction is rolled back together with taking
+the event: the message is back in the queue, the timer is set again, and the retry selects the same event.
+
+**Timer moments.** The `at` moment is taken from the process
+timer the current await declares: `setTimer` and `cancelTimer` (in a handler, a step, or `setProcessTimer` /
+`cancelProcessTimer` in the admin API) move it at once, without entering the await again. Entering an await does not
+change process timers.
+
+Since the `at` timer is cancelled before the handler, a handler that sets the timer again sets the next moment; one
+that does not leaves `at` off.
+
+A moment in the past or equal to now is an event that is already due, selected by the usual rules: the process
+entered the await after the deadline, a message moved the deadline into the past, or dates were missed during
+downtime (the `at` handler can skip past dates itself). A process timer that no `at` of the current definition
+declares, for example one left by a previous version of the definition, is stored and shown in the details but
+never fires.
+
+**Retry backoff.** A handler error pauses the whole await: until the retry time the process does not run, and new
+messages, due timers and changes of process timers do not wake it. After the pause the event is selected by the
+rules above, usually the failed one: its time is earlier than the others. An error postpones handling but does not
+change the order of events, so the result does not depend on temporary failures. A failed `every`, `after` or `at`
+handler is retried by [`onError`](error-handling.md); the timer stays on until it is handled successfully. The
+`ProcessContext` passed to `onError` can change process timers too: setting one does not wake the process before the
+retry, and cancelling the timer of a failed `at` leaves no event after the backoff, so the await keeps waiting for
+its other events.
+
+The cost: if a message accepted at 11:59 keeps failing, a deadline at 12:00 does not fire until the message is
+handled or the process leaves the await by its error policy; with unlimited retries it never fires. For a hard
+deadline, limit the retries (`ProcessErrorHandler.fixed(maxRetries, delay)` with a `fallbackState`) or catch the
+error in the handler and return an outcome that keeps the await waiting.
+
+Example (`after(1h)` from entering the await at 11:00, so the deadline is 12:00):
 
 | Situation | Result |
 |---|---|
 | Message accepted at 11:59, handling started at 12:01 | the message is handled |
-| Message accepted at 11:59, its handling failed and was scheduled for retry at 12:05 | `timeout` fires at 12:00 |
+| Message accepted at 11:59, its handling failed and was scheduled for retry at 12:05 | the message is retried at 12:05, `after` waits for it |
+| Message accepted at 11:59, handling at 12:01 failed and was scheduled for retry at 12:06 | the message is retried at 12:06, `after` waits for it |
 | Message accepted at 11:30, its handling failed and was scheduled for retry at 11:35 | the message is retried at 11:35 |
-| Message accepted at 11:59, handled at 12:01 with the await itself as the target | `timeout` fires next |
-| Message accepted at 12:00:30, handling started at 12:01 | `timeout` fires, the message is removed with the queue |
+| Message accepted at 11:59, handled at 12:01 with the await itself as the target | `after` fires right after it |
+| Message accepted at 12:00:30, handling started at 12:01 | `after` fires, the message is removed with the queue |
+| `after` handler failed at 12:00 and was scheduled for retry at 12:05, `at` is 12:02 | `after` is retried at 12:05, `at` waits for it |
+| A message accepted at 11:30 failed and was scheduled for retry at 11:35; `at` was moved from 13:00 to 11:32 | the message is retried at 11:35 |
 
 Consequences:
 
-- a message accepted after the deadline but before it is handled is removed on the `timeout` transition,
+- a message accepted after the deadline but before it is handled is removed on the deadline transition,
   although `sendMessage` returned successfully;
 - a late `every` sees the current state of the external system: a check scheduled for 11:58
   and run at 12:01 may see a change made after the deadline;
-- `every` checks missed during downtime are not run in a batch: one runs, and the next is scheduled from the
-  moment of handling;
-- timers do not fire in status `FAILED`; after `resumeFailedProcess` the event is selected by these rules again.
+- `every` checks missed during downtime are not run in a batch: one runs, and the next is the first point of the
+  grid after it starts; a point passed while the check ran fires right after it;
+- a late check does not shift the grid, so the check after it may come sooner than `interval`: there is no minimum
+  interval between checks. With `every(10m)` and a deadline at 12:00, the 12:00 check runs before `after`
+  however late the previous checks were;
+- timers do not fire in status `FAILED`, and a change of a process timer does not wake such a process; after
+  `resumeFailedProcess` the event is selected by these rules again.
+
+A process taken with no due event, for example after `next_run_at` was changed by hand
+([operations.md](operations.md#editing-timers-in-sql)), only recomputes its next run: no handler runs, no attempt is
+counted and no history row is written.
 
 ## Concurrent access
 
@@ -83,7 +128,7 @@ in the active application transaction or in a new one. The process row stays loc
 
 - Only the handler of this message runs synchronously, not the process until it stops; the dispatcher runs the
   following steps after commit.
-- The message bypasses the queue: earlier messages and due `every`/`timeout` are ignored, and on a transition to
+- The message bypasses the queue: earlier messages and due `every`, `after` and `at` are ignored and keep waiting, and on a transition to
   another state the queued messages are removed unhandled. If the process is waiting to retry a failed event, that
   retry is kept.
 - Applicability is checked as in `sendMessage`: if the process is not waiting for the message now or has completed,

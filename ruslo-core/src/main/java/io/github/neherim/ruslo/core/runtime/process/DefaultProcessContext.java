@@ -2,6 +2,7 @@ package io.github.neherim.ruslo.core.runtime.process;
 
 import io.github.neherim.ruslo.core.api.definition.*;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -63,6 +64,24 @@ public class DefaultProcessContext implements ProcessContext {
     }
 
     @Override
+    public void setTimer(TimerType timer, Instant moment) {
+        processInstance.getProcessSpec().checkTimerDeclared(timer);
+        processInstance.setTimer(timer, moment);
+    }
+
+    @Override
+    public boolean cancelTimer(TimerType timer) {
+        processInstance.getProcessSpec().checkTimerDeclared(timer);
+        return processInstance.cancelTimer(timer);
+    }
+
+    @Override
+    public Optional<Instant> getTimer(TimerType timer) {
+        processInstance.getProcessSpec().checkTimerDeclared(timer);
+        return processInstance.getTimer(timer);
+    }
+
+    @Override
     public int attempt() {
         return processInstance.getAttempt();
     }
@@ -70,5 +89,10 @@ public class DefaultProcessContext implements ProcessContext {
     @Override
     public Optional<String> businessKey() {
         return processInstance.getBusinessKey();
+    }
+
+    @Override
+    public Instant now() {
+        return processInstance.now();
     }
 }

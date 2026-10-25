@@ -1385,9 +1385,11 @@ time.relative-time.overdue {
 }
 
 #tab-vars:checked    ~ .tab-panel[data-tab="vars"],
+#tab-timers:checked  ~ .tab-panel[data-tab="timers"],
 #tab-history:checked ~ .tab-panel[data-tab="history"] { display: block; }
 
 #tab-vars:checked    ~ .tab-bar > label[for="tab-vars"],
+#tab-timers:checked  ~ .tab-bar > label[for="tab-timers"],
 #tab-history:checked ~ .tab-bar > label[for="tab-history"] {
     background: transparent;
     color: var(--ink);
@@ -1507,6 +1509,19 @@ details.variable-value[open] > summary {
     border-radius: 6px;
     background: var(--surface-2);
     white-space: pre;
+}
+
+.timers-table .badge {
+    margin-left: 8px;
+}
+
+.timers-table .icon-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+#timers-status:not(:empty) {
+    margin-top: 12px;
 }
 
 .variable-add-bar {

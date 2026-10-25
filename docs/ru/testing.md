@@ -29,8 +29,9 @@
 
 ## Таймеры и повторы
 
-Таймеры `every`, `timeout` и задержки `retryAfter` наступают, когда время перемотано эмулятором
-(`fastForwardTime` или `setTime`). Собственные бины `Clock` приложения на часы движка не влияют:
+Таймеры `every` и `after`, таймеры процесса для `at` и задержки `retryAfter`, в том числе у шагов, наступают, когда время перемотано
+эмулятором (`fastForwardTime` или `setTime`): `runUntilStop` останавливается на шаге, ждущем повтора, `runOneStep`
+выполняет его сразу. Собственные бины `Clock` приложения на часы движка не влияют:
 
 ```java
 @ProcessEngineTest
@@ -50,7 +51,7 @@ class OrderServiceTest {
         var waiting = emulator.runUntilStop(processId);
         assertTrue(waiting.state().is(State.WAITING_FOR_DELIVERY_TIMER));
 
-        emulator.fastForwardTime(Duration.ofSeconds(11));   // timeout ожидания — 10 секунд
+        emulator.fastForwardTime(Duration.ofSeconds(11));   // ожидание ждёт after(10 секунд)
 
         var completed = emulator.runUntilStop(processId);
         assertEquals(ProcessStatus.COMPLETED, completed.status());
@@ -58,8 +59,26 @@ class OrderServiceTest {
 }
 ```
 
-Полные примеры в `ruslo-examples/cookbook`: рецепты `deadline` (таймер) и `retries` (повторы и запасное
-состояние).
+Срок таймера процесса (`at`) тестируется через `setTime`. Обработчики берут время из `context.now()` — часов
+движка, поэтому шаг, ставящий таймер, видит время, заданное тестом. Поставленные таймеры показывает
+`details.timers()`:
+
+```java
+var start = Instant.parse("2026-10-07T10:00:00Z");
+emulator.setTime(start);
+var processId = processEngine.newProcess(SeatReservationDefinition.TYPE).start();
+var waiting = emulator.runUntilStop(processId);      // шаг ставит PAYMENT_DUE = context.now() + 15 минут
+assertEquals(start.plus(SeatReservationDefinition.PAYMENT_TIME),
+        waiting.timers().get(SeatReservationDefinition.PAYMENT_DUE.name()));
+
+emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
+assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
+```
+
+Обработчик, вызывающий `Instant.now()`, видит системное время, и такой тест падает.
+
+Полные примеры в `ruslo-examples/cookbook`: рецепты `deadline` (таймер `at`), `subscription` (расписание по датам)
+и `retries` (повторы и запасное состояние).
 
 Временем управляйте через эмулятор, внедрять часы движка в тест не нужно. Чтобы задать собственные начальные часы,
 объявите в тестовой конфигурации бин `MutableClock` (`core.api.test`) с именем `processEngineClock` и
@@ -96,11 +115,15 @@ assertEquals(Set.of("order", "paymentId"), context.variableNames());
 | `processType(ProcessType)`, `state(ProcessState)` | `"test"` |
 | `attempt(int)` | `0` |
 | `businessKey(String)` | нет |
+| `now(Instant)` | `now()` по системным часам |
 | `variable(VariableType<T>, T)`, `variable(String, Object)` | без переменных |
+| `timer(TimerType, Instant)` | без таймеров |
 | `jsonMapper(ObjectMapper)` | mapper движка по умолчанию; укажите тот же, что в `ProcessEngineBuilder.withJsonMapper` |
 
 `TestProcessContext.create()` — контекст со значениями по умолчанию. Помимо методов `ProcessContext` есть
-`variableNames()` — имена всех переменных. Пример: `CheckApplicationStepTest` рецепта `branching` в
+`variableNames()` — имена всех переменных, и `timers()` — поставленные таймеры по имени. Моменты таймеров усекаются
+до микросекунд, как в движке. Контекст не знает определения, поэтому `setTimer` не проверяет, что таймер объявлен в
+`at`. Пример: `CheckApplicationStepTest` рецепта `branching` в
 `ruslo-examples/cookbook`.
 
 ## Что эмулятор не проверяет

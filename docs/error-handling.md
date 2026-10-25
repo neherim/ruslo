@@ -18,14 +18,16 @@ ErrorResult handle(ProcessContext context, ProcessError error);
 `ProcessError` contains:
 
 - `cause`: the handler's exception;
-- `attempt`: the number of previous failed attempts in the current state (`0` for the first error).
+- `attempt`: the number of previous failed attempts in the current state (`0` for the first error). In an await
+  these are consecutive errors of the await, whichever events failed.
 
 Read the rest (process id, type, state, variables) from `ProcessContext`.
 
 The handler returns one of three results:
 
-- `ErrorResult.retryAfter(delay)`: retry the failed event after `delay`. New messages are accepted while the retry
-  is pending, but are not handled before it.
+- `ErrorResult.retryAfter(delay)`: retry after `delay`. A step runs again; an await runs again and selects the
+  earliest due event, usually the failed one. New messages are accepted while the retry is pending, but neither
+  they nor due timers are handled before it (see [execution.md](execution.md#await-event-selection)).
 - `ErrorResult.fail()`: stop the process in the current state with status `FAILED`. Continue with
   `resumeFailedProcess(id)`, which retries the failed event.
 - `ErrorResult.fallback()`: go to the process fallback state (see below), or to `FAILED` if there is none.
@@ -79,13 +81,14 @@ A custom handler:
 - The failed handler's transaction is rolled back before the error handler is called; the error handler sees the
   last saved process state.
 - `ProcessContext` changes made by the error handler are saved atomically with its result.
-- With `retryAfter` and `fail`, the failed event is not considered handled. If the await deadline passes while the
-  retry is pending, `timeout` fires (see [execution.md](execution.md#await-event-selection)).
+- With `retryAfter` and `fail`, the failed event is not considered handled.
 - If the error handler itself throws or returns `null`, the failed event is retried after 60 seconds;
   `lastError` keeps the original error.
 - A branching handler that returns `null` is treated as failed with `IllegalStateException` and goes through the
   same policy.
-- A successful handler resets `attempt` and `lastError`.
+- A successful handler resets `attempt` and `lastError`. Edge case: if the `at` timer is moved during a retry
+  backoff to a moment before the failed event, `at` fires after the backoff instead of the retry; if its target is
+  the await itself, its success resets `attempt`.
 - `lastError` stores `SimpleClassName: message` (`UnsupportedCountryException: Unsupported country: XX`);
   without a message, only the class name. The text is truncated to 1024 characters. The stack trace and causes
   (`getCause()`) are not stored: find them in the log by the process id.

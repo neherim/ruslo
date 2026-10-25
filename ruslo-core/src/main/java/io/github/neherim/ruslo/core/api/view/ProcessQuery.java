@@ -37,11 +37,11 @@ public interface ProcessQuery {
 
     ProcessQuery byCorrelationId(String correlationId);
 
-    /** Keeps processes with {@code scheduledAt >= scheduledAtFrom}. */
-    ProcessQuery byScheduledAtFrom(Instant scheduledAtFrom);
+    /** Keeps processes with {@code nextRunAt >= nextRunAtFrom}. */
+    ProcessQuery byNextRunAtFrom(Instant nextRunAtFrom);
 
-    /** Keeps processes with {@code scheduledAt <= scheduledAtTo}. */
-    ProcessQuery byScheduledAtTo(Instant scheduledAtTo);
+    /** Keeps processes with {@code nextRunAt <= nextRunAtTo}. */
+    ProcessQuery byNextRunAtTo(Instant nextRunAtTo);
 
     /** Keeps processes with {@code createdAt >= createdAtFrom}. */
     ProcessQuery byCreatedAtFrom(Instant createdAtFrom);

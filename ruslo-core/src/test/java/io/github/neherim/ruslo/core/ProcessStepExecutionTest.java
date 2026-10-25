@@ -55,9 +55,10 @@ class ProcessStepExecutionTest extends BaseTest {
                     () -> new ProcessEngineAdmin(engine).sendMessage(id, SIGNAL.name(), "early"));
             emulator(engine).runUntilStop(id);
             assertEquals(State.WAIT.name(), engine.processes().byId(id).singleDetails().orElseThrow().state().name());
+            assertTrue(engine.processes().byId(id).singleDetails().orElseThrow().nextRunAt().isEmpty());
             engine.sendMessage(id, SIGNAL, "accepted");
             assertEquals(0, handled.get());
-            assertTrue(engine.processes().byId(id).singleDetails().orElseThrow().scheduledAt().isEmpty());
+            assertTrue(engine.processes().byId(id).singleDetails().orElseThrow().nextRunAt().isPresent());
             emulator(engine).runOneStep(id);
             assertEquals(1, handled.get());
             assertEquals(0, actionRan.get());
@@ -100,7 +101,7 @@ class ProcessStepExecutionTest extends BaseTest {
             .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
                 handled.incrementAndGet();
-            }, State.WAIT).timeout(Duration.ofDays(1), State.DONE))
+            }, State.WAIT).after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
         var engine = newProcessEngineWith(definition);
@@ -126,7 +127,7 @@ class ProcessStepExecutionTest extends BaseTest {
             .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
                 received.add(message.payload());
-            }, State.WAIT).timeout(Duration.ofDays(1), State.DONE))
+            }, State.WAIT).after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
         var firstEngine = newProcessEngineWith(definition);
@@ -154,7 +155,7 @@ class ProcessStepExecutionTest extends BaseTest {
         ProcessDefinition definition = builder -> builder.type("TIMER")
             .initialState(State.START)
             .step(State.START, context -> {}, State.WAIT)
-            .await(State.WAIT, await -> await.timeout(Duration.ofSeconds(5), State.DONE))
+            .await(State.WAIT, await -> await.after(Duration.ofSeconds(5), State.DONE))
             .terminal(State.DONE)
             .build();
         var engine = new ProcessEngineBuilder(database).withClock(clock)
@@ -225,7 +226,7 @@ class ProcessStepExecutionTest extends BaseTest {
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
                 received.add(message.payload());
                 if (fail.get()) throw new IllegalStateException("handler failed");
-            }, State.WAIT).timeout(Duration.ofDays(1), State.DONE))
+            }, State.WAIT).after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
         var engine = newProcessEngineWith(definition);
@@ -270,7 +271,7 @@ class ProcessStepExecutionTest extends BaseTest {
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
                 received.add(message.payload());
                 if (fail.get()) throw new IllegalStateException("retry");
-            }, State.WAIT).timeout(Duration.ofDays(1), State.DONE))
+            }, State.WAIT).after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
         var engine = new ProcessEngineBuilder(database).withClock(clock)
@@ -313,7 +314,7 @@ class ProcessStepExecutionTest extends BaseTest {
             .await(State.WAIT, await -> await
                 .message(SIGNAL, (context, message) -> selected.add("message"), State.WAIT)
                 .every(Duration.ofSeconds(5), context -> selected.add("timer"), State.WAIT)
-                .timeout(Duration.ofDays(1), State.DONE))
+                .after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
         var engine = new ProcessEngineBuilder(database).withClock(clock)
@@ -343,7 +344,7 @@ class ProcessStepExecutionTest extends BaseTest {
             .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
                 handled.add(message.payload());
-            }, State.WAIT).timeout(Duration.ofDays(1), State.DONE))
+            }, State.WAIT).after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
         var engine = newProcessEngineWith(definition);
@@ -454,7 +455,7 @@ class ProcessStepExecutionTest extends BaseTest {
             .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
                 received.add(message.payload());
-            }, State.WAIT).timeout(Duration.ofDays(1), State.DONE))
+            }, State.WAIT).after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
         var engine = newProcessEngineWith(definition);
@@ -475,7 +476,7 @@ class ProcessStepExecutionTest extends BaseTest {
     }
 
     @Test
-    void timerSelfTargetUsesHandlingTimeAndFailureKeepsDueTimer() {
+    void timerSelfTargetKeepsGridAndFailureKeepsDueTimer() {
         var clock = new MutableClock(Instant.parse("2026-09-24T10:00:00Z"));
         var fail = new AtomicBoolean(true);
         var handled = new AtomicInteger();
@@ -486,7 +487,7 @@ class ProcessStepExecutionTest extends BaseTest {
             .await(State.WAIT, await -> await.every(Duration.ofSeconds(5), context -> {
                 handled.incrementAndGet();
                 if (fail.get()) throw new IllegalStateException("timer failed");
-            }, State.WAIT).timeout(Duration.ofDays(1), State.DONE))
+            }, State.WAIT).after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
         var engine = new ProcessEngineBuilder(database).withClock(clock)
@@ -498,18 +499,18 @@ class ProcessStepExecutionTest extends BaseTest {
         try {
             var id = engine.newProcess(ProcessType.of("TIMER_RETRY")).start();
             emulator(engine, 20).runOneStep(id);
-            var firstDue = engine.processes().byId(id).singleDetails().orElseThrow().scheduledAt().orElseThrow();
+            var firstDue = engine.processes().byId(id).singleDetails().orElseThrow().nextRunAt().orElseThrow();
             clock.advance(Duration.ofSeconds(8));
             emulator(engine, 20).runOneStep(id);
             var failed = engine.processes().byId(id).singleDetails().orElseThrow();
             assertEquals(ProcessStatus.FAILED, failed.status());
-            assertEquals(firstDue, failed.scheduledAt().orElseThrow());
+            assertTrue(failed.nextRunAt().isEmpty());
             fail.set(false);
             engine.resumeFailedProcess(id);
             emulator(engine, 20).runOneStep(id);
             assertEquals(2, handled.get());
-            assertEquals(clock.instant().plusSeconds(5),
-                    engine.processes().byId(id).singleDetails().orElseThrow().scheduledAt().orElseThrow());
+            assertEquals(firstDue.plusSeconds(5),
+                    engine.processes().byId(id).singleDetails().orElseThrow().nextRunAt().orElseThrow());
         } finally {
             engine.close();
         }
@@ -590,7 +591,7 @@ class ProcessStepExecutionTest extends BaseTest {
                     handled.add(message.payload());
                     return message.payload().equals("restart") ? Outcome.FIRST : Outcome.SECOND;
                 }, routes -> routes.on(Outcome.FIRST, State.AFTER).on(Outcome.SECOND, State.WAIT))
-                .timeout(Duration.ofSeconds(50), State.DONE))
+                .after(Duration.ofSeconds(50), State.DONE))
             .step(State.AFTER, context -> {}, State.WAIT)
             .terminal(State.DONE)
             .build();
@@ -623,12 +624,12 @@ class ProcessStepExecutionTest extends BaseTest {
     }
 
     @Test
-    void timeoutRunsHandlerThenEntersTarget() {
+    void afterRunsHandlerThenEntersTarget() {
         var clock = new MutableClock(Instant.parse("2026-09-24T10:00:00Z"));
         var reasons = new ArrayList<String>();
-        ProcessDefinition definition = builder -> builder.type("TIMEOUT")
+        ProcessDefinition definition = builder -> builder.type("AFTER")
             .initialState(State.WAIT)
-            .await(State.WAIT, await -> await.timeout(Duration.ofSeconds(5),
+            .await(State.WAIT, await -> await.after(Duration.ofSeconds(5),
                     context -> reasons.add("timeout"), State.DONE))
             .terminal(State.DONE)
             .build();
@@ -639,10 +640,10 @@ class ProcessStepExecutionTest extends BaseTest {
             .build()
             .start();
         try {
-            var id = engine.newProcess(ProcessType.of("TIMEOUT")).start();
+            var id = engine.newProcess(ProcessType.of("AFTER")).start();
             var started = engine.processes().byId(id).singleDetails().orElseThrow();
             assertEquals(State.WAIT.name(), started.state().name());
-            assertTrue(started.scheduledAt().isEmpty());
+            assertEquals(Optional.of(Instant.parse("2026-09-24T10:00:05Z")), started.nextRunAt());
             assertEquals(State.WAIT.name(), emulator(engine, 20).runOneStep(id).state().name());
             assertTrue(reasons.isEmpty());
             clock.advance(Duration.ofSeconds(5));

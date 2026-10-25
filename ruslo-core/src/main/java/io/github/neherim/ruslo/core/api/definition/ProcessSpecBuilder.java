@@ -123,7 +123,7 @@ public class ProcessSpecBuilder {
             var id = Draft.id(state);
             var events = new AwaitBuilder(id, draft);
             requireNonNull(definition, "Await definition cannot be null").accept(events);
-            draft.add(state, new AwaitState(id, events.messages, events.every, events.timeout));
+            draft.add(state, new AwaitState(id, events.messages, events.every, events.after, events.at));
             return this;
         }
 
@@ -173,8 +173,8 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Sets the delay of the first check after entering the await; defaults to the interval.
-         * {@link Duration#ZERO} checks immediately.
+         * Sets the delay of the first check after entering the await, the start of the check grid; defaults to the
+         * interval. {@link Duration#ZERO} checks immediately.
          */
         public EveryOptions initialDelay(Duration initialDelay) {
             this.initialDelay = requireNonNull(initialDelay, "Initial delay cannot be null");
@@ -212,11 +212,13 @@ public class ProcessSpecBuilder {
 
     /** Events of one await. */
     public static class AwaitBuilder {
+        private static final Function<ProcessContext, Enum<?>> NO_HANDLER = context -> null;
         private final ProcessStateId state;
         private final Draft draft;
         private final List<MessageEvent<?>> messages = new ArrayList<>();
         private EveryEvent every;
-        private TimeoutEvent timeout;
+        private AfterEvent after;
+        private AtEvent at;
 
         private AwaitBuilder(ProcessStateId state, Draft draft) {
             this.state = state;
@@ -263,7 +265,11 @@ public class ProcessSpecBuilder {
 
         /**
          * Calls {@code handler} every {@code interval} and moves to {@code next}. If {@code next} is this await,
-         * the process keeps waiting and the next check is scheduled after {@code interval}.
+         * the process keeps waiting until the next check.
+         * <p>
+         * Checks follow a grid: entering the await plus {@code initialDelay} plus {@code k * interval}. A late check
+         * does not shift the next ones; missed points are skipped, and the next check is the first point after the
+         * check starts.
          */
         public AwaitBuilder every(Duration interval, ProcessTimerHandler handler, ProcessState next) {
             return every(interval, handler, next, options -> {});
@@ -285,7 +291,8 @@ public class ProcessSpecBuilder {
 
         /**
          * Calls {@code handler} every {@code interval}; its outcome selects the target in {@code routes}.
-         * A target equal to this await keeps waiting until the next check.
+         * A target equal to this await keeps waiting until the next check. Checks follow the grid described in
+         * {@link #every(Duration, ProcessTimerHandler, ProcessState)}.
          */
         public <O extends Enum<O>> AwaitBuilder every(
                 Duration interval,
@@ -324,29 +331,94 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Moves to {@code next} {@code delay} after entering the await. {@code next} must not be this await.
+         * Moves to {@code next} {@code delay} after entering the await. {@code next} must not be this await: without
+         * a handler the event would do nothing.
          */
-        public AwaitBuilder timeout(Duration delay, ProcessState next) {
-            return addTimeout(delay, null, next);
+        public AwaitBuilder after(Duration delay, ProcessState next) {
+            return addAfter(delay, NO_HANDLER, withoutHandler(next, "after"));
         }
 
         /**
-         * Calls {@code handler} {@code delay} after entering the await, then moves to {@code next}.
-         * {@code next} must not be this await.
+         * Calls {@code handler} {@code delay} after entering the await, then moves to {@code next}. If {@code next}
+         * is this await, the timer is off until the await is entered again (see {@link ProcessSpec.AfterEvent}) and
+         * the process keeps waiting for the other events.
          */
-        public AwaitBuilder timeout(Duration delay, ProcessTimerHandler handler, ProcessState next) {
-            return addTimeout(delay, requireNonNull(handler, "Timeout handler cannot be null"), next);
+        public AwaitBuilder after(Duration delay, ProcessTimerHandler handler, ProcessState next) {
+            requireNonNull(handler, "Timer handler cannot be null");
+            return addAfter(delay, context -> {
+                handler.handle(context);
+                return null;
+            }, new Target(Draft.id(next)));
         }
 
-        private AwaitBuilder addTimeout(Duration delay, ProcessTimerHandler handler, ProcessState next) {
-            requirePositive(delay, "timeout");
-            if (timeout != null) throw new IllegalArgumentException("Duplicate timeout in " + where());
-            if (state.is(Draft.id(next))) {
-                throw new IllegalArgumentException("Timeout in " + where()
-                        + " cannot target its own await state; use a step to restart waiting");
-            }
-            timeout = new TimeoutEvent(delay, handler, Draft.id(next));
+        /**
+         * Calls {@code handler} {@code delay} after entering the await; its outcome selects the target in
+         * {@code routes}, as in {@link #after(Duration, ProcessTimerHandler, ProcessState)}.
+         */
+        public <O extends Enum<O>> AwaitBuilder after(
+                Duration delay,
+                BranchingTimerHandler<O> handler,
+                Consumer<Routes<O>> routes
+        ) {
+            requireNonNull(handler, "Timer handler cannot be null");
+            return addAfter(delay, handler::handle, draft.routes(routes, where("after")));
+        }
+
+        private AwaitBuilder addAfter(Duration delay, Function<ProcessContext, Enum<?>> handler, Exit exit) {
+            requirePositive(delay, "after");
+            if (after != null) throw new IllegalArgumentException("Duplicate after in " + where());
+            after = new AfterEvent(delay, handler, exit);
             return this;
+        }
+
+        /**
+         * Moves to {@code next} when {@code timer} is due (see {@link ProcessSpec.AtEvent}). {@code next} must not
+         * be this await: without a handler the event would do nothing.
+         */
+        public AwaitBuilder at(TimerType timer, ProcessState next) {
+            return addAt(timer, NO_HANDLER, withoutHandler(next, "at"));
+        }
+
+        /**
+         * Calls {@code handler} when {@code timer} is due, then moves to {@code next}. The timer is cancelled before
+         * the handler (see {@link ProcessSpec.AtEvent}): if {@code next} is this await, the process waits for the
+         * other events and for the timer the handler sets again.
+         */
+        public AwaitBuilder at(TimerType timer, ProcessTimerHandler handler, ProcessState next) {
+            requireNonNull(handler, "Timer handler cannot be null");
+            return addAt(timer, context -> {
+                handler.handle(context);
+                return null;
+            }, new Target(Draft.id(next)));
+        }
+
+        /**
+         * Calls {@code handler} when {@code timer} is due; its outcome selects the target in {@code routes}, as in
+         * {@link #at(TimerType, ProcessTimerHandler, ProcessState)}.
+         */
+        public <O extends Enum<O>> AwaitBuilder at(
+                TimerType timer,
+                BranchingTimerHandler<O> handler,
+                Consumer<Routes<O>> routes
+        ) {
+            requireNonNull(handler, "Timer handler cannot be null");
+            return addAt(timer, handler::handle, draft.routes(routes, where("at")));
+        }
+
+        private AwaitBuilder addAt(TimerType timer, Function<ProcessContext, Enum<?>> handler, Exit exit) {
+            requireNonNull(timer, "Timer type cannot be null");
+            if (at != null) throw new IllegalArgumentException("Duplicate at in " + where());
+            at = new AtEvent(timer, handler, exit);
+            return this;
+        }
+
+        private Target withoutHandler(ProcessState next, String event) {
+            var target = Draft.id(next);
+            if (state.is(target)) {
+                throw new IllegalArgumentException(where(event) + " without a handler cannot target its own await "
+                        + "state: it would do nothing");
+            }
+            return new Target(target);
         }
 
         private void requirePositive(Duration duration, String event) {
@@ -436,11 +508,11 @@ public class ProcessSpecBuilder {
 
         private void checkAwait(AwaitState await, Map<String, Class<?>> payloads) {
             var where = "await state " + await.state().name();
-            if (await.messages().isEmpty() && await.every() == null && await.timeout() == null) {
+            if (await.messages().isEmpty() && await.every() == null && await.after() == null && await.at() == null) {
                 throw new IllegalArgumentException(where + " of process " + type.name()
-                        + " has no message, every or timeout");
+                        + " has no message, every, after or at");
             }
-            var hasExit = await.timeout() != null;
+            var hasExit = false;
             for (var message : await.messages()) {
                 var existing = payloads.putIfAbsent(message.type().name(), message.type().clazz());
                 if (existing != null && !existing.equals(message.type().clazz())) {
@@ -454,8 +526,13 @@ public class ProcessSpecBuilder {
                 checkExit(await.every().exit(), "every in " + where);
                 hasExit |= leaves(await.every().exit(), await.state());
             }
-            if (await.timeout() != null) {
-                checkDeclared(await.timeout().next(), "timeout in " + where);
+            if (await.after() != null) {
+                checkExit(await.after().exit(), "after in " + where);
+                hasExit |= leaves(await.after().exit(), await.state());
+            }
+            if (await.at() != null) {
+                checkExit(await.at().exit(), "at in " + where);
+                hasExit |= leaves(await.at().exit(), await.state());
             }
             if (!hasExit) {
                 throw new IllegalArgumentException(where + " of process " + type.name()

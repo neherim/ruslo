@@ -84,14 +84,14 @@ final class DefaultProcessQuery implements ProcessQuery {
     }
 
     @Override
-    public ProcessQuery byScheduledAtFrom(Instant scheduledAtFrom) {
-        criteria.scheduledAtFrom(scheduledAtFrom);
+    public ProcessQuery byNextRunAtFrom(Instant nextRunAtFrom) {
+        criteria.nextRunAtFrom(nextRunAtFrom);
         return this;
     }
 
     @Override
-    public ProcessQuery byScheduledAtTo(Instant scheduledAtTo) {
-        criteria.scheduledAtTo(scheduledAtTo);
+    public ProcessQuery byNextRunAtTo(Instant nextRunAtTo) {
+        criteria.nextRunAtTo(nextRunAtTo);
         return this;
     }
 

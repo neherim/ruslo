@@ -7,6 +7,7 @@ import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceSummary;
 import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.utils.JsonUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
@@ -17,6 +18,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Admin UI operations on top of {@link ProcessEngine} and {@link ProcessEngineAdmin}. Exceptions of the engine
@@ -36,7 +39,7 @@ public class ProcessEngineAdminService {
 
     /**
      * Returns the dashboard summary: counters of unfinished processes by type and engine instances. A process is
-     * overdue if it is {@code ACTIVE} and its scheduled time passed more than a minute ago, as on the process page;
+     * overdue if it is {@code ACTIVE} and its next run passed more than a minute ago, as on the process page;
      * the boundary is truncated to the minute so it can be passed to the process list filter.
      *
      * @param zone browser time zone for the overdue boundary
@@ -182,6 +185,25 @@ public class ProcessEngineAdminService {
     }
 
     /**
+     * Sets a process timer.
+     *
+     * @param moment {@code datetime-local} value in {@code zone}
+     * @throws IllegalArgumentException if no {@code at} of the process uses the timer
+     */
+    public void setTimer(UUID processId, String name, String moment, ZoneId zone) {
+        management.setProcessTimer(processId, TimerType.of(name), HtmlDateTime.parse(moment, zone));
+    }
+
+    /**
+     * Cancels a process timer, also one the current definition does not declare.
+     *
+     * @return {@code true} if the timer was set
+     */
+    public boolean cancelTimer(UUID processId, String name) {
+        return management.cancelProcessTimer(processId, TimerType.of(name));
+    }
+
+    /**
      * Resumes a process in {@code FAILED}: the failed step or event runs again without a state change.
      *
      * @throws io.github.neherim.ruslo.core.api.exception.ProcessStatusException if the process is not in {@code FAILED}
@@ -208,7 +230,7 @@ public class ProcessEngineAdminService {
                             state.description().equals(state.state().name()) ? null : state.description(),
                             state.kind().name(), state.workerId().map(WorkerId::name).orElse(null),
                             state.acceptedMessageTypes().stream().sorted().toList(),
-                            timerDelay(state)))
+                            timers(state)))
                     .sorted(Comparator.comparing(DefinitionResponse.StateResponse::name))
                     .toList());
     }
@@ -218,7 +240,8 @@ public class ProcessEngineAdminService {
             case STEP -> null;
             case MESSAGE -> transition.messageType().orElse(null);
             case EVERY -> "every " + state.everyInterval().map(this::shortDuration).orElse("");
-            case TIMEOUT -> "timeout " + state.timeoutDelay().map(this::shortDuration).orElse("");
+            case AFTER -> "after " + state.afterDelay().map(this::shortDuration).orElse("");
+            case AT -> "at " + state.atTimer().orElse("");
         };
         var outcome = transition.outcome().orElse(null);
         if (event == null) return outcome;
@@ -236,7 +259,7 @@ public class ProcessEngineAdminService {
                 process.state().name(),
                 process.status(),
                 process.createdAt(),
-                process.scheduledAt().orElse(null),
+                process.nextRunAt().orElse(null),
                 process.businessKey().orElse(null));
     }
 
@@ -256,7 +279,7 @@ public class ProcessEngineAdminService {
                         ? null
                         : stateInfo.description(),
                 process.status(),
-                process.scheduledAt().orElse(null),
+                process.nextRunAt().orElse(null),
                 process.businessKey().orElse(null),
                 process.correlationId(),
                 process.attempt(),
@@ -265,7 +288,31 @@ public class ProcessEngineAdminService {
                 process.variables().asJsonMap(),
                 stateInfo == null ? "UNKNOWN" : stateInfo.kind().name(),
                 stateInfo == null ? List.of() : stateInfo.acceptedMessageTypes().stream().sorted().toList(),
-                stateInfo == null ? null : timerDelay(stateInfo));
+                stateInfo == null ? null : timers(stateInfo),
+                processTimers(process, definition.orElse(null), stateInfo));
+    }
+
+    /** Lists the set timers and the timers declared by the definition, sorted by name. */
+    private List<ProcessDetailsResponse.TimerResponse> processTimers(
+            ProcessInstanceDetails process,
+            ProcessSpecInfo definition,
+            ProcessSpecInfo.StateInfo stateInfo
+    ) {
+        var declared = definition == null
+                ? Set.<String>of()
+                : definition.states()
+                    .stream()
+                    .flatMap(state -> state.atTimer().stream())
+                    .collect(Collectors.toSet());
+        var awaited = process.status() == ProcessStatus.ACTIVE && stateInfo != null
+                ? stateInfo.atTimer().orElse(null)
+                : null;
+        var names = new TreeSet<String>(declared);
+        names.addAll(process.timers().keySet());
+        return names.stream()
+            .map(name -> new ProcessDetailsResponse.TimerResponse(name, process.timers().get(name),
+                    name.equals(awaited), declared.contains(name)))
+            .toList();
     }
 
     /**
@@ -290,8 +337,14 @@ public class ProcessEngineAdminService {
         return result;
     }
 
-    private String timerDelay(ProcessSpecInfo.StateInfo state) {
-        return state.everyInterval().or(state::timeoutDelay).map(Object::toString).orElse(null);
+    /** Returns the timers of the state as on the graph edges, e.g. {@code every 10m · after 1h · at dueDate}. */
+    private String timers(ProcessSpecInfo.StateInfo state) {
+        var timers = Stream.of(state.everyInterval().map(interval -> "every " + shortDuration(interval)),
+                state.afterDelay().map(delay -> "after " + shortDuration(delay)),
+                state.atTimer().map(timer -> "at " + timer))
+            .flatMap(Optional::stream)
+            .toList();
+        return timers.isEmpty() ? null : String.join(" · ", timers);
     }
 
     private Optional<ProcessSpecInfo> findDefinition(String typeName) {

@@ -13,6 +13,9 @@
     <description>Performance tests for ruslo library</description>
 
     <properties>
+        <!-- Performance tests are not published -->
+        <maven.source.skip>true</maven.source.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
         <maven.build.timestamp.format>yyyyMMdd-HHmmss</maven.build.timestamp.format>
         <perf.groups></perf.groups>
         <perf.excludedGroups>performance</perf.excludedGroups>

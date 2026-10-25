@@ -126,7 +126,7 @@ class SendMessageSyncTest extends BaseTest {
         engine.sendMessage(id, SIGNAL, "queued");
         emulator(engine).runOneStep(id);
         var failed = find(id);
-        var availableAt = availableAt(id);
+        var nextRunAt = nextRunAt(id);
         assertEquals(1, failed.attempt());
         fail.set(false);
 
@@ -136,7 +136,7 @@ class SendMessageSyncTest extends BaseTest {
         assertEquals("WAIT", process.state().name());
         assertEquals(1, process.attempt());
         assertEquals(failed.lastError(), process.lastError());
-        assertEquals(availableAt, availableAt(id));
+        assertEquals(nextRunAt, nextRunAt(id));
     }
 
     @Test
@@ -157,8 +157,8 @@ class SendMessageSyncTest extends BaseTest {
         return engine.processes().byId(id).singleDetails().orElseThrow();
     }
 
-    private String availableAt(UUID id) {
-        return database.queryForObject("select available_at from xs_process_instance where id = ?",
+    private String nextRunAt(UUID id) {
+        return database.queryForObject("select next_run_at from xs_process_instance where id = ?",
                 rs -> rs.getString(1), id)
             .orElseThrow();
     }

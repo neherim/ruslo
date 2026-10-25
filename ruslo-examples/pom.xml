@@ -12,6 +12,12 @@
     <artifactId>ruslo-examples</artifactId>
     <packaging>pom</packaging>
 
+    <properties>
+        <!-- Examples are not published -->
+        <maven.source.skip>true</maven.source.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+    </properties>
+
     <modules>
         <module>quickstart</module>
         <module>standalone-core</module>

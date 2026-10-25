@@ -14,8 +14,8 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -61,9 +61,8 @@ public class StepExecutor {
     }
 
     /**
-     * Executes the message handler, bypassing the queue: queued messages and due {@code every}/{@code timeout}
-     * events are ignored and keep waiting, error details are kept. The caller checks that the current state awaits
-     * the message.
+     * Executes the message handler, bypassing the queue: queued messages and due timers of the await are ignored
+     * and keep waiting, error details are kept. The caller checks that the current state awaits the message.
      *
      * @param payload an instance of the message type class, or {@code null}
      */
@@ -87,35 +86,54 @@ public class StepExecutor {
         process.enterState(target(spec.exit(), outcome, process, "step"));
     }
 
+    /**
+     * Executes the event selected by {@link ProcessInstance#dueAwaitEvent()}: the event is
+     * {@link ProcessInstance#takeAwaitEvent taken} before its handler. Without a due event, e.g. after a manual
+     * change of {@code next_run_at}, only the next run is recomputed: no attempt and no history row.
+     */
     private boolean executeAwait(ProcessInstance process, AwaitState spec) {
-        var event = selectAwaitEvent(process);
-        if (event == null) return false;
-        var context = new DefaultProcessContext(process);
-        switch (event) {
-            case MESSAGE -> executeQueuedMessage(process, context);
-            case EVERY -> {
-                var outcome = invokeHandler(() -> spec.every().handler().apply(context));
-                if (applyAwait(outcome, spec.every().exit(), process, "every")) {
-                    process.rescheduleTimer();
-                }
-            }
-            case TIMEOUT -> {
-                var timeout = spec.timeout();
-                if (timeout.handler() != null) invokeHandler(() -> timeout.handler().handle(context));
-                process.enterState(timeout.next());
-            }
+        var due = process.dueAwaitEvent();
+        if (due.isEmpty()) {
+            process.stayInAwait();
+            return false;
         }
+        var event = due.get();
+        var message = process.getMessages().peekFirst();
+        process.takeAwaitEvent(event);
+        var context = new DefaultProcessContext(process);
+        var stays = switch (event) {
+            case MESSAGE -> executeQueuedMessage(process, context, message.orElseThrow());
+            case EVERY -> executeTimer(process, context, spec.every().handler(), spec.every().exit(), "every");
+            case AFTER -> executeTimer(process, context, spec.after().handler(), spec.after().exit(), "after");
+            case AT -> executeTimer(process, context, spec.at().handler(), spec.at().exit(), "at");
+        };
+        if (stays) process.stayInAwait();
         return true;
     }
 
-    /** Executes the first queued message and removes it if the process stays in the current await. */
-    private void executeQueuedMessage(ProcessInstance process, DefaultProcessContext context) {
-        var pending = process.getMessages().peekFirst().orElseThrow();
+    /** Returns {@code true} if the process stays in the current await. */
+    private static boolean executeTimer(
+            ProcessInstance process,
+            DefaultProcessContext context,
+            Function<ProcessContext, Enum<?>> handler,
+            Exit exit,
+            String name
+    ) {
+        var outcome = invokeHandler(() -> handler.apply(context));
+        return applyAwait(outcome, exit, process, name);
+    }
+
+    /** Executes the queued message. Returns {@code true} if the process stays in the current await. */
+    private boolean executeQueuedMessage(
+            ProcessInstance process,
+            DefaultProcessContext context,
+            PendingMessage pending
+    ) {
         var event = process.getProcessSpec()
             .getMessageEvent(pending.type(), process.getState())
             .orElseThrow(() -> new IllegalStateException("Queued message " + pending.type()
                     + " is not expected in state " + process.getState().name()));
-        if (convertAndExecute(process, context, event, pending)) process.consumeMessage(pending.id());
+        return convertAndExecute(process, context, event, pending);
     }
 
     /** Converts the stored message to the handler type {@code T} from the definition and executes it. */
@@ -140,8 +158,8 @@ public class StepExecutor {
     }
 
     /**
-     * Applies the await event result. A target equal to the current await is not an entry: the process is
-     * unchanged, and the caller finishes the event (removes the message, reschedules {@code every}).
+     * Applies the await event result. A target equal to the current await is not an entry: the process state is
+     * unchanged.
      *
      * @return {@code true} if the process stays in the current await
      */
@@ -185,45 +203,5 @@ public class StepExecutor {
         } catch (RuntimeException ex) {
             throw new HandlerException(ex);
         }
-    }
-
-    /** Calls user code without a result, wrapping its failure in {@link HandlerException}. */
-    private static void invokeHandler(Runnable handler) {
-        invokeHandler(() -> {
-            handler.run();
-            return null;
-        });
-    }
-
-    /**
-     * Selects the due event with the earliest time; on a tie: message, {@code every}, {@code timeout}.
-     * Event times: message {@code receivedAt}, {@code every} {@code scheduledAt}, {@code timeout} {@code deadlineAt}.
-     * Exception: during a retry backoff a due deadline wins over the event awaiting the retry.
-     */
-    private AwaitEvent selectAwaitEvent(ProcessInstance process) {
-        var now = clock.instant();
-        var message = process.getMessages().peekFirst().map(PendingMessage::receivedAt).orElse(null);
-        var every = process.getScheduledAt().filter(time -> !time.isAfter(now)).orElse(null);
-        var timeout = process.getDeadlineAt().filter(time -> !time.isAfter(now)).orElse(null);
-        if (timeout != null && process.hasRetryBackoff()) return AwaitEvent.TIMEOUT;
-        // Strict isBefore keeps the earlier candidate on equal times.
-        AwaitEvent selected = null;
-        Instant at = null;
-        if (message != null) {
-            selected = AwaitEvent.MESSAGE;
-            at = message;
-        }
-        if (every != null && (at == null || every.isBefore(at))) {
-            selected = AwaitEvent.EVERY;
-            at = every;
-        }
-        if (timeout != null && (at == null || timeout.isBefore(at))) selected = AwaitEvent.TIMEOUT;
-        return selected;
-    }
-
-    private enum AwaitEvent {
-        MESSAGE,
-        EVERY,
-        TIMEOUT
     }
 }

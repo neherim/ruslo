@@ -7,9 +7,7 @@ import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.test.MutableClock;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
-import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo.StateKind;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
-import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.runtime.ProcessRuntimeService;
 
 import java.time.Clock;
@@ -27,7 +25,6 @@ public class ProcessEngineEmulator {
     public static final int DEFAULT_MAX_STEPS = 1000;
     private final ProcessEngine processEngine;
     private final ProcessRuntimeService runtime;
-    private final ProcessDefinitionRegistry processDefinitionRegistry;
     private final Clock clock;
     private final int maxSteps;
 
@@ -48,7 +45,6 @@ public class ProcessEngineEmulator {
         }
         this.processEngine = Objects.requireNonNull(processEngine, "ProcessEngine must not be null");
         this.runtime = processEngine.processRuntimeService();
-        this.processDefinitionRegistry = processEngine.processDefinitionRegistry();
         this.clock = processEngine.clock();
         this.maxSteps = maxSteps;
     }
@@ -164,16 +160,7 @@ public class ProcessEngineEmulator {
         if (process.status() != ProcessStatus.ACTIVE) {
             return false;
         }
-        return isAwait(process)
-                || process.scheduledAt().isPresent() && !process.scheduledAt().get().isAfter(clock.instant());
-    }
-
-    private boolean isAwait(ProcessInstanceDetails process) {
-        return processDefinitionRegistry.getProcessDefinitions()
-            .stream()
-            .filter(spec -> spec.type().equals(process.type()))
-            .flatMap(spec -> spec.states().stream())
-            .anyMatch(state -> state.state().equals(process.state()) && state.kind() == StateKind.AWAIT);
+        return process.nextRunAt().filter(time -> !time.isAfter(clock.instant())).isPresent();
     }
 
     /**

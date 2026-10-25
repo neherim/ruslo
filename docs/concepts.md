@@ -21,7 +21,7 @@ ProcessDefinition definition = builder -> builder.type("APPROVAL")
     .step(State.CREATE, context -> createOrder(context), State.WAIT)
     .await(State.WAIT, await -> await
         .message(APPROVED, (context, message) -> { }, State.DONE)
-        .timeout(Duration.ofHours(1), State.EXPIRED))
+        .after(Duration.ofHours(1), State.EXPIRED))
     .terminal(State.DONE)
     .terminal(State.EXPIRED)
     .build();
@@ -72,35 +72,109 @@ An await declares events:
 | Event | Fires when | Handler |
 |---|---|---|
 | `message(type, handler, next \| routes)` | a message of type `type` arrives | `ProcessMessageHandler<T>` or `BranchingMessageHandler<T, O>` |
-| `every(interval, handler, next \| routes)` | every `interval` after entering the await | `ProcessTimerHandler` or `BranchingTimerHandler<O>` |
-| `timeout(delay[, handler], next)` | once, `delay` after entering the await | optional `ProcessTimerHandler` |
+| `every(interval, handler, next \| routes)` | repeatedly, every `interval` on a grid from entering the await | `ProcessTimerHandler` or `BranchingTimerHandler<O>` |
+| `after(delay[, handler], next \| routes)` | `delay` after entering the await | none, `ProcessTimerHandler` or `BranchingTimerHandler<O>` |
+| `at(timer[, handler], next \| routes)` | at the moment of a process timer `TimerType` | none, `ProcessTimerHandler` or `BranchingTimerHandler<O>` |
 
-An await allows at most one `every` and at most one `timeout`; they can be combined.
 At least one event must lead to another state.
 
 ```java
 enum Payment { PAID, PENDING }
 
+static final TimerType PAYMENT_DUE = TimerType.of("paymentDue");
+
+.step(RESERVING, PaymentDefinition::reserve, WAITING_FOR_PAYMENT)               // sets PAYMENT_DUE
 .await(WAITING_FOR_PAYMENT, await -> await
-    .every(Duration.ofSeconds(30), checkPayment, routes -> routes   // polling an external condition
+    .every(Duration.ofSeconds(30), PaymentDefinition::checkPayment, routes -> routes   // polling an external condition
         .on(Payment.PAID, SHIPPING)
-        .on(Payment.PENDING, WAITING_FOR_PAYMENT))                 // keep waiting
-    .timeout(Duration.ofDays(7), markExpired, CANCELLED))
+        .on(Payment.PENDING, WAITING_FOR_PAYMENT))                                 // keep waiting
+    .message(EXTEND_PAYMENT_DUE, PaymentDefinition::extend, WAITING_FOR_PAYMENT)   // sets PAYMENT_DUE
+    .after(Duration.ofDays(3), PaymentDefinition::remind, WAITING_FOR_PAYMENT)     // one reminder
+    .at(PAYMENT_DUE, PaymentDefinition::markExpired, CANCELLED))
+
+static void reserve(ProcessContext context) {
+    context.setTimer(PAYMENT_DUE, context.now().plus(Duration.ofDays(5)));
+}
+
+static void extend(ProcessContext context, IncomingMessage<Instant> message) {
+    context.setTimer(PAYMENT_DUE, message.payload());
+}
 ```
 
+There are two kinds of timers. `every` and `after` are **await timers**: they live for one entry of the await, and
+the engine sets their moments from the time of entering. `at` waits for a **process timer**: a named moment
+(`TimerType`) that the code sets and cancels; it lives between states until it fires or is cancelled.
+
+Timer rules:
+
+1. `every(interval)` fires repeatedly, on the grid `entering the await + initialDelay + k * interval`: a late check
+   does not shift the next ones, missed points are skipped. `after(delay)` fires `delay` after entering the await.
+2. A process timer is set by `context.setTimer(T, moment)` or at start by `newProcess(...).timer(T, moment)` and
+   cancelled by `context.cancelTimer(T)`; `context.getTimer(T)` returns `Optional<Instant>`. The moment is stored
+   truncated to microseconds, and `getTimer` returns the truncated value. `T` must be used by some `at` of the
+   process, otherwise these methods and the start throw `IllegalArgumentException`. `null` instead of a moment is a
+   `NullPointerException`: only `cancelTimer` removes a timer.
+3. `at(T)` fires when the process is in this await and timer `T` is set and due; a moment in the past fires right
+   away. Each timer kind (`every`, `after`, `at`) is declared at most once per await; any of them can be combined.
+4. **A fired timer with the await itself as the target**: `every` moves to its next grid point, `after` is off until
+   the await is entered again. **A fired process timer is cancelled before its handler runs**: the handler sees
+   `getTimer(T)` empty and can set it again, which makes a schedule; a handler that does not set it leaves the await
+   waiting for its other events. The handler does not get the moment the timer fired at: if it is needed as data
+   (a report date, "paid until"), keep it in a variable.
+5. State transitions do not touch process timers: a timer set in a step waits for the await that declares it. One
+   timer can be declared in several awaits (a deadline across several states).
+6. **A process timer lives until it fires or is cancelled.** An await left by a message keeps its timer set: on a
+   new entry into an await with this `at`, a past moment fires at once. If the timer is no longer needed, the
+   handler that leaves the await cancels it with `cancelTimer`. The same applies to `moveProcessToState` by an
+   operator and to `ErrorResult.fallback` from an await.
+7. A handler error pauses the whole await until the retry: a due timer waits until the failed event is handled
+   (see [execution.md](execution.md#await-event-selection)).
+
+A timer without a handler cannot target the await itself: it would do nothing. The first `every` check can run
+right on entering the await: `every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`.
+
+Rule 6 by example: an await with a deadline, a message leads to a step, the step leads back to the await.
+
+```java
+.await(WAITING_FOR_DOCUMENTS, await -> await
+    .message(DOCUMENT, Onboarding::onDocument, CHECKING)
+    .at(DOCUMENTS_DUE, REJECTED))
+.step(CHECKING, Onboarding::check, WAITING_FOR_DOCUMENTS)
+```
+
+The deadline is shared by both entries into `WAITING_FOR_DOCUMENTS`: if it passed while `CHECKING` ran, the
+process is rejected right after returning. If each return needs a new deadline, `check` sets it again.
+
+A schedule by dates is an `at` whose handler sets the timer to the next date. The date itself is data, so it is
+kept in a variable; the timer only wakes the process:
+
+```java
+static final VariableType<LocalDate> REPORT_DATE = VariableType.of("reportDate", LocalDate.class);
+static final TimerType NEXT_RUN = TimerType.of("nextRun");
+
+.step(PLAN, ReportDefinition::planFirstRun, SCHEDULED)          // writes REPORT_DATE, sets NEXT_RUN
+.await(SCHEDULED, await -> await
+    .at(NEXT_RUN, ReportDefinition::buildReport, routes -> routes
+        .on(Run.MORE, SCHEDULED)                                // sets NEXT_RUN for the next REPORT_DATE
+        .on(Run.LAST, DONE))
+    .message(CANCEL, ReportDefinition::onCancel, CANCELLED))
+```
+
+`buildReport` builds the report for `REPORT_DATE`, writes the next date and sets `NEXT_RUN` to its moment
+(`Run.MORE`), or returns `Run.LAST`. Keeping the date both in a variable and in the timer is the price of rule 4:
+a fired timer is cancelled without exceptions, so a handler never sees a stale moment and a loop cannot fire twice
+on one moment.
+
 **An event whose target is the await itself means "keep waiting".** This is not a re-entry: the handled message is
-removed, the other messages and the `timeout` deadline are kept, the next `every` check is scheduled from the
-moment of handling, and no state history row is written. Use it for:
+removed, the other messages and the timers are kept (the `every` schedule, the `after` moment, the process
+timers), and no state history row is written. Use it for:
 
 - a periodic side effect: `every(Duration.ofDays(1), sendReminder, WAITING_FOR_PAYMENT)`;
 - intermediate messages: `message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`.
 
 Any transition to another state closes the await and removes unhandled messages. To start the await over, with an
-empty queue and a new deadline, go to a step that leads back to the await.
-
-`timeout` is a hard deadline: its target cannot be the await itself, and a message handler failure does not extend
-the await. The first `every` check can run right on entering the await:
-`every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`.
+empty queue and a new `after` deadline, go to a step that leads back to the await. A deadline that must move
+without re-entry is an `at`: set its timer.
 
 If several events are due, the earliest one is handled; the exact rules are in [execution.md](execution.md#await-event-selection).
 
@@ -121,18 +195,22 @@ A handler receives a `ProcessContext`:
 | Method | Purpose |
 |---|---|
 | `getVariable(type)`, `setVariable(type, value)`, `removeVariable(type)` | Process variables; changes are saved with the transition |
+| `getTimer(timer)`, `setTimer(timer, moment)`, `cancelTimer(timer)` | Process timers for `at`, see the [timer rules](#awaits); changes are saved with the transition |
 | `processId()`, `processType()`, `state()` | Process identity |
 | `businessKey()` | Business key set at start through `newProcess(...).businessKey(...)` |
 | `correlationId()` | Id for logs: set through `newProcess(...).correlationId(...)`, otherwise taken from the caller thread's MDC or generated |
 | `attempt()` | Number of previous failed attempts in the current state |
+| `now()` | Current time of the engine clock, the one timers use; use it instead of `Instant.now()`, so the emulator controls it in tests |
 
 Variables and message payloads are stored in the database as JSON (Jackson). Process variables are kept in the
 `xs_process_instance.variables` column as one JSON object, e.g. `{"orderId":"A-1","amount":42}`;
-`ProcessQuery.byVariablesLike("%\"orderId\":\"A-1\"%")` searches it. Change their classes compatibly: running
+`ProcessQuery.byVariablesLike("%\"orderId\":\"A-1\"%")` searches it. Process timers are kept separately, in the
+`timers` column. Change their classes compatibly: running
 processes will read the stored JSON with the new class. A custom `ObjectMapper` is set through
 `ProcessEngineBuilder.withJsonMapper(...)`.
 
-`MessageType<T>` and `VariableType<T>` take a non-empty name and a class: `MessageType.of("payment", PaymentConfirmed.class)`
+`TimerType` takes only a non-empty name: `TimerType.of("paymentDue")`. `MessageType<T>` and `VariableType<T>` take a
+non-empty name and a class: `MessageType.of("payment", PaymentConfirmed.class)`
 or `MessageType<PaymentConfirmed> payment = MessageType.of("payment")`. The class must be concrete, without type
 parameters: `List`, `Map` and other generic classes are rejected with `IllegalArgumentException`. Wrap a collection
 in a record:
@@ -207,7 +285,8 @@ positive delays and an exit from every await.
   `ProcessMessageHandler<T>` → `BranchingMessageHandler<T, Outcome>`, `ProcessTimerHandler` → `BranchingTimerHandler<Outcome>`.
 - Retry after a technical error with `ErrorResult.retryAfter`, not with a step that repeats itself.
 - Do periodic checks with `every` in an await, not with a "step → await → step" loop: re-entering the await clears
-  the queue and resets `timeout`.
+  the queue and resets `after`. A schedule by calendar dates is an `at` whose handler sets its timer to the next
+  date; keep the date itself in a variable.
 
 ## Definition evolution
 

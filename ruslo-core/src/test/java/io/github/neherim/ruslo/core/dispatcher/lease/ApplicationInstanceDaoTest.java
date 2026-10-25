@@ -134,8 +134,8 @@ class ApplicationInstanceDaoTest extends BaseTest {
         database.update(
                 """
                         insert into xs_process_instance
-                            (id, create_at, state, worker_id, status, type, scheduled_at, available_at)
-                        values (?, current_timestamp, 'STARTED', ?, 'ACTIVE', 'heartbeat_test', current_timestamp, current_timestamp)
+                            (id, created_at, state, worker_id, status, type, next_run_at)
+                        values (?, current_timestamp, 'STARTED', ?, 'ACTIVE', 'heartbeat_test', current_timestamp)
                         """,
                 id, WORKER.name());
     }

@@ -102,7 +102,8 @@ public class ProcessDefinitionRegistry {
         return switch (state) {
             case ProcessSpec.StepState step -> new ProcessSpecInfo.StateInfo(step.state(), description,
                     ProcessSpecInfo.StateKind.STEP, Optional.of(step.worker()), Set.of(), Optional.empty(),
-                    Optional.empty(), transitions(ProcessSpecInfo.TransitionTrigger.STEP, null, step.exit()));
+                    Optional.empty(), Optional.empty(),
+                    transitions(ProcessSpecInfo.TransitionTrigger.STEP, null, step.exit()));
             case ProcessSpec.AwaitState await -> {
                 var transitions = new ArrayList<ProcessSpecInfo.TransitionInfo>();
                 await.messages()
@@ -112,20 +113,24 @@ public class ProcessDefinitionRegistry {
                     transitions
                         .addAll(transitions(ProcessSpecInfo.TransitionTrigger.EVERY, null, await.every().exit()));
                 }
-                if (await.timeout() != null) {
-                    transitions.add(new ProcessSpecInfo.TransitionInfo(ProcessSpecInfo.TransitionTrigger.TIMEOUT,
-                            Optional.empty(), Optional.empty(), await.timeout().next()));
+                if (await.after() != null) {
+                    transitions
+                        .addAll(transitions(ProcessSpecInfo.TransitionTrigger.AFTER, null, await.after().exit()));
+                }
+                if (await.at() != null) {
+                    transitions.addAll(transitions(ProcessSpecInfo.TransitionTrigger.AT, null, await.at().exit()));
                 }
                 yield new ProcessSpecInfo.StateInfo(await.state(), description, ProcessSpecInfo.StateKind.AWAIT,
                         Optional.of(WorkerId.DEFAULT),
                         await.messages().stream().map(e -> e.type().name()).collect(Collectors.toUnmodifiableSet()),
-                        Optional.ofNullable(await.timeout()).map(ProcessSpec.TimeoutEvent::delay),
                         Optional.ofNullable(await.every()).map(ProcessSpec.EveryEvent::interval),
+                        Optional.ofNullable(await.after()).map(ProcessSpec.AfterEvent::delay),
+                        Optional.ofNullable(await.at()).map(at -> at.timer().name()),
                         List.copyOf(transitions));
             }
             case ProcessSpec.TerminalState terminal -> new ProcessSpecInfo.StateInfo(terminal.state(), description,
                     ProcessSpecInfo.StateKind.TERMINAL, Optional.empty(), Set.of(), Optional.empty(), Optional.empty(),
-                    List.of());
+                    Optional.empty(), List.of());
         };
     }
 

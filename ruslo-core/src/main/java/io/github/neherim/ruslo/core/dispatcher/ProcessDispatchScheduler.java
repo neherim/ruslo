@@ -31,7 +31,7 @@ public class ProcessDispatchScheduler {
      *
      * @param minInterval minimum fallback interval
      * @param maxInterval maximum fallback interval
-     * @param clock       the engine clock that {@code available_at} is compared against
+     * @param clock       the engine clock that {@code next_run_at} is compared against
      */
     public ProcessDispatchScheduler(
             Duration minInterval,
@@ -64,11 +64,11 @@ public class ProcessDispatchScheduler {
         long currentDelayMs = minInterval.toMillis();
         while (running) {
             boolean dispatched = false;
-            Instant nextAvailableAt = null;
+            Instant nextRunAt = null;
             try {
                 dispatched = processDispatcher.dispatch();
                 if (!dispatched) {
-                    nextAvailableAt = processDispatcher.nextAvailableAt().orElse(null);
+                    nextRunAt = processDispatcher.nextRunAt().orElse(null);
                 }
             } catch (RuntimeException ex) {
                 log.error("Unexpected error in dispatch loop", ex);
@@ -78,7 +78,7 @@ public class ProcessDispatchScheduler {
                 continue;
             }
             try {
-                dispatchSignal.await(Duration.ofMillis(delayMs(currentDelayMs, nextAvailableAt)));
+                dispatchSignal.await(Duration.ofMillis(delayMs(currentDelayMs, nextRunAt)));
             } catch (InterruptedException e) {
                 return;
             }
@@ -90,12 +90,12 @@ public class ProcessDispatchScheduler {
      * Shortens the pause to the nearest process due time. A due time already passed means a ready process could not
      * be claimed just now, so the pause stays the same to avoid polling the database in a loop.
      */
-    private long delayMs(long backoffMs, Instant nextAvailableAt) {
-        if (nextAvailableAt == null) {
+    private long delayMs(long backoffMs, Instant nextRunAt) {
+        if (nextRunAt == null) {
             return backoffMs;
         }
-        // +1 ms: available_at may be stored with sub-millisecond precision, and a claim requires available_at <= now.
-        long untilNextMs = Duration.between(clock.instant(), nextAvailableAt).toMillis() + 1;
+        // +1 ms: next_run_at may be stored with sub-millisecond precision, and a claim requires next_run_at <= now.
+        long untilNextMs = Duration.between(clock.instant(), nextRunAt).toMillis() + 1;
         return untilNextMs > 0 ? Math.min(backoffMs, untilNextMs) : backoffMs;
     }
 

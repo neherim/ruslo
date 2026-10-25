@@ -18,14 +18,21 @@
 
             <article class="data-panel tabs">
                 <input type="radio" name="data-tab" id="tab-vars" checked>
+                <input type="radio" name="data-tab" id="tab-timers">
                 <input type="radio" name="data-tab" id="tab-history">
                 <nav class="tab-bar" role="tablist">
                     <label for="tab-vars" th:text="|Variables (${process.variablesCount()})|">Variables (0)</label>
+                    <label for="tab-timers" th:text="|Timers (${process.timersCount()})|">Timers (0)</label>
                     <label for="tab-history" th:text="|History (${process.historyCount()})|">History (0)</label>
                 </nav>
                 <section class="tab-panel" data-tab="vars">
                     <div id="variables-panel">
                         <th:block th:replace="~{ruslo-admin/process-details/fragments :: processVariables}"></th:block>
+                    </div>
+                </section>
+                <section class="tab-panel" data-tab="timers">
+                    <div id="timers-panel">
+                        <th:block th:replace="~{ruslo-admin/process-details/fragments :: processTimers}"></th:block>
                     </div>
                 </section>
                 <section class="tab-panel" data-tab="history">
@@ -63,6 +70,33 @@
                     </div>
                 </form>
                 <div class="status-line" id="add-variable-status"></div>
+            </div>
+        </article>
+    </dialog>
+
+    <dialog id="set-timer-modal" class="small-modal">
+        <article>
+            <header class="modal-header">
+                <div>
+                    <h2>Set timer</h2>
+                    <div class="muted">The time is in the browser time zone</div>
+                </div>
+                <button class="icon-btn" type="button" data-modal-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#ti-x"></use></svg></button>
+            </header>
+            <div class="modal-body">
+                <form class="timer-set-form"
+                      th:attr="hx-post=@{|htmx/processes/${process.id}/timers|}"
+                      hx-vals='js:{timeZone: AdminUi.browserTimeZone()}'
+                      hx-target="#set-timer-status"
+                      hx-swap="innerHTML">
+                    <label>Name <input name="name" readonly required></label>
+                    <label>Moment <input type="datetime-local" name="moment" step="1" required></label>
+                    <div class="action-bar">
+                        <button type="submit">Set</button>
+                        <button type="button" class="secondary" data-modal-close>Cancel</button>
+                    </div>
+                </form>
+                <div class="status-line" id="set-timer-status"></div>
             </div>
         </article>
     </dialog>
@@ -142,22 +176,22 @@
                     <span>State kind</span>
                     <strong th:text="${process.stateKind}">STEP</strong>
                     <small class="hero-field-note"
-                           th:if="${process.timerDelay != null}"
-                           th:text="|Timer ${process.timerDelay}|">Timer PT5M</small>
+                           th:if="${process.timers != null}"
+                           th:text="${process.timers}">every 10m · after 1h · at dueDate</small>
                 </div>
                 <div class="hero-field">
                     <span>Attempt</span>
                     <strong class="numeric" th:text="${process.attempt}">0</strong>
                 </div>
                 <div class="hero-field">
-                    <span>Scheduled</span>
+                    <span>Next run</span>
                     <strong>
-                        <time th:if="${process.scheduledAt != null}"
+                        <time th:if="${process.nextRunAt != null}"
                               class="relative-time"
                               th:attr="data-overdue-check=${process.status.name() == 'ACTIVE'} ? 'true' : null"
-                              th:datetime="${process.scheduledAt}"
-                              th:text="${process.scheduledAt}">—</time>
-                        <span th:if="${process.scheduledAt == null}" class="muted">—</span>
+                              th:datetime="${process.nextRunAt}"
+                              th:text="${process.nextRunAt}">—</time>
+                        <span th:if="${process.nextRunAt == null}" class="muted">—</span>
                     </strong>
                 </div>
                 <div class="hero-field hero-field-wide">
@@ -277,6 +311,60 @@
         <button type="button" class="secondary" data-variable-add><svg class="icon" aria-hidden="true"><use href="#ti-plus"></use></svg> Add variable</button>
         <div class="status-line" id="variables-status"></div>
     </div>
+</th:block>
+
+<!-- Timers outside the current await, also of a completed process, are marked "not awaited" to not look like errors. -->
+<th:block th:fragment="processTimers">
+    <div class="table-wrap">
+        <table class="variables-table timers-table">
+            <thead>
+            <tr>
+                <th class="col-name">Name</th>
+                <th class="col-value">Moment</th>
+                <th class="col-actions" aria-label="Actions"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${process.processTimers.empty}">
+                <td colspan="3" class="muted">No entries</td>
+            </tr>
+            <tr th:each="timer : ${process.processTimers}"
+                class="timer-row"
+                th:attr="data-timer-name=${timer.name},data-timer-moment=${timer.moment}">
+                <td class="col-name mono" th:text="${timer.name}">name</td>
+                <td class="col-value">
+                    <time th:if="${timer.moment != null}"
+                          class="local-date-time"
+                          th:datetime="${timer.moment}"
+                          th:text="${timer.moment}">date</time>
+                    <span th:if="${timer.moment == null}" class="muted">not set</span>
+                    <span class="badge"
+                          th:classappend="${timer.awaited} ? 'ok'"
+                          th:text="${timer.awaited} ? 'awaited' : 'not awaited'"
+                          th:title="${timer.awaited} ? 'An at of the current await waits for this timer' : 'No at of the current await waits for this timer'">awaited</span>
+                </td>
+                <td class="col-actions">
+                    <button class="icon-btn"
+                            type="button"
+                            data-timer-set
+                            th:disabled="${!timer.declared}"
+                            aria-label="Set"
+                            th:title="${timer.declared} ? 'Set' : 'Set: not declared by any at of the current definition'"><svg class="icon" aria-hidden="true"><use href="#ti-pencil"></use></svg></button>
+                    <button class="icon-btn"
+                            type="button"
+                            th:disabled="${timer.moment == null}"
+                            th:attr="hx-delete=@{htmx/processes/{id}/timers(id=${process.id},name=${timer.name})}"
+                            hx-target="#timers-status"
+                            hx-swap="innerHTML"
+                            hx-confirm="Cancel this timer?"
+                            aria-label="Cancel"
+                            th:title="${timer.moment != null} ? 'Cancel' : 'Cancel: not set'"><svg class="icon" aria-hidden="true"><use href="#ti-trash"></use></svg></button>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="status-line" id="timers-status"></div>
 </th:block>
 
 <th:block th:fragment="processHistory">

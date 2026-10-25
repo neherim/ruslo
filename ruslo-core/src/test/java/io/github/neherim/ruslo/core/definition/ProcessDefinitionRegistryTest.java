@@ -30,7 +30,10 @@ class ProcessDefinitionRegistryTest {
                     .on(Outcome.OK, State.DONE)
                     .on(Outcome.FAIL, State.WAIT))
                 .every(Duration.ofSeconds(30), context -> {}, State.WAIT)
-                .timeout(Duration.ofMinutes(5), State.DONE))
+                .after(Duration.ofMinutes(5), State.DONE)
+                .at(TimerType.of("dueDate"), context -> Outcome.OK, routes -> routes
+                    .on(Outcome.OK, State.WAIT)
+                    .on(Outcome.FAIL, State.DONE)))
             .terminal(State.DONE)
             .build();
         var registry = new ProcessDefinitionRegistry(List.of(definition));
@@ -51,7 +54,12 @@ class ProcessDefinitionRegistryTest {
                 transition(TransitionTrigger.MESSAGE, "REVIEW", "OK", State.DONE),
                 transition(TransitionTrigger.MESSAGE, "REVIEW", "FAIL", State.WAIT),
                 transition(TransitionTrigger.EVERY, null, null, State.WAIT),
-                transition(TransitionTrigger.TIMEOUT, null, null, State.DONE)), wait.transitions());
+                transition(TransitionTrigger.AFTER, null, null, State.DONE),
+                transition(TransitionTrigger.AT, null, "OK", State.WAIT),
+                transition(TransitionTrigger.AT, null, "FAIL", State.DONE)), wait.transitions());
+        assertEquals(Optional.of(Duration.ofSeconds(30)), wait.everyInterval());
+        assertEquals(Optional.of(Duration.ofMinutes(5)), wait.afterDelay());
+        assertEquals(Optional.of("dueDate"), wait.atTimer());
 
         assertEquals(List.of(), state(info.states(), State.DONE).transitions());
     }

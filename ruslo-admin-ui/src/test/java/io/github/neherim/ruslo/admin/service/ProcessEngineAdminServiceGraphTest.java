@@ -2,6 +2,7 @@ package io.github.neherim.ruslo.admin.service;
 
 import io.github.neherim.ruslo.admin.dto.DashboardResponse;
 import io.github.neherim.ruslo.admin.dto.DefinitionResponse;
+import io.github.neherim.ruslo.admin.dto.ProcessDetailsResponse.TimerResponse;
 import io.github.neherim.ruslo.admin.dto.ProcessGraphResponse.Edge;
 import io.github.neherim.ruslo.admin.dto.ProcessGraphResponse.Node;
 import io.github.neherim.ruslo.admin.dto.StateHistoryResponse;
@@ -13,6 +14,7 @@ import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
+import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.management.DatabaseSchemaMigrator;
 import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
@@ -27,6 +29,7 @@ import java.time.ZoneId;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 
 class ProcessEngineAdminServiceGraphTest {
@@ -49,7 +52,8 @@ class ProcessEngineAdminServiceGraphTest {
                 .every(Duration.ofSeconds(30), context -> Outcome.FAIL, routes -> routes
                     .on(Outcome.OK, State.DONE)
                     .on(Outcome.FAIL, State.WAIT))
-                .timeout(Duration.ofMinutes(90), State.DONE))
+                .after(Duration.ofMinutes(90), State.DONE)
+                .at(TimerType.of("dueDate"), State.DONE))
             .terminal(State.DONE)
             .build();
         var service = new ProcessEngineAdminService(engine(definition), new ProcessEngineAdmin(engine));
@@ -67,11 +71,16 @@ class ProcessEngineAdminServiceGraphTest {
                 new Edge("WAIT", "DONE", "MESSAGE", "approve"),
                 new Edge("WAIT", "DONE", "EVERY", "every 30s / OK"),
                 new Edge("WAIT", "WAIT", "EVERY", "every 30s / FAIL"),
-                new Edge("WAIT", "DONE", "TIMEOUT", "timeout 1h30m"));
+                new Edge("WAIT", "DONE", "AFTER", "after 1h30m"),
+                new Edge("WAIT", "DONE", "AT", "at dueDate"));
         assertThat(service.graph("UNKNOWN")).isEmpty();
         assertThat(service.statesFor("GRAPH", "CHECK"))
             .extracting(DefinitionResponse.StateResponse::name, DefinitionResponse.StateResponse::description)
             .containsExactly(tuple("CHECK", "Check"), tuple("DONE", "Done"), tuple("WAIT", null));
+        assertThat(service.statesFor("GRAPH", "CHECK"))
+            .extracting(DefinitionResponse.StateResponse::name, DefinitionResponse.StateResponse::timers)
+            .containsExactly(tuple("CHECK", null), tuple("DONE", null),
+                    tuple("WAIT", "every 30s · after 1h30m · at dueDate"));
     }
 
     @Test
@@ -99,6 +108,38 @@ class ProcessEngineAdminServiceGraphTest {
             .extracting(StateHistoryResponse::state, StateHistoryResponse::manual)
             .containsExactly(tuple("CHECK", false), tuple("WAIT", false), tuple("CHECK", true));
         assertThat(moved.version()).isNotEqualTo(waiting.version());
+    }
+
+    @Test
+    void processTimersShouldListSetAndDeclaredTimersAndAdminActionsShouldChangeThem() {
+        var due = TimerType.of("due");
+        ProcessDefinition definition = builder -> builder.type("TIMED")
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await
+                .message(MessageType.of("approve", String.class), (context, message) -> {}, State.DONE)
+                .at(due, State.DONE))
+            .terminal(State.DONE)
+            .build();
+        var service = new ProcessEngineAdminService(engine(definition), new ProcessEngineAdmin(engine));
+        var processId = service.startProcess("TIMED", null, "{}");
+
+        assertThat(service.process(processId).orElseThrow().processTimers())
+            .containsExactly(new TimerResponse("due", null, true, true));
+        var zone = ZoneId.of("Asia/Tokyo");
+        service.setTimer(processId, "due", "2100-05-01T12:30:00", zone);
+        var moment = LocalDateTime.parse("2100-05-01T12:30:00").atZone(zone).toInstant();
+        assertThat(service.process(processId).orElseThrow().processTimers())
+            .containsExactly(new TimerResponse("due", moment, true, true));
+        assertThatThrownBy(() -> service.setTimer(processId, "other", "2100-05-01T12:30:00", zone))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("Timer other is not used by any at of process TIMED");
+        assertThat(service.cancelTimer(processId, "due")).isTrue();
+        assertThat(service.cancelTimer(processId, "due")).isFalse();
+
+        service.setTimer(processId, "due", "2100-05-01T12:30:00Z", zone);
+        service.changeState(processId, "DONE");
+        assertThat(service.process(processId).orElseThrow().processTimers())
+            .containsExactly(new TimerResponse("due", Instant.parse("2100-05-01T12:30:00Z"), false, true));
     }
 
     @Test

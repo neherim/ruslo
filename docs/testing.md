@@ -29,8 +29,9 @@ typed way: `details.variables().get(AMOUNT)` returns an `Optional` of the variab
 
 ## Timers and retries
 
-`every` and `timeout` timers and `retryAfter` delays come due when the emulator moves time
-(`fastForwardTime` or `setTime`). The application's own `Clock` beans do not affect the engine clock:
+`every` and `after` timers, process timers of `at` and `retryAfter` delays, of steps too, come due when the emulator moves time
+(`fastForwardTime` or `setTime`): `runUntilStop` stops at a step waiting for a retry, `runOneStep` runs it at once.
+The application's own `Clock` beans do not affect the engine clock:
 
 ```java
 @ProcessEngineTest
@@ -50,7 +51,7 @@ class OrderServiceTest {
         var waiting = emulator.runUntilStop(processId);
         assertTrue(waiting.state().is(State.WAITING_FOR_DELIVERY_TIMER));
 
-        emulator.fastForwardTime(Duration.ofSeconds(11));   // the await timeout is 10 seconds
+        emulator.fastForwardTime(Duration.ofSeconds(11));   // the await waits after(10 seconds)
 
         var completed = emulator.runUntilStop(processId);
         assertEquals(ProcessStatus.COMPLETED, completed.status());
@@ -58,8 +59,25 @@ class OrderServiceTest {
 }
 ```
 
-Full examples in `ruslo-examples/cookbook`: the `deadline` recipe (timer) and the `retries` recipe (retries and
-fallback state).
+A deadline of a process timer (`at`) is tested with `setTime`. Handlers take the time from `context.now()`, the
+engine clock, so a step that sets the timer sees the time the test set. `details.timers()` shows the set timers:
+
+```java
+var start = Instant.parse("2026-10-07T10:00:00Z");
+emulator.setTime(start);
+var processId = processEngine.newProcess(SeatReservationDefinition.TYPE).start();
+var waiting = emulator.runUntilStop(processId);      // the step sets PAYMENT_DUE = context.now() + 15 minutes
+assertEquals(start.plus(SeatReservationDefinition.PAYMENT_TIME),
+        waiting.timers().get(SeatReservationDefinition.PAYMENT_DUE.name()));
+
+emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
+assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
+```
+
+A handler that calls `Instant.now()` instead sees the system time, and such a test fails.
+
+Full examples in `ruslo-examples/cookbook`: the `deadline` recipe (`at` timer), the `subscription` recipe (schedule
+by dates) and the `retries` recipe (retries and fallback state).
 
 Control time through the emulator; there is no need to inject the engine clock into the test. To set your own
 initial clock, declare a `MutableClock` bean (`core.api.test`) named `processEngineClock` with
@@ -96,11 +114,15 @@ assertEquals(Set.of("order", "paymentId"), context.variableNames());
 | `processType(ProcessType)`, `state(ProcessState)` | `"test"` |
 | `attempt(int)` | `0` |
 | `businessKey(String)` | none |
+| `now(Instant)` | `now()` from the system clock |
 | `variable(VariableType<T>, T)`, `variable(String, Object)` | no variables |
+| `timer(TimerType, Instant)` | no timers |
 | `jsonMapper(ObjectMapper)` | the engine's default mapper; set the same one as in `ProcessEngineBuilder.withJsonMapper` |
 
 `TestProcessContext.create()` is a context with default values. Besides the `ProcessContext` methods, it has
-`variableNames()`, the names of all variables. Example: `CheckApplicationStepTest` of the `branching` recipe
+`variableNames()`, the names of all variables, and `timers()`, the set timers by name. Timer moments are truncated to
+microseconds, as in the engine. The context knows no definition, so `setTimer` does not check that an `at` declares
+the timer. Example: `CheckApplicationStepTest` of the `branching` recipe
 in `ruslo-examples/cookbook`.
 
 ## What the emulator does not check

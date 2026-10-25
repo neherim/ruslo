@@ -12,7 +12,7 @@ public record ProcessSummaryResponse(
         String state,
         ProcessStatus status,
         Instant createdAt,
-        Instant scheduledAt,
+        Instant nextRunAt,
         String businessKey
 ) {
 }

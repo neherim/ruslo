@@ -138,8 +138,8 @@ class ProcessExecutionBenchmarkTest {
         environment.database()
             .update("""
                     insert into xs_process_instance
-                        (id, create_at, state, worker_id, status, type, attempt, scheduled_at, available_at, messages, row_version)
-                    select md5(? || '-' || value)::uuid, current_timestamp, ?, ?, 'ACTIVE', ?, 0, current_timestamp, current_timestamp, '[]', 0
+                        (id, created_at, state, worker_id, status, type, attempt, next_run_at, messages, row_version)
+                    select md5(? || '-' || value)::uuid, current_timestamp, ?, ?, 'ACTIVE', ?, 0, current_timestamp, '[]', 0
                     from generate_series(1, ?) value
                     """,
                     mode.name(), FastProcessDefinition.State.STEP_1.name(),
