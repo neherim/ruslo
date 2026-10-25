@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -31,7 +30,7 @@ class BatchTest {
         assertEquals(200L, emulator.runOneStep(processId).variables().get(BonusAccrualDefinition.CURSOR).orElseThrow());
         var completed = emulator.runOneStep(processId);
 
-        assertTrue(completed.state().is(BonusAccrualDefinition.State.COMPLETED));
+        assertEquals(BonusAccrualDefinition.State.COMPLETED.id(), completed.state());
         assertEquals(250L, completed.variables().get(BonusAccrualDefinition.CURSOR).orElseThrow());
     }
 }

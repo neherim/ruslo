@@ -11,7 +11,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -30,7 +29,7 @@ class ApprovalTest {
         var approved = emulator.sendMessageAndRunUntilStop(processId, ExpenseApprovalDefinition.DECISION,
                 new Decision("alice", true));
 
-        assertTrue(approved.state().is(ExpenseApprovalDefinition.State.APPROVED));
+        assertEquals(ExpenseApprovalDefinition.State.APPROVED.id(), approved.state());
         assertEquals("alice", approved.variables().get(ExpenseApprovalDefinition.DECIDED_BY).orElseThrow());
     }
 
@@ -42,13 +41,13 @@ class ApprovalTest {
         emulator.fastForwardTime(ExpenseApprovalDefinition.DECISION_DEADLINE);
         var escalated = emulator.runUntilStop(processId);
 
-        assertTrue(escalated.state().is(ExpenseApprovalDefinition.State.WAITING_FOR_DECISION));
+        assertEquals(ExpenseApprovalDefinition.State.WAITING_FOR_DECISION.id(), escalated.state());
         assertEquals("bob", escalated.variables().get(ExpenseApprovalDefinition.APPROVER).orElseThrow());
 
         var rejected = emulator.sendMessageAndRunUntilStop(processId, ExpenseApprovalDefinition.DECISION,
                 new Decision("bob", false));
 
-        assertTrue(rejected.state().is(ExpenseApprovalDefinition.State.REJECTED));
+        assertEquals(ExpenseApprovalDefinition.State.REJECTED.id(), rejected.state());
     }
 
     @Test
@@ -59,7 +58,7 @@ class ApprovalTest {
         emulator.fastForwardTime(ExpenseApprovalDefinition.DECISION_DEADLINE);
         var expired = emulator.runUntilStop(processId);
 
-        assertTrue(expired.state().is(ExpenseApprovalDefinition.State.EXPIRED));
+        assertEquals(ExpenseApprovalDefinition.State.EXPIRED.id(), expired.state());
     }
 
     private UUID startApproval(String approver) {

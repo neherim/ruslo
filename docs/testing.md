@@ -16,16 +16,23 @@ and annotate the test with `@ProcessEngineTest`. The annotation:
 | Method | What it does |
 |---|---|
 | `runUntilStop(id)` | Runs transitions while the process is ready: stops in an await with no due events, on a future timer or delayed retry, in `FAILED` or on completion. If after an error `fallback` or a retry without delay leads to a step, execution continues |
-| `runOneStep(id)` | Runs one step or one due await event; throws `IllegalStateException` for a process in `FAILED` |
-| `runUntilState(id, state)` | Runs transitions up to the given state; throws `IllegalStateException` if the process stops earlier |
+| `runOneStep(id)` | Runs one step or one due await event; throws `ProcessStatusException` for a completed process or one in `FAILED` |
+| `runUntilState(id, state)` | Runs transitions up to the given state; throws `IllegalStateException` with the process summary (status, `lastError`, history) if the process stops earlier |
 | `runAll()` | Runs all active processes in the database to their next stop, for scenarios where processes interact. The database is shared by tests with the same context: active processes of previous tests are included too |
-| `sendMessageAndRunUntilStop(id, type, payload)` | Calls `sendMessage`, then `runUntilStop`; throws `IllegalStateException` if the process did not accept the message |
+| `sendMessageAndRunUntilStop(id, type, payload)` | Calls `sendMessage`, then `runUntilStop`; throws `MessageNotExpectedException` if the process did not accept the message |
 | `fastForwardTime(duration)` | Moves the engine clock forward |
 | `setTime(instant)` | Sets the current time of the engine clock |
 | `resetTime()` | Resets the engine clock to the initial time; `@ProcessEngineTest` does this before each test |
 
 The methods return `ProcessInstanceDetails`: check `state()`, `status()` and `lastError()`. Read variables in a
 typed way: `details.variables().get(AMOUNT)` returns an `Optional` of the variable class.
+
+Compare the state with `assertEquals(OrderState.COMPLETED.id(), details.state())`: on a mismatch the message shows
+the actual state. Without `.id()` the check always fails, since an enum constant does not equal the `ProcessStateId`
+of the details. `assertTrue(details.state().is(...))` does not show the actual state. The `toString()` of
+`ProcessInstanceDetails` is a summary of status, `lastError`, recent history, variables and timers; pass it as the
+message when the state alone does not explain a failure:
+`assertEquals(OrderState.COMPLETED.id(), details.state(), details::toString)`.
 
 ## Timers and retries
 
@@ -49,7 +56,7 @@ class OrderServiceTest {
         orderService.confirmPayment(processId, new PaymentConfirmed(BigDecimal.valueOf(500)));
 
         var waiting = emulator.runUntilStop(processId);
-        assertTrue(waiting.state().is(State.WAITING_FOR_DELIVERY_TIMER));
+        assertEquals(State.WAITING_FOR_DELIVERY_TIMER.id(), waiting.state());
 
         emulator.fastForwardTime(Duration.ofSeconds(11));   // the await waits after(10 seconds)
 
@@ -71,7 +78,7 @@ assertEquals(start.plus(SeatReservationDefinition.PAYMENT_TIME),
         waiting.timers().get(SeatReservationDefinition.PAYMENT_DUE.name()));
 
 emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
-assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
+assertEquals(SeatReservationDefinition.State.EXPIRED.id(), emulator.runUntilStop(processId).state());
 ```
 
 A handler that calls `Instant.now()` instead sees the system time, and such a test fails.

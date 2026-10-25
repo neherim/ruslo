@@ -24,9 +24,9 @@ public class ProcessStartTest extends BaseTest {
         database.doInTransactionWithResult(() -> {
             var id = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
             var process = processEngine.processes().byId(id).singleDetails().orElseThrow();
-            assertThat(process.state().is(INIT))
+            assertThat(process.state())
                 .as("Process should be in INIT state before commit")
-                .isTrue();
+                .isEqualTo(INIT.id());
             return id;
         });
     }

@@ -11,7 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * The emulator runs steps in the test thread and does not reproduce routing to workers: the test checks the process
@@ -30,14 +30,14 @@ class ExternalCallTest {
     void paysApprovedCharge() {
         var paid = emulator.runUntilStop(startPayment(new BigDecimal("50.00")));
 
-        assertTrue(paid.state().is(CardPaymentDefinition.State.PAID));
+        assertEquals(CardPaymentDefinition.State.PAID.id(), paid.state());
     }
 
     @Test
     void declinedChargeIsAnOutcomeNotAnError() {
         var declined = emulator.runUntilStop(startPayment(new BigDecimal("5000.00")));
 
-        assertTrue(declined.state().is(CardPaymentDefinition.State.DECLINED));
+        assertEquals(CardPaymentDefinition.State.DECLINED.id(), declined.state());
     }
 
     private UUID startPayment(BigDecimal amount) {

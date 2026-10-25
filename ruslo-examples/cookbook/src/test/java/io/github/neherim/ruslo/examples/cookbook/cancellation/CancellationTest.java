@@ -36,7 +36,7 @@ class CancellationTest {
         assertTrue(stateOf(processId).is(OrderDeliveryDefinition.State.CANCELLING));
         var cancelled = emulator.runUntilStop(processId);
 
-        assertTrue(cancelled.state().is(OrderDeliveryDefinition.State.CANCELLED));
+        assertEquals(OrderDeliveryDefinition.State.CANCELLED.id(), cancelled.state());
     }
 
     @Test
@@ -46,12 +46,12 @@ class CancellationTest {
         emulator.runUntilStop(processId);
         var packed = emulator.sendMessageAndRunUntilStop(
                 processId, OrderDeliveryDefinition.PAYMENT_RECEIVED, "payment-1");
-        assertTrue(packed.state().is(OrderDeliveryDefinition.State.WAITING_FOR_COURIER));
+        assertEquals(OrderDeliveryDefinition.State.WAITING_FOR_COURIER.id(), packed.state());
 
         assertEquals(OrderCancellationService.Result.ACCEPTED, cancellation.cancel(orderId, "Found it cheaper"));
         var cancelled = emulator.runUntilStop(processId);
 
-        assertTrue(cancelled.state().is(OrderDeliveryDefinition.State.CANCELLED));
+        assertEquals(OrderDeliveryDefinition.State.CANCELLED.id(), cancelled.state());
     }
 
     @Test
@@ -74,7 +74,7 @@ class CancellationTest {
         emulator.sendMessageAndRunUntilStop(processId, OrderDeliveryDefinition.PAYMENT_RECEIVED, "payment-1");
         var shipped = emulator.sendMessageAndRunUntilStop(
                 processId, OrderDeliveryDefinition.HANDED_TO_COURIER, "courier-7");
-        assertTrue(shipped.state().is(OrderDeliveryDefinition.State.SHIPPED));
+        assertEquals(OrderDeliveryDefinition.State.SHIPPED.id(), shipped.state());
 
         assertEquals(OrderCancellationService.Result.TOO_LATE, cancellation.cancel(orderId, "Changed my mind"));
     }
@@ -91,7 +91,7 @@ class CancellationTest {
         var cancelled = emulator.runUntilStop(processId);
 
         // The payment handler did not run: the cancel step refunds by order id, not by a process variable
-        assertTrue(cancelled.state().is(OrderDeliveryDefinition.State.CANCELLED));
+        assertEquals(OrderDeliveryDefinition.State.CANCELLED.id(), cancelled.state());
         assertTrue(cancelled.variables().get(OrderDeliveryDefinition.PAYMENT_ID).isEmpty());
     }
 

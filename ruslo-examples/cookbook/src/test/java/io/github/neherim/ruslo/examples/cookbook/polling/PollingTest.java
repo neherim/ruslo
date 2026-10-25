@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -29,12 +29,14 @@ class PollingTest {
         // The first check runs initialDelay after entering the await, the next ones every poll interval.
         // The report service stub has the report ready by the third check.
         emulator.fastForwardTime(ReportGenerationDefinition.FIRST_CHECK_DELAY);
-        assertTrue(emulator.runUntilStop(processId).state().is(ReportGenerationDefinition.State.WAITING_FOR_REPORT));
+        assertEquals(ReportGenerationDefinition.State.WAITING_FOR_REPORT.id(),
+                emulator.runUntilStop(processId).state());
         emulator.fastForwardTime(ReportGenerationDefinition.POLL_INTERVAL);
-        assertTrue(emulator.runUntilStop(processId).state().is(ReportGenerationDefinition.State.WAITING_FOR_REPORT));
+        assertEquals(ReportGenerationDefinition.State.WAITING_FOR_REPORT.id(),
+                emulator.runUntilStop(processId).state());
         emulator.fastForwardTime(ReportGenerationDefinition.POLL_INTERVAL);
         var completed = emulator.runUntilStop(processId);
 
-        assertTrue(completed.state().is(ReportGenerationDefinition.State.COMPLETED));
+        assertEquals(ReportGenerationDefinition.State.COMPLETED.id(), completed.state());
     }
 }

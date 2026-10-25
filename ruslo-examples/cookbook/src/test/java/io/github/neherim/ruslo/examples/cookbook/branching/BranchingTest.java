@@ -12,7 +12,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -28,14 +27,14 @@ class BranchingTest {
         var approved = emulator.runUntilStop(startApplication(500));
 
         assertEquals(ProcessStatus.COMPLETED, approved.status());
-        assertTrue(approved.state().is(LoanApplicationDefinition.State.APPROVED));
+        assertEquals(LoanApplicationDefinition.State.APPROVED.id(), approved.state());
     }
 
     @Test
     void rejectsAmountAboveLimit() {
         var rejected = emulator.runUntilStop(startApplication(250_000));
 
-        assertTrue(rejected.state().is(LoanApplicationDefinition.State.REJECTED));
+        assertEquals(LoanApplicationDefinition.State.REJECTED.id(), rejected.state());
         assertEquals("Amount exceeds 100000",
                 rejected.variables().get(LoanApplicationDefinition.REJECTION_REASON).orElseThrow());
     }
@@ -44,12 +43,12 @@ class BranchingTest {
     void approvesAfterManualReview() {
         var processId = startApplication(20_000);
         var waiting = emulator.runUntilStop(processId);
-        assertTrue(waiting.state().is(LoanApplicationDefinition.State.MANUAL_REVIEW));
+        assertEquals(LoanApplicationDefinition.State.MANUAL_REVIEW.id(), waiting.state());
 
         var approved = emulator.sendMessageAndRunUntilStop(processId, LoanApplicationDefinition.REVIEW_DECISION,
                 new ReviewDecision(true, "Stable income"));
 
-        assertTrue(approved.state().is(LoanApplicationDefinition.State.APPROVED));
+        assertEquals(LoanApplicationDefinition.State.APPROVED.id(), approved.state());
     }
 
     @Test
@@ -60,7 +59,7 @@ class BranchingTest {
         var rejected = emulator.sendMessageAndRunUntilStop(processId, LoanApplicationDefinition.REVIEW_DECISION,
                 new ReviewDecision(false, "Insufficient income"));
 
-        assertTrue(rejected.state().is(LoanApplicationDefinition.State.REJECTED));
+        assertEquals(LoanApplicationDefinition.State.REJECTED.id(), rejected.state());
         assertEquals("Insufficient income",
                 rejected.variables().get(LoanApplicationDefinition.REJECTION_REASON).orElseThrow());
     }

@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The engine runs without the dispatcher: {@link ProcessEngineEmulator} executes steps synchronously in the
@@ -43,14 +42,14 @@ class StandaloneCoreExampleTest {
         var processId = example.startApproval("invoice-42", 500);
 
         var waiting = emulator.runUntilStop(processId);
-        assertTrue(waiting.state().is(ApprovalState.WAITING_FOR_APPROVAL));
+        assertEquals(ApprovalState.WAITING_FOR_APPROVAL.id(), waiting.state());
         assertEquals("manager",
                 waiting.variables().get(Constants.APPROVER_ROLE).orElseThrow());
 
         example.approve(processId, "manager-1");
 
         var approved = emulator.runUntilStop(processId);
-        assertTrue(approved.state().is(ApprovalState.APPROVED));
+        assertEquals(ApprovalState.APPROVED.id(), approved.state());
         assertEquals(ProcessStatus.COMPLETED, approved.status());
         assertEquals("manager-1",
                 approved.variables().get(Constants.APPROVED_BY).orElseThrow());
@@ -61,14 +60,14 @@ class StandaloneCoreExampleTest {
         var processId = example.startApproval("contract-7", 50_000);
 
         var waiting = emulator.runUntilStop(processId);
-        assertTrue(waiting.state().is(ApprovalState.WAITING_FOR_APPROVAL));
+        assertEquals(ApprovalState.WAITING_FOR_APPROVAL.id(), waiting.state());
         assertEquals("cfo",
                 waiting.variables().get(Constants.APPROVER_ROLE).orElseThrow());
 
         example.reject(processId, "Budget exceeded");
 
         var rejected = emulator.runUntilStop(processId);
-        assertTrue(rejected.state().is(ApprovalState.REJECTED));
+        assertEquals(ApprovalState.REJECTED.id(), rejected.state());
         assertEquals("Budget exceeded",
                 rejected.variables().get(Constants.REJECTION_REASON).orElseThrow());
     }

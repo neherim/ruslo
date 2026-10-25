@@ -12,7 +12,6 @@ import java.time.Duration;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -27,7 +26,7 @@ class RetriesTest {
     void sendsNotification() {
         var sent = emulator.runUntilStop(startNotification("ada@example.com"));
 
-        assertTrue(sent.state().is(NotificationDefinition.State.SENT));
+        assertEquals(NotificationDefinition.State.SENT.id(), sent.state());
     }
 
     @Test
@@ -37,12 +36,12 @@ class RetriesTest {
         // Each failed attempt schedules a retry: after 1, 2 and 4 seconds
         var process = emulator.runUntilStop(processId);
         for (var delay : new int[]{1, 2, 4}) {
-            assertTrue(process.state().is(NotificationDefinition.State.SENDING));
+            assertEquals(NotificationDefinition.State.SENDING.id(), process.state());
             emulator.fastForwardTime(Duration.ofSeconds(delay));
             process = emulator.runUntilStop(processId);
         }
 
-        assertTrue(process.state().is(NotificationDefinition.State.DELIVERY_FAILED));
+        assertEquals(NotificationDefinition.State.DELIVERY_FAILED.id(), process.state());
     }
 
     @Test
@@ -50,7 +49,7 @@ class RetriesTest {
         var failed = emulator.runUntilStop(startNotification("+1-555-0100"));
 
         // No retry was scheduled: the process went to the fallback state at once
-        assertTrue(failed.state().is(NotificationDefinition.State.DELIVERY_FAILED));
+        assertEquals(NotificationDefinition.State.DELIVERY_FAILED.id(), failed.state());
         assertEquals(0, failed.attempt());
     }
 

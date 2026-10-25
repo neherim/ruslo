@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -38,14 +37,14 @@ class SubscriptionTest {
             assertEquals(chargeAt, emulator.runUntilStop(processId).nextRunAt().orElseThrow());
             emulator.setTime(chargeAt);
             var active = emulator.runUntilStop(processId);
-            assertTrue(active.state().is(SubscriptionDefinition.State.ACTIVE));
+            assertEquals(SubscriptionDefinition.State.ACTIVE.id(), active.state());
             assertEquals(chargeDates.get(i + 1),
                     active.variables().get(SubscriptionDefinition.PAID_UNTIL).orElseThrow());
             assertEquals(chargeDates.get(i + 1), active.timers().get(SubscriptionDefinition.NEXT_CHARGE.name()));
         }
         var cancelled = emulator.sendMessageAndRunUntilStop(processId, SubscriptionDefinition.CANCEL, "Too expensive");
 
-        assertTrue(cancelled.state().is(SubscriptionDefinition.State.CANCELLED));
+        assertEquals(SubscriptionDefinition.State.CANCELLED.id(), cancelled.state());
     }
 
     @Test
@@ -67,7 +66,7 @@ class SubscriptionTest {
 
         var suspended = emulator.runUntilStop(processId);
 
-        assertTrue(suspended.state().is(SubscriptionDefinition.State.SUSPENDED));
+        assertEquals(SubscriptionDefinition.State.SUSPENDED.id(), suspended.state());
     }
 
     private UUID startSubscription(String cardToken) {

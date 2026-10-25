@@ -16,7 +16,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -38,13 +37,13 @@ class WebhookTest {
 
         webhook.onCallback(new VerificationCallback(applicationId, "evt-1", Status.DOCUMENTS_REQUIRED));
         var waiting = emulator.runUntilStop(processId);
-        assertTrue(waiting.state().is(IdentityVerificationDefinition.State.WAITING_FOR_RESULT));
+        assertEquals(IdentityVerificationDefinition.State.WAITING_FOR_RESULT.id(), waiting.state());
 
         webhook.onCallback(new VerificationCallback(applicationId, "evt-2", Status.APPROVED));
         var verified = emulator.runUntilStop(processId);
 
         assertEquals(ProcessStatus.COMPLETED, verified.status());
-        assertTrue(verified.state().is(IdentityVerificationDefinition.State.VERIFIED));
+        assertEquals(IdentityVerificationDefinition.State.VERIFIED.id(), verified.state());
     }
 
     @Test
@@ -58,7 +57,7 @@ class WebhookTest {
         webhook.onCallback(documentsRequired);
         var waiting = emulator.runUntilStop(processId);
 
-        assertTrue(waiting.state().is(IdentityVerificationDefinition.State.WAITING_FOR_RESULT));
+        assertEquals(IdentityVerificationDefinition.State.WAITING_FOR_RESULT.id(), waiting.state());
         assertEquals(Optional.of(new HandledEvents(List.of("evt-1"))),
                 waiting.variables().get(IdentityVerificationDefinition.HANDLED_EVENTS));
     }
@@ -70,7 +69,7 @@ class WebhookTest {
         emulator.runUntilStop(processId);
         var declined = new VerificationCallback(applicationId, "evt-1", Status.DECLINED);
         webhook.onCallback(declined);
-        assertTrue(emulator.runUntilStop(processId).state().is(IdentityVerificationDefinition.State.REJECTED));
+        assertEquals(IdentityVerificationDefinition.State.REJECTED.id(), emulator.runUntilStop(processId).state());
 
         assertDoesNotThrow(() -> webhook.onCallback(declined));
     }

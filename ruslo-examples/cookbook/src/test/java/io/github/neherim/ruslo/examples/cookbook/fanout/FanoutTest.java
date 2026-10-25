@@ -29,7 +29,7 @@ class FanoutTest {
     void completesWhenAllPartsReported() {
         var parentId = startImport(3);
         var waiting = emulator.runUntilStop(parentId);
-        assertTrue(waiting.state().is(FileImportDefinition.State.WAITING_FOR_PARTS));
+        assertEquals(FileImportDefinition.State.WAITING_FOR_PARTS.id(), waiting.state());
 
         var parts = partsOf(waiting);
         assertEquals(3, parts.size());
@@ -39,7 +39,7 @@ class FanoutTest {
 
         var completed = emulator.runUntilStop(parentId);
 
-        assertTrue(completed.state().is(FileImportDefinition.State.COMPLETED));
+        assertEquals(FileImportDefinition.State.COMPLETED.id(), completed.state());
     }
 
     private UUID startImport(int partCount) {
