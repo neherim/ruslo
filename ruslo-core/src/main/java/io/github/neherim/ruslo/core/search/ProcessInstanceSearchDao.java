@@ -6,6 +6,7 @@ import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails.StateHistoryEntry;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceSummary;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
+import io.github.neherim.ruslo.core.runtime.process.ProcessTimers;
 import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.utils.DateTimeUtils;
@@ -25,7 +26,7 @@ public class ProcessInstanceSearchDao {
 
     private static final String SELECT_DETAILS_SQL = """
             select id, type, state, status, created_at, next_run_at, business_key, attempt,
-                   correlation_id, last_error, variables
+                   correlation_id, last_error, variables, timers
             from xs_process_instance where 1=1
             """;
 
@@ -155,7 +156,8 @@ public class ProcessInstanceSearchDao {
                 rs.getInt("attempt"),
                 Optional.ofNullable(rs.getString("last_error")),
                 stateHistory,
-                new ProcessVariablesSnapshot(ProcessVariables.fromString(objectMapper, rs.getString("variables")))
+                new ProcessVariablesSnapshot(ProcessVariables.fromString(objectMapper, rs.getString("variables"))),
+                ProcessTimers.fromString(objectMapper, rs.getString("timers")).asMap()
         );
     }
 

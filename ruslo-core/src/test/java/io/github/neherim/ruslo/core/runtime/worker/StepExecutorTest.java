@@ -130,6 +130,7 @@ class StepExecutorTest {
             .build();
         return ProcessInstance.createNew(UUID.randomUUID(), null, spec,
                 ProcessVariables.empty(JsonUtils.DEFAULT_OBJECT_MAPPER),
+                ProcessTimers.empty(JsonUtils.DEFAULT_OBJECT_MAPPER),
                 ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER), "correlation", NOW, clock);
     }
 

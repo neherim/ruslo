@@ -22,31 +22,36 @@ One run of an await handles **at most one** event. Every event has a time:
 - a message: the moment `sendMessage` stored it;
 - `every`: the planned grid point, `entering the await + initialDelay + k * interval`;
 - `after`: entering the await plus `delay`, computed on entering;
-- `at`: the value of its variable.
+- `at`: the moment of its process timer, if the timer is set.
 
 An event is due when its time is not later than the engine clock. Among due events, the one with the smallest time
 is handled. On a tie the order is: message, `every`, `after`, `at`; messages with the same time go in arrival order.
 The moment the dispatcher reached the process does not affect the choice.
 
 **Timer moments.** After a successful `every` the next check is the first grid point after the handling. After a
-successful `after` the timer is off until the await is entered again. The `at` timer is set to the value of its
-variable on entering the await and on every write of a new value in the await (a handler, `setProcessVariable` in
-the admin API); removing the variable turns it off. After a successful `at` the timer is off until the variable gets
-a new value; a new value written by the `at` handler itself sets the next moment. Writing the same value does not
-set the timer again, so a handler that does not move the moment does not make a loop.
+successful `after` the timer is off until the await is entered again. The `at` moment is taken from the process
+timer the current await declares: `setTimer` and `cancelTimer` (in a handler, a step, or `setProcessTimer` /
+`cancelProcessTimer` in the admin API) move it at once, without entering the await again. Entering an await does not
+change process timers.
+
+When `at` is selected, the engine cancels its timer and then calls the handler, in one transaction. A handler that
+sets the timer again sets the next moment; one that does not leaves `at` off. If the handler fails, the transaction
+is rolled back together with the cancellation: the timer is set again, and the retry selects the same event.
 
 A moment in the past or equal to now is an event that is already due, selected by the usual rules: the process
 entered the await after the deadline, a message moved the deadline into the past, or dates were missed during
-downtime (the `at` handler can skip past dates itself). A variable used by `at` in any await of the process must be
-an `Instant` in every state. A value that cannot be read as `Instant` is an error of the writer: the write throws
-`IllegalArgumentException` and the process is unchanged. From a handler or step it is a handler error, retried by
-[`onError`](error-handling.md); from `setProcessVariable` or from the start variables the operation throws.
+downtime (the `at` handler can skip past dates itself). A process timer that no `at` of the current definition
+declares, for example one left by a previous version of the definition, is stored and shown in the details but
+never fires.
 
 **Retry backoff.** A handler error pauses the whole await: until the retry time the process does not run, and new
-messages, due timers and writes of the `at` variable do not wake it. After the pause the event is selected by the
+messages, due timers and changes of process timers do not wake it. After the pause the event is selected by the
 rules above, usually the failed one: its time is earlier than the others. An error postpones handling but does not
 change the order of events, so the result does not depend on temporary failures. A failed `every`, `after` or `at`
-handler is retried by [`onError`](error-handling.md); the timer stays on until it is handled successfully.
+handler is retried by [`onError`](error-handling.md); the timer stays on until it is handled successfully. The
+`ProcessContext` passed to `onError` can change process timers too: setting one does not wake the process before the
+retry, and cancelling the timer of a failed `at` leaves no event after the backoff, so the await keeps waiting for
+its other events.
 
 The cost: if a message accepted at 11:59 keeps failing, a deadline at 12:00 does not fire until the message is
 handled or the process leaves the await by its error policy; with unlimited retries it never fires. For a hard
@@ -77,7 +82,7 @@ Consequences:
 - a late check does not shift the grid, so the check after it may come sooner than `interval`: there is no minimum
   interval between checks. With `every(10m)` and a deadline at 12:00, the 12:00 check runs before `after`
   however late the previous checks were;
-- timers do not fire in status `FAILED`, and a write of the `at` variable does not wake such a process; after
+- timers do not fire in status `FAILED`, and a change of a process timer does not wake such a process; after
   `resumeFailedProcess` the event is selected by these rules again.
 
 A process taken with no due event, for example after `next_run_at` was changed by hand
@@ -119,7 +124,7 @@ in the active application transaction or in a new one. The process row stays loc
 
 - Only the handler of this message runs synchronously, not the process until it stops; the dispatcher runs the
   following steps after commit.
-- The message bypasses the queue: earlier messages and due `every`, `after` and `at` are ignored, and on a transition to
+- The message bypasses the queue: earlier messages and due `every`, `after` and `at` are ignored and keep waiting, and on a transition to
   another state the queued messages are removed unhandled. If the process is waiting to retry a failed event, that
   retry is kept.
 - Applicability is checked as in `sendMessage`: if the process is not waiting for the message now or has completed,

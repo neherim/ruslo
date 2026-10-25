@@ -40,11 +40,24 @@ class SubscriptionTest {
             var active = emulator.runUntilStop(processId);
             assertTrue(active.state().is(SubscriptionDefinition.State.ACTIVE));
             assertEquals(chargeDates.get(i + 1),
-                    active.variables().get(SubscriptionDefinition.NEXT_CHARGE_AT).orElseThrow());
+                    active.variables().get(SubscriptionDefinition.PAID_UNTIL).orElseThrow());
+            assertEquals(chargeDates.get(i + 1), active.timers().get(SubscriptionDefinition.NEXT_CHARGE.name()));
         }
         var cancelled = emulator.sendMessageAndRunUntilStop(processId, SubscriptionDefinition.CANCEL, "Too expensive");
 
         assertTrue(cancelled.state().is(SubscriptionDefinition.State.CANCELLED));
+    }
+
+    @Test
+    void chargesEveryMissedMonthAtOnceAfterDowntime() {
+        var processId = startSubscription("tok_visa");
+        emulator.setTime(Instant.parse("2026-04-30T10:00:00Z"));
+
+        var active = emulator.runUntilStop(processId);
+
+        var nextCharge = Instant.parse("2026-05-31T09:00:00Z");
+        assertEquals(nextCharge, active.variables().get(SubscriptionDefinition.PAID_UNTIL).orElseThrow());
+        assertEquals(nextCharge, active.nextRunAt().orElseThrow());
     }
 
     @Test
@@ -59,11 +72,13 @@ class SubscriptionTest {
 
     private UUID startSubscription(String cardToken) {
         emulator.setTime(SIGN_UP);
+        var paidUntil = SubscriptionDefinition.nextChargeAt(SIGN_UP, SIGN_UP);
         var processId = processEngine.newProcess(SubscriptionDefinition.TYPE)
             .businessKey("subscription-" + UUID.randomUUID())
             .variable(SubscriptionDefinition.CARD_TOKEN, cardToken)
             .variable(SubscriptionDefinition.SUBSCRIBED_AT, SIGN_UP)
-            .variable(SubscriptionDefinition.NEXT_CHARGE_AT, SubscriptionDefinition.nextChargeAt(SIGN_UP, SIGN_UP))
+            .variable(SubscriptionDefinition.PAID_UNTIL, paidUntil)
+            .timer(SubscriptionDefinition.NEXT_CHARGE, paidUntil)
             .start();
         emulator.runUntilStop(processId);
         return processId;

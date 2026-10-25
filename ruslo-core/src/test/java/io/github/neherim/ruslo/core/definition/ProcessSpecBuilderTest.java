@@ -5,7 +5,6 @@ import io.github.neherim.ruslo.core.api.definition.ProcessSpec.*;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -20,7 +19,7 @@ class ProcessSpecBuilderTest {
     private static final MessageType<String> MESSAGE = MessageType.of("MESSAGE", String.class);
     private static final ProcessMessageHandler<String> ON_MESSAGE = (context, message) -> {};
     private static final ProcessTimerHandler ON_TIMER = context -> {};
-    private static final VariableType<Instant> DUE_DATE = VariableType.of("dueDate", Instant.class);
+    private static final TimerType DUE_DATE = TimerType.of("dueDate");
 
     @Test
     void buildsStepAwaitAndTerminal() {
@@ -63,7 +62,7 @@ class ProcessSpecBuilderTest {
         var await = (AwaitState) spec.getStateSpec(State.WAIT);
         assertEquals(Duration.ofHours(1), await.after().delay());
         assertEquals(new Target(State.WAIT.id()), await.after().exit());
-        assertEquals(DUE_DATE, await.at().variable());
+        assertEquals(DUE_DATE, await.at().timer());
         assertInstanceOf(ProcessSpec.Routes.class, await.at().exit());
     }
 

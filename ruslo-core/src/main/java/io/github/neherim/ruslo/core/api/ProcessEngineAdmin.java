@@ -1,6 +1,7 @@
 package io.github.neherim.ruslo.core.api;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
+import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.api.view.ApplicationInstanceInfo;
 import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo;
@@ -93,6 +94,28 @@ public final class ProcessEngineAdmin {
      */
     public boolean removeProcessVariable(UUID processId, String name) {
         return processRuntimeService.removeVariable(processId, name);
+    }
+
+    /**
+     * Sets a process timer, as {@link io.github.neherim.ruslo.core.api.definition.ProcessContext#setTimer} does in a
+     * handler; a moment of {@code now} fires the waiting {@code at} at once. The status is not checked: a timer of a
+     * completed process has no effect, and a {@code FAILED} process or one in a retry backoff is not woken earlier;
+     * after resume the timer counts.
+     *
+     * @throws IllegalArgumentException if no {@code at} of the process uses the timer
+     */
+    public void setProcessTimer(UUID processId, TimerType timer, Instant moment) {
+        processRuntimeService.setTimer(processId, timer, moment);
+    }
+
+    /**
+     * Cancels a process timer. Unlike {@link #setProcessTimer}, the timer need not be declared: this also removes
+     * a timer left by a previous version of the definition, via {@link TimerType#of(String)}.
+     *
+     * @return {@code true} if the timer was set
+     */
+    public boolean cancelProcessTimer(UUID processId, TimerType timer) {
+        return processRuntimeService.cancelTimer(processId, timer);
     }
 
 }

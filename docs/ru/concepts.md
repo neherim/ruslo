@@ -75,67 +75,109 @@ BranchingStep<Validation> validateStep = context -> isValid(context) ? Validatio
 | `message(type, handler, next \| routes)` | пришло сообщение типа `type` | `ProcessMessageHandler<T>` или `BranchingMessageHandler<T, O>` |
 | `every(interval, handler, next \| routes)` | повторно, каждые `interval` по сетке от входа в ожидание | `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
 | `after(delay[, handler], next \| routes)` | через `delay` после входа в ожидание | нет, `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
-| `at(variable[, handler], next \| routes)` | в момент из переменной типа `Instant` | нет, `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
+| `at(timer[, handler], next \| routes)` | в момент таймера процесса `TimerType` | нет, `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
 
 Хотя бы одно событие должно вести в другое состояние.
 
 ```java
 enum Payment { PAID, PENDING }
 
-static final VariableType<Instant> DUE_DATE = VariableType.of("dueDate", Instant.class);
+static final TimerType PAYMENT_DUE = TimerType.of("paymentDue");
 
+.step(RESERVING, PaymentDefinition::reserve, WAITING_FOR_PAYMENT)               // ставит PAYMENT_DUE
 .await(WAITING_FOR_PAYMENT, await -> await
-    .every(Duration.ofSeconds(30), checkPayment, routes -> routes   // polling внешнего условия
+    .every(Duration.ofSeconds(30), PaymentDefinition::checkPayment, routes -> routes   // polling внешнего условия
         .on(Payment.PAID, SHIPPING)
-        .on(Payment.PENDING, WAITING_FOR_PAYMENT))                 // ждать дальше
-    .message(EXTEND_DUE_DATE, extendDueDate, WAITING_FOR_PAYMENT)  // пишет DUE_DATE
-    .after(Duration.ofDays(3), remind, WAITING_FOR_PAYMENT)         // одно напоминание
-    .at(DUE_DATE, markExpired, CANCELLED))
+        .on(Payment.PENDING, WAITING_FOR_PAYMENT))                                 // ждать дальше
+    .message(EXTEND_PAYMENT_DUE, PaymentDefinition::extend, WAITING_FOR_PAYMENT)   // ставит PAYMENT_DUE
+    .after(Duration.ofDays(3), PaymentDefinition::remind, WAITING_FOR_PAYMENT)     // одно напоминание
+    .at(PAYMENT_DUE, PaymentDefinition::markExpired, CANCELLED))
+
+static void reserve(ProcessContext context) {
+    context.setTimer(PAYMENT_DUE, context.now().plus(Duration.ofDays(5)));
+}
+
+static void extend(ProcessContext context, IncomingMessage<Instant> message) {
+    context.setTimer(PAYMENT_DUE, message.payload());
+}
 ```
+
+Таймеры бывают двух видов. `every` и `after` — **таймеры ожидания**: они живут одно вхождение в ожидание, и их
+моменты движок ставит от времени входа. `at` ждёт **таймер процесса**: именованный момент (`TimerType`), который
+ставит и снимает код; он живёт между состояниями, пока не сработает или не будет снят.
 
 Правила таймеров:
 
 1. `every(interval)` срабатывает повторно, по сетке `вход в ожидание + initialDelay + k * interval`: опоздавшая
    проверка не сдвигает следующие, пропущенные точки не выполняются. `after(delay)` срабатывает через `delay` после
-   входа в ожидание. `at(variable)` срабатывает в момент из переменной, как будильник: вход в ожидание и запись
-   нового значения ставят его на это значение, удаление переменной выключает; момент в прошлом срабатывает сразу.
-   Переменная всегда `Instant`, в любом состоянии и при старте: другое значение отклоняется при записи.
-2. Каждый таймер объявляется в ожидании не больше одного раза; сочетать можно любые.
-3. **Сработавший таймер с целью «само ожидание»**: `every` переходит к следующей точке сетки, `after` выключен до
-   следующего входа в ожидание, `at` выключен до нового значения переменной. Поэтому обработчик `at`, записавший
-   следующую дату, создаёт расписание; не записавший — оставляет ожидание ждать остальных событий, как ожидание,
-   сообщение для которого не приходит. Повторный вход в ожидание заново ставит все таймеры: `at` с тем же прошедшим
-   моментом сразу срабатывает, поэтому цикл «ожидание → шаг → ожидание» должен сдвинуть момент или выйти.
-4. Ошибка обработчика приостанавливает всё ожидание до повтора: наступивший таймер ждёт, пока упавшее событие не
+   входа в ожидание.
+2. Таймер процесса ставит `context.setTimer(T, moment)` или при старте `newProcess(...).timer(T, moment)`, снимает
+   `context.cancelTimer(T)`; `context.getTimer(T)` возвращает `Optional<Instant>`. Момент хранится с точностью до
+   микросекунд, и `getTimer` возвращает усечённое значение. `T` должен использоваться в каком-нибудь `at` процесса,
+   иначе эти методы и старт бросают `IllegalArgumentException`. `null` вместо момента — `NullPointerException`:
+   снимает таймер только `cancelTimer`.
+3. `at(T)` срабатывает, когда процесс в этом ожидании, а таймер `T` поставлен и наступил; момент в прошлом
+   срабатывает сразу. Каждый вид таймера (`every`, `after`, `at`) объявляется в ожидании не больше одного раза;
+   сочетать можно любые.
+4. **Сработавший таймер с целью «само ожидание»**: `every` переходит к следующей точке сетки, `after` выключен до
+   следующего входа в ожидание. **Сработавший таймер процесса снимается до вызова обработчика**: обработчик видит
+   `getTimer(T)` пустым и может поставить его снова, так получается расписание; обработчик, который его не поставил,
+   оставляет ожидание ждать остальных событий. Момент срабатывания обработчик не получает: если он нужен как данные
+   (дата отчёта, «оплачено до»), храните его в переменной.
+5. Переходы между состояниями таймеры процесса не трогают: таймер, поставленный в шаге, ждёт ожидания, которое его
+   объявило. Один таймер может объявляться в нескольких ожиданиях (сквозной дедлайн).
+6. **Таймер процесса живёт, пока не сработал или не снят.** Ожидание, покинутое по сообщению, оставляет свой
+   таймер поставленным: при новом входе в ожидание с этим `at` прошедший момент сработает сразу. Если таймер больше
+   не нужен, обработчик, уводящий из ожидания, снимает его `cancelTimer`. То же при `moveProcessToState` оператором
+   и при `ErrorResult.fallback` из ожидания.
+7. Ошибка обработчика приостанавливает всё ожидание до повтора: наступивший таймер ждёт, пока упавшее событие не
    будет обработано (см. [execution.md](execution.md#выбор-события-ожидания)).
 
 Таймер без обработчика не может вести в само ожидание: он ничего бы не делал. Первую проверку `every` можно
 выполнить сразу при входе в ожидание: `every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`.
 
-Момент для `at` вычисляет шаг или обработчик от `context.now()`, например
-`context.setVariable(DUE_DATE, context.now().plus(Duration.ofMinutes(15)))`, либо передаёт вызывающий код при
-запуске. Расписание по датам — это `at`, обработчик которого пишет следующую дату; первую дату пишет вызывающий
-код при запуске или шаг перед ожиданием:
+Правило 6 на примере: ожидание с дедлайном, сообщение уводит в шаг, шаг возвращает в ожидание.
 
 ```java
-.step(PLAN, ReportDefinition::planFirstRun, SCHEDULED)          // пишет NEXT_RUN
+.await(WAITING_FOR_DOCUMENTS, await -> await
+    .message(DOCUMENT, Onboarding::onDocument, CHECKING)
+    .at(DOCUMENTS_DUE, REJECTED))
+.step(CHECKING, Onboarding::check, WAITING_FOR_DOCUMENTS)
+```
+
+Дедлайн общий для обоих входов в `WAITING_FOR_DOCUMENTS`: если он прошёл, пока выполнялся `CHECKING`, процесс
+отклоняется сразу после возврата. Если каждому возврату нужен новый дедлайн, `check` ставит его заново.
+
+Расписание по датам — это `at`, обработчик которого ставит таймер на следующую дату. Сама дата — данные, поэтому
+хранится в переменной; таймер только будит процесс:
+
+```java
+static final VariableType<LocalDate> REPORT_DATE = VariableType.of("reportDate", LocalDate.class);
+static final TimerType NEXT_RUN = TimerType.of("nextRun");
+
+.step(PLAN, ReportDefinition::planFirstRun, SCHEDULED)          // пишет REPORT_DATE, ставит NEXT_RUN
 .await(SCHEDULED, await -> await
     .at(NEXT_RUN, ReportDefinition::buildReport, routes -> routes
-        .on(Run.MORE, SCHEDULED)                                // ждать следующей даты
+        .on(Run.MORE, SCHEDULED)                                // ставит NEXT_RUN на следующую REPORT_DATE
         .on(Run.LAST, DONE))
     .message(CANCEL, ReportDefinition::onCancel, CANCELLED))
 ```
 
+`buildReport` строит отчёт за `REPORT_DATE`, записывает следующую дату и ставит `NEXT_RUN` на её момент
+(`Run.MORE`) или возвращает `Run.LAST`. Дата и в переменной, и в таймере — плата за правило 4: сработавший таймер
+снимается без исключений, поэтому обработчик никогда не видит устаревший момент и цикл не сработает дважды на одном
+моменте.
+
 **Цель события, равная самому ожиданию, означает «ждать дальше».** Это не повторный вход в состояние:
-обработанное сообщение удаляется, остальные сообщения и таймеры сохраняются (расписание `every`, моменты `after`
-и `at`), строка в истории состояний не пишется. Так объявляются:
+обработанное сообщение удаляется, остальные сообщения и таймеры сохраняются (расписание `every`, момент `after`,
+таймеры процесса), строка в истории состояний не пишется. Так объявляются:
 
 - периодический побочный эффект — `every(Duration.ofDays(1), sendReminder, WAITING_FOR_PAYMENT)`;
 - промежуточные сообщения — `message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`.
 
 Любой переход в другое состояние закрывает ожидание и удаляет необработанные сообщения. Чтобы начать ожидание
 заново — с пустой очередью и новым дедлайном `after`, — уйдите в шаг, ведущий обратно в ожидание. Дедлайн, который
-должен сдвигаться без повторного входа, — это `at`: запишите новый момент в его переменную.
+должен сдвигаться без повторного входа, — это `at`: поставьте его таймер.
 
 Если наступило несколько событий, обрабатывается самое раннее; точные правила — в [execution.md](execution.md#выбор-события-ожидания).
 
@@ -156,6 +198,7 @@ payload и временем приёма.
 | Метод | Назначение |
 |---|---|
 | `getVariable(type)`, `setVariable(type, value)`, `removeVariable(type)` | Переменные процесса; изменения сохраняются вместе с переходом |
+| `getTimer(timer)`, `setTimer(timer, moment)`, `cancelTimer(timer)` | Таймеры процесса для `at`, см. [правила таймеров](#ожидания); изменения сохраняются вместе с переходом |
 | `processId()`, `processType()`, `state()` | Идентификация процесса |
 | `businessKey()` | Бизнес-ключ, заданный при запуске через `newProcess(...).businessKey(...)` |
 | `correlationId()` | Идентификатор для логов: задаётся через `newProcess(...).correlationId(...)`, иначе берётся из MDC вызывающего потока или генерируется |
@@ -164,11 +207,13 @@ payload и временем приёма.
 
 Переменные и payload сообщений хранятся в БД как JSON (Jackson). Переменные процесса лежат в колонке
 `xs_process_instance.variables` одним JSON-объектом, например `{"orderId":"A-1","amount":42}`; по нему
-ищет `ProcessQuery.byVariablesLike("%\"orderId\":\"A-1\"%")`. Меняйте их классы совместимо: уже запущенные
+ищет `ProcessQuery.byVariablesLike("%\"orderId\":\"A-1\"%")`. Таймеры процесса хранятся отдельно, в колонке
+`timers`. Меняйте их классы совместимо: уже запущенные
 процессы прочитают сохранённый JSON новым классом. Собственный `ObjectMapper` задаётся через
 `ProcessEngineBuilder.withJsonMapper(...)`.
 
-`MessageType<T>` и `VariableType<T>` принимают непустое имя и класс: `MessageType.of("payment", PaymentConfirmed.class)`
+`TimerType` принимает только непустое имя: `TimerType.of("paymentDue")`. `MessageType<T>` и `VariableType<T>`
+принимают непустое имя и класс: `MessageType.of("payment", PaymentConfirmed.class)`
 или `MessageType<PaymentConfirmed> payment = MessageType.of("payment")`. Класс должен быть конкретным, без параметров
 типа: `List`, `Map` и другие generic-классы отклоняются с `IllegalArgumentException`. Оберните коллекцию в record:
 
@@ -243,7 +288,7 @@ Definition строится один раз при регистрации в eng
 - Повтор после технической ошибки — `ErrorResult.retryAfter`, а не шаг, который повторяет сам себя.
 - Периодическую проверку делайте через `every` в ожидании, а не циклом «шаг → ожидание → шаг»: повторный вход
   в ожидание очищает очередь и сбрасывает `after`. Расписание по календарным датам — это `at`, обработчик которого
-  пишет следующую дату.
+  ставит его таймер на следующую дату; саму дату храните в переменной.
 
 ## Эволюция definition
 

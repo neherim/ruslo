@@ -20,7 +20,7 @@ public record ProcessSpecInfo(
      * State of the definition.
      *
      * @param description from {@link io.github.neherim.ruslo.core.api.definition.ProcessState#description()}
-     * @param atVariable  name of the variable that holds the {@code at} moment
+     * @param atTimer     name of the process timer the {@code at} event waits for
      */
     public record StateInfo(
             ProcessStateId state,
@@ -30,7 +30,7 @@ public record ProcessSpecInfo(
             Set<String> acceptedMessageTypes,
             Optional<Duration> everyInterval,
             Optional<Duration> afterDelay,
-            Optional<String> atVariable,
+            Optional<String> atTimer,
             List<TransitionInfo> transitions
     ) {
     }

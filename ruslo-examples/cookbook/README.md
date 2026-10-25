@@ -64,7 +64,7 @@ recipe with different outcomes. Things to try in Admin UI:
   `{"applicationId":"application-501","eventId":"e2","status":"APPROVED"}`.
 - `FILE_IMPORT`: find the `FILE_IMPORT_PART` parts by the parent's correlation id.
 - `SEAT_RESERVATION`: after 15 minutes an unpaid reservation is released by `at`; send `extendPaymentDue`, e.g.
-  `"2030-01-01T00:00:00Z"`, to move the deadline.
+  `"2030-01-01T00:00:00Z"`, or set the `paymentDue` timer on the Timers tab to move the deadline.
 - `REPORT_GENERATION`: the status is polled every 2 minutes; the report is ready by the third check.
 - `CARD_PAYMENT`: the charge runs on `io-worker`; one payment is approved, one amount over 1000 is declined by the bank.
 - `BONUS_ACCRUAL`: the state history shows the `ACCRUING` step repeating chunk by chunk.

@@ -175,12 +175,13 @@ public class DemoProcessGenerator implements ApplicationRunner {
 
     private void startSubscription(String subscriptionId, String cardToken) {
         var subscribedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        var paidUntil = SubscriptionDefinition.nextChargeAt(subscribedAt, subscribedAt);
         processEngine.newProcess(SubscriptionDefinition.TYPE)
             .businessKey(subscriptionId)
             .variable(SubscriptionDefinition.CARD_TOKEN, cardToken)
             .variable(SubscriptionDefinition.SUBSCRIBED_AT, subscribedAt)
-            .variable(SubscriptionDefinition.NEXT_CHARGE_AT,
-                    SubscriptionDefinition.nextChargeAt(subscribedAt, subscribedAt))
+            .variable(SubscriptionDefinition.PAID_UNTIL, paidUntil)
+            .timer(SubscriptionDefinition.NEXT_CHARGE, paidUntil)
             .start();
     }
 

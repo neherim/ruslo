@@ -29,7 +29,7 @@
 
 ## Таймеры и повторы
 
-Таймеры `every`, `after`, `at` и задержки `retryAfter`, в том числе у шагов, наступают, когда время перемотано
+Таймеры `every` и `after`, таймеры процесса для `at` и задержки `retryAfter`, в том числе у шагов, наступают, когда время перемотано
 эмулятором (`fastForwardTime` или `setTime`): `runUntilStop` останавливается на шаге, ждущем повтора, `runOneStep`
 выполняет его сразу. Собственные бины `Clock` приложения на часы движка не влияют:
 
@@ -59,14 +59,17 @@ class OrderServiceTest {
 }
 ```
 
-Срок из переменной (`at`) тестируется через `setTime`. Обработчики берут время из `context.now()` — часов
-движка, поэтому шаг, вычисляющий срок, видит время, заданное тестом:
+Срок таймера процесса (`at`) тестируется через `setTime`. Обработчики берут время из `context.now()` — часов
+движка, поэтому шаг, ставящий таймер, видит время, заданное тестом. Поставленные таймеры показывает
+`details.timers()`:
 
 ```java
 var start = Instant.parse("2026-10-07T10:00:00Z");
 emulator.setTime(start);
 var processId = processEngine.newProcess(SeatReservationDefinition.TYPE).start();
-emulator.runUntilStop(processId);                    // шаг пишет PAYMENT_DUE = context.now() + 15 минут
+var waiting = emulator.runUntilStop(processId);      // шаг ставит PAYMENT_DUE = context.now() + 15 минут
+assertEquals(start.plus(SeatReservationDefinition.PAYMENT_TIME),
+        waiting.timers().get(SeatReservationDefinition.PAYMENT_DUE.name()));
 
 emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
 assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
@@ -114,10 +117,13 @@ assertEquals(Set.of("order", "paymentId"), context.variableNames());
 | `businessKey(String)` | нет |
 | `now(Instant)` | `now()` по системным часам |
 | `variable(VariableType<T>, T)`, `variable(String, Object)` | без переменных |
+| `timer(TimerType, Instant)` | без таймеров |
 | `jsonMapper(ObjectMapper)` | mapper движка по умолчанию; укажите тот же, что в `ProcessEngineBuilder.withJsonMapper` |
 
 `TestProcessContext.create()` — контекст со значениями по умолчанию. Помимо методов `ProcessContext` есть
-`variableNames()` — имена всех переменных. Пример: `CheckApplicationStepTest` рецепта `branching` в
+`variableNames()` — имена всех переменных, и `timers()` — поставленные таймеры по имени. Моменты таймеров усекаются
+до микросекунд, как в движке. Контекст не знает определения, поэтому `setTimer` не проверяет, что таймер объявлен в
+`at`. Пример: `CheckApplicationStepTest` рецепта `branching` в
 `ruslo-examples/cookbook`.
 
 ## Что эмулятор не проверяет

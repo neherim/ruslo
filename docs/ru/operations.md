@@ -25,7 +25,8 @@ List<ProcessInstanceSummary> failed = processEngine.processes()
 Optional<ProcessInstanceDetails> order = processEngine.processes().byBusinessKey("order-42").singleDetails();
 ```
 
-`ProcessInstanceDetails` содержит все поля `ProcessInstanceSummary`, а также переменные, последнюю ошибку и историю состояний.
+`ProcessInstanceDetails` содержит все поля `ProcessInstanceSummary`, а также переменные, таймеры процесса, последнюю
+ошибку и историю состояний.
 Переменные читаются типизированно: `details.variables().get(type)` возвращает `Optional` значения класса переменной,
 `details.variables().asJsonMap()` — JSON-текст значений.
 Формат последней ошибки описан в [error-handling.md](error-handling.md#гарантии).
@@ -33,8 +34,8 @@ Optional<ProcessInstanceDetails> order = processEngine.processes().byBusinessKey
 
 `nextRunAt` — когда движок в следующий раз возьмёт процесс: шаг, повтор, сообщение в очереди или таймер. Пусто,
 если процесс ждёт только сообщений, находится в `FAILED` или завершён. Поиск по нему — `byNextRunAtFrom` /
-`byNextRunAtTo`. Моментов отдельных таймеров в read API нет: момент `at` — значение его переменной, а выключенный
-таймер виден по `nextRunAt`.
+`byNextRunAtTo`. `details.timers()` — имя каждого поставленного таймера процесса и его момент, в том числе таймера,
+который не объявлен ни одним `at` текущего определения; моментов `every` и `after` в read API нет.
 
 ## Ручное вмешательство
 
@@ -42,8 +43,10 @@ Optional<ProcessInstanceDetails> order = processEngine.processes().byBusinessKey
 |---|---|
 | `processEngine.resumeFailedProcess(id)` | Возобновляет процесс из `FAILED`: упавший шаг или событие выполняется снова; `ProcessStatusException`, если процесс не в `FAILED` (активен или завершён) |
 | `processEngineAdmin.moveProcessToState(id, state)` | Переводит процесс в любое объявленное состояние, в том числе из `FAILED`; очередь сообщений и ошибка сбрасываются, вход в terminal завершает процесс |
-| `processEngineAdmin.setProcessVariable(id, type, value)` | Меняет переменную процесса; новое значение переменной `at` текущего ожидания двигает его таймер; значение переменной `at` не типа `Instant` отклоняется в любом состоянии |
-| `processEngineAdmin.removeProcessVariable(id, name)` | Удаляет переменную процесса; удаление переменной `at` текущего ожидания выключает его таймер |
+| `processEngineAdmin.setProcessVariable(id, type, value)` | Меняет переменную процесса |
+| `processEngineAdmin.removeProcessVariable(id, name)` | Удаляет переменную процесса |
+| `processEngineAdmin.setProcessTimer(id, timer, moment)` | Ставит таймер процесса, как `setTimer` в обработчике: `at` текущего ожидания сразу переносится, `now` срабатывает сразу; `IllegalArgumentException`, если таймер не объявлен ни одним `at` процесса. Статус не проверяется: таймер завершённого процесса ни на что не влияет, процесс в `FAILED` или в паузе ретрая раньше времени не просыпается |
+| `processEngineAdmin.cancelProcessTimer(id, timer)` | Снимает таймер процесса без проверки по определению: `cancelProcessTimer(id, TimerType.of("oldName"))` снимает таймер, оставшийся от прежней версии определения |
 | `processEngineAdmin.countIncompleteProcessesByType(overdueAt)` | Число процессов в `ACTIVE` и `FAILED` по типам и число просроченных: в `ACTIVE` с `nextRunAt` не позже `overdueAt`, в том числе с необработанным сообщением и наступившим таймером |
 | `processEngineAdmin.listApplicationInstances()` | Зарегистрированные инстансы движка, число захваченных ими процессов и срок регистрации |
 
@@ -63,7 +66,7 @@ Optional<ProcessInstanceDetails> order = processEngine.processes().byBusinessKey
 | `next_run_at` | Когда движок в следующий раз возьмёт процесс: шаг, повтор, сообщение или таймер; `null`, если процесс ждёт только сообщений, находится в `FAILED` или завершён |
 | `every_due_at` | Следующая точка сетки `every`; `null` у шага и у ожидания без `every` |
 | `after_due_at` | Срок `after`; `null`, если он уже сработал или `after` не объявлен |
-| `at_due_at` | Момент `at`: значение переменной при входе в ожидание или после её последнего изменения; `null`, если он уже сработал, переменная не задана или `at` не объявлен |
+| `timers` | Таймеры процесса, только для чтения: JSON-объект «имя → момент» в том же JSON-формате `Instant`, что в `variables`; `null`, если ни один таймер не поставлен |
 
 Два правила:
 
@@ -71,13 +74,14 @@ Optional<ProcessInstanceDetails> order = processEngine.processes().byBusinessKey
    `next_run_at` подействует только в старое `next_run_at`. Изменив колонки таймеров, поставьте
    `next_run_at = current_timestamp`: движок возьмёт процесс, выберет наступившие события и сам пересчитает
    `next_run_at`. Процесс, взятый без наступившего события, только пересчитывает его: без обработчика, попытки
-   и истории. Во время паузы ретрая (`attempt > 0`) `next_run_at` — время повтора: новые сообщения и перенос `at`
-   его не сдвигают. «Запустить сейчас» в паузе сразу повторяет упавшее событие, число попыток сохраняется.
+   и истории. Во время паузы ретрая (`attempt > 0`) `next_run_at` — время повтора: новые сообщения и перенос таймера
+   процесса его не сдвигают. «Запустить сейчас» в паузе сразу повторяет упавшее событие, число попыток сохраняется.
 2. **Fencing.** Нетранзакционный worker сверяет `lease_owner` и `row_version` и может молча затереть правку.
    Правьте только строки с `lease_owner is null` и всегда с `row_version = row_version + 1`.
 
-Правка `at_due_at` не меняет переменную `at`, а правка переменной в SQL не двигает таймер. Переносите срок `at`
-через `setProcessVariable`, чтобы они совпадали; `at_due_at` правьте только для разового исправления.
+Таймеры процесса меняются только через `ProcessEngineAdmin` (`setProcessTimer`, `cancelProcessTimer`), а не SQL:
+движок сам пересчитывает `next_run_at` при изменении. Чтобы `at` сработал прямо сейчас, вызовите
+`setProcessTimer(id, timer, Instant.now())`.
 
 Рецепты:
 
@@ -91,11 +95,6 @@ where id = ? and status = 'ACTIVE' and lease_owner is null;
 update xs_process_instance
 set after_due_at = after_due_at + interval '1 day', next_run_at = current_timestamp,
     row_version = row_version + 1
-where id = ? and status = 'ACTIVE' and lease_owner is null;
-
--- Ещё раз сработать at прямо сейчас
-update xs_process_instance
-set at_due_at = current_timestamp, next_run_at = current_timestamp, row_version = row_version + 1
 where id = ? and status = 'ACTIVE' and lease_owner is null;
 
 -- Сдвинуть сетку every

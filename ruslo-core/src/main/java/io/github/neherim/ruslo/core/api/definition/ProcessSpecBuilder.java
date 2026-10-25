@@ -3,7 +3,6 @@ package io.github.neherim.ruslo.core.api.definition;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec.*;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -373,47 +372,43 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Moves to {@code next} at the moment stored in {@code variable}. {@code next} must not be this await:
-         * without a handler the event would do nothing.
+         * Moves to {@code next} when {@code timer} is due (see {@link ProcessSpec.AtEvent}). {@code next} must not
+         * be this await: without a handler the event would do nothing.
          */
-        public AwaitBuilder at(VariableType<Instant> variable, ProcessState next) {
-            return addAt(variable, NO_HANDLER, withoutHandler(next, "at"));
+        public AwaitBuilder at(TimerType timer, ProcessState next) {
+            return addAt(timer, NO_HANDLER, withoutHandler(next, "at"));
         }
 
         /**
-         * Calls {@code handler} at the moment stored in {@code variable}, then moves to {@code next}. The timer
-         * follows the variable (see {@link ProcessSpec.AtEvent}): if {@code next} is this await, the process waits
-         * for a new value of the variable and for the other events.
+         * Calls {@code handler} when {@code timer} is due, then moves to {@code next}. The timer is cancelled before
+         * the handler (see {@link ProcessSpec.AtEvent}): if {@code next} is this await, the process waits for the
+         * other events and for the timer the handler sets again.
          */
-        public AwaitBuilder at(VariableType<Instant> variable, ProcessTimerHandler handler, ProcessState next) {
+        public AwaitBuilder at(TimerType timer, ProcessTimerHandler handler, ProcessState next) {
             requireNonNull(handler, "Timer handler cannot be null");
-            return addAt(variable, context -> {
+            return addAt(timer, context -> {
                 handler.handle(context);
                 return null;
             }, new Target(Draft.id(next)));
         }
 
         /**
-         * Calls {@code handler} at the moment stored in {@code variable}; its outcome selects the target in
-         * {@code routes}, as in {@link #at(VariableType, ProcessTimerHandler, ProcessState)}.
+         * Calls {@code handler} when {@code timer} is due; its outcome selects the target in {@code routes}, as in
+         * {@link #at(TimerType, ProcessTimerHandler, ProcessState)}.
          */
         public <O extends Enum<O>> AwaitBuilder at(
-                VariableType<Instant> variable,
+                TimerType timer,
                 BranchingTimerHandler<O> handler,
                 Consumer<Routes<O>> routes
         ) {
             requireNonNull(handler, "Timer handler cannot be null");
-            return addAt(variable, handler::handle, draft.routes(routes, where("at")));
+            return addAt(timer, handler::handle, draft.routes(routes, where("at")));
         }
 
-        private AwaitBuilder addAt(
-                VariableType<Instant> variable,
-                Function<ProcessContext, Enum<?>> handler,
-                Exit exit
-        ) {
-            requireNonNull(variable, "Variable type cannot be null");
+        private AwaitBuilder addAt(TimerType timer, Function<ProcessContext, Enum<?>> handler, Exit exit) {
+            requireNonNull(timer, "Timer type cannot be null");
             if (at != null) throw new IllegalArgumentException("Duplicate at in " + where());
-            at = new AtEvent(variable, handler, exit);
+            at = new AtEvent(timer, handler, exit);
             return this;
         }
 

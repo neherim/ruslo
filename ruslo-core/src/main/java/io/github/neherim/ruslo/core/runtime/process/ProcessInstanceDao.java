@@ -26,12 +26,12 @@ import java.util.UUID;
 /** Reads and writes process instances and their state history. */
 public class ProcessInstanceDao {
     private static final String STATE_COLUMNS = """
-            state, worker_id, status, variables, messages, attempt, last_error,
-              next_run_at, every_due_at, after_due_at, at_due_at""";
+            state, worker_id, status, variables, timers, messages, attempt, last_error,
+              next_run_at, every_due_at, after_due_at""";
 
     private static final String SET_STATE = """
-            state = ?, worker_id = ?, status = ?, variables = ?, messages = ?, attempt = ?, last_error = ?,
-              next_run_at = ?, every_due_at = ?, after_due_at = ?, at_due_at = ?, row_version = row_version + 1, updated_at = ?
+            state = ?, worker_id = ?, status = ?, variables = ?, timers = ?, messages = ?, attempt = ?, last_error = ?,
+              next_run_at = ?, every_due_at = ?, after_due_at = ?, row_version = row_version + 1, updated_at = ?
             """;
 
     private static final String SELECT_PROCESS_SQL = "select id, business_key, type, correlation_id, row_version, "
@@ -157,13 +157,13 @@ public class ProcessInstanceDao {
                 rs.getString("correlation_id"),
                 ProcessStatus.valueOf(rs.getString("status")),
                 rs.getString("variables"),
+                rs.getString("timers"),
                 rs.getString("messages"),
                 rs.getInt("attempt"),
                 rs.getString("last_error"),
                 DateTimeUtils.toInstant(rs.getTimestamp("next_run_at")),
                 DateTimeUtils.toInstant(rs.getTimestamp("every_due_at")),
-                DateTimeUtils.toInstant(rs.getTimestamp("after_due_at")),
-                DateTimeUtils.toInstant(rs.getTimestamp("at_due_at")));
+                DateTimeUtils.toInstant(rs.getTimestamp("after_due_at")));
     }
 
     private ClaimedProcess mapClaimedProcessRow(ResultSet rs, ProcessLease lease) throws SQLException {
@@ -240,13 +240,13 @@ public class ProcessInstanceDao {
                 process.getWorkerId().map(WorkerId::name).orElse(null),
                 process.getStatus().name(),
                 process.getVariables().serializeToString(),
+                process.getTimers().serializeToString(),
                 process.getMessages().serializeToString(),
                 process.getAttempt(),
                 process.getLastError().orElse(null),
                 process.getNextRunAt().orElse(null),
                 process.getEveryDueAt().orElse(null),
-                process.getAfterDueAt().orElse(null),
-                process.getAtDueAt().orElse(null)));
+                process.getAfterDueAt().orElse(null)));
         params.addAll(Arrays.asList(tail));
         return params.toArray();
     }

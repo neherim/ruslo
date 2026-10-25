@@ -13,6 +13,7 @@ import java.util.UUID;
  *
  * @param stateDescription description of the current state if it differs from the state name
  * @param timers           timers of the current await, as in {@link DefinitionResponse.StateResponse#timers()}
+ * @param processTimers    process timers: those set and those an {@code at} of the definition declares, by name
  */
 public record ProcessDetailsResponse(
         UUID id,
@@ -29,10 +30,15 @@ public record ProcessDetailsResponse(
         Map<String, String> variables,
         String stateKind,
         List<String> acceptedMessageTypes,
-        String timers
+        String timers,
+        List<TimerResponse> processTimers
 ) {
     public int variablesCount() {
         return variables.size();
+    }
+
+    public int timersCount() {
+        return processTimers.size();
     }
 
     public int historyCount() {
@@ -56,6 +62,17 @@ public record ProcessDetailsResponse(
      */
     public String version() {
         return Integer.toHexString(Objects.hash(state, status.name(), nextRunAt, businessKey, attempt,
-                lastError, stateHistory, variables));
+                lastError, stateHistory, variables, processTimers));
+    }
+
+    /**
+     * Process timer row.
+     *
+     * @param moment   empty if the timer is not set
+     * @param awaited  the process is {@code ACTIVE} and an {@code at} of its current await waits for the timer
+     * @param declared an {@code at} of some state of the current definition waits for the timer; only such a timer
+     *                 can be set
+     */
+    public record TimerResponse(String name, Instant moment, boolean awaited, boolean declared) {
     }
 }

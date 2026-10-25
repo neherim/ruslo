@@ -1,5 +1,6 @@
 package io.github.neherim.ruslo.admin.controller;
 
+import io.github.neherim.ruslo.admin.dto.HtmlDateTime;
 import io.github.neherim.ruslo.admin.dto.ProcessDetailsResponse;
 import io.github.neherim.ruslo.admin.dto.ProcessSearchRequest;
 import io.github.neherim.ruslo.admin.service.ProcessEngineAdminService;
@@ -241,6 +242,50 @@ public class ProcessesAdminController {
                     removed ? HtmxResponseSupport.PROCESS_DETAILS_CHANGED : null,
                     removed ? "success" : "info",
                     removed ? "Variable removed" : "Variable was not found");
+        });
+    }
+
+    /**
+     * Sets a process timer.
+     *
+     * @param moment   {@code datetime-local} value
+     * @param timeZone browser time zone of {@code moment}; the server zone if absent
+     */
+    @PostMapping("/htmx/processes/{processId}/timers")
+    public String setTimer(
+            @PathVariable UUID processId,
+            @RequestParam String name,
+            @RequestParam String moment,
+            @RequestParam(required = false) String timeZone,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Model model
+    ) {
+        return statusLine(request, response, model, "set timer " + name + " of process " + processId + " to "
+                + moment + " " + timeZone, () -> {
+                    adminService.setTimer(processId, name, moment, HtmlDateTime.zone(timeZone));
+                    success(response, model, HtmxResponseSupport.PROCESS_DETAILS_CHANGED, "Timer set");
+                });
+    }
+
+    /**
+     * Cancels a process timer; a timer that is not set is reported as info, not as an error.
+     */
+    @DeleteMapping("/htmx/processes/{processId}/timers")
+    public String cancelTimer(
+            @PathVariable UUID processId,
+            @RequestParam String name,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Model model
+    ) {
+        return statusLine(request, response, model, "cancel timer " + name + " of process " + processId, () -> {
+            var cancelled = adminService.cancelTimer(processId, name);
+            success(response,
+                    model,
+                    cancelled ? HtmxResponseSupport.PROCESS_DETAILS_CHANGED : null,
+                    cancelled ? "success" : "info",
+                    cancelled ? "Timer cancelled" : "Timer was not set");
         });
     }
 

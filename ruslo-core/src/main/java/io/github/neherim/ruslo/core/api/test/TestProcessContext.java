@@ -5,7 +5,9 @@ import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.ProcessTypeId;
+import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
+import io.github.neherim.ruslo.core.runtime.process.ProcessTimers;
 import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
 import io.github.neherim.ruslo.core.utils.JsonUtils;
 import tools.jackson.databind.ObjectMapper;
@@ -23,7 +25,8 @@ import java.util.UUID;
 /**
  * {@link io.github.neherim.ruslo.core.api.definition.ProcessContext} for unit tests of handlers, without an engine
  * or database. Variables are stored as JSON like in the engine, so a test catches non-serializable values and
- * object changes made without {@code setVariable}.
+ * object changes made without {@code setVariable}. Timer moments are truncated to microseconds like in the engine;
+ * the context knows no definition, so timer names are not checked against its {@code at} events.
  */
 public final class TestProcessContext implements ProcessContext {
     private final UUID processId;
@@ -34,6 +37,7 @@ public final class TestProcessContext implements ProcessContext {
     private final String businessKey;
     private final Clock clock;
     private final ProcessVariables variables;
+    private final ProcessTimers timers;
 
     private TestProcessContext(Builder builder) {
         this.processId = builder.processId;
@@ -44,6 +48,8 @@ public final class TestProcessContext implements ProcessContext {
         this.businessKey = builder.businessKey;
         this.clock = builder.clock;
         this.variables = ProcessVariables.fromMap(builder.jsonMapper, builder.variables);
+        this.timers = ProcessTimers.empty(builder.jsonMapper);
+        builder.timers.forEach(timers::set);
     }
 
     /** Returns a context with {@link #builder()} defaults. */
@@ -53,7 +59,7 @@ public final class TestProcessContext implements ProcessContext {
 
     /**
      * Returns a builder. Defaults: random process and correlation ids, type and state {@code "test"}, attempt
-     * {@code 0}, no business key or variables, {@link #now()} from the system clock.
+     * {@code 0}, no business key, variables or timers, {@link #now()} from the system clock.
      */
     public static Builder builder() {
         return new Builder();
@@ -62,6 +68,11 @@ public final class TestProcessContext implements ProcessContext {
     /** Returns the immutable set of variable names, e.g. to check that a step wrote nothing extra. */
     public Set<String> variableNames() {
         return variables.asMap().keySet();
+    }
+
+    /** Returns the immutable map of timer name to moment, e.g. to check which timers a handler set. */
+    public Map<String, Instant> timers() {
+        return timers.asMap();
     }
 
     @Override
@@ -115,6 +126,21 @@ public final class TestProcessContext implements ProcessContext {
     }
 
     @Override
+    public void setTimer(TimerType timer, Instant moment) {
+        timers.set(timer.name(), moment);
+    }
+
+    @Override
+    public boolean cancelTimer(TimerType timer) {
+        return timers.cancel(timer.name());
+    }
+
+    @Override
+    public Optional<Instant> getTimer(TimerType timer) {
+        return timers.get(timer.name());
+    }
+
+    @Override
     public int attempt() {
         return attempt;
     }
@@ -139,6 +165,7 @@ public final class TestProcessContext implements ProcessContext {
         private Clock clock = Clock.systemUTC();
         private ObjectMapper jsonMapper = JsonUtils.DEFAULT_OBJECT_MAPPER;
         private final Map<String, Object> variables = new LinkedHashMap<>();
+        private final Map<String, Instant> timers = new LinkedHashMap<>();
 
         private Builder() {
         }
@@ -201,6 +228,13 @@ public final class TestProcessContext implements ProcessContext {
         /** Adds an initial variable, serialized to JSON by {@link #build()}. */
         public <T> Builder variable(VariableType<T> type, T value) {
             return variable(type.name(), value);
+        }
+
+        /** Sets an initial timer, truncated to microseconds by {@link #build()}. */
+        public Builder timer(TimerType timer, Instant moment) {
+            this.timers.put(Objects.requireNonNull(timer, "Timer type must not be null").name(),
+                    Objects.requireNonNull(moment, "Timer moment must not be null"));
+            return this;
         }
 
         public TestProcessContext build() {

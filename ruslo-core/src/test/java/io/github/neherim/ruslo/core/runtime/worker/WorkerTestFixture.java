@@ -60,7 +60,7 @@ public final class WorkerTestFixture {
     }
 
     public ProcessInstance newProcess(ProcessType type, String correlationId) {
-        return processInstanceFactory.newInstance(type, Instant.now(), null, correlationId, Map.of());
+        return processInstanceFactory.newInstance(type, Instant.now(), null, correlationId, Map.of(), Map.of());
     }
 
     public ProcessInstance insertNewProcess(ProcessType type, String correlationId) {

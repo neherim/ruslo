@@ -2,6 +2,7 @@ package io.github.neherim.ruslo.core.api.test;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
+import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -10,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -34,6 +36,21 @@ class TestProcessContextTest {
         var before = Instant.now();
         var now = TestProcessContext.create().now();
         assertFalse(now.isBefore(before));
+    }
+
+    @Test
+    void timersAreTruncatedToMicrosecondsLikeInEngine() {
+        var due = TimerType.of("due");
+        var next = TimerType.of("next");
+        var context = TestProcessContext.builder()
+            .timer(due, Instant.parse("2026-10-07T10:00:00.123456789Z"))
+            .build();
+
+        assertEquals(Optional.of(Instant.parse("2026-10-07T10:00:00.123456Z")), context.getTimer(due));
+        context.setTimer(next, Instant.parse("2026-10-08T10:00:00.000000999Z"));
+        assertTrue(context.cancelTimer(due));
+        assertFalse(context.cancelTimer(due));
+        assertEquals(Map.of("next", Instant.parse("2026-10-08T10:00:00Z")), context.timers());
     }
 
     @Test

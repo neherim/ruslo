@@ -3,8 +3,6 @@ package io.github.neherim.ruslo.admin.dto;
 import io.github.neherim.ruslo.core.api.view.ProcessQuery;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
 
@@ -54,16 +52,16 @@ public record ProcessSearchRequest(
             query.byCorrelationId(correlationId);
         }
         if (hasText(nextRunAtFrom)) {
-            query.byNextRunAtFrom(parseHtmlDateTime(nextRunAtFrom, zone()));
+            query.byNextRunAtFrom(HtmlDateTime.parse(nextRunAtFrom, zone()));
         }
         if (hasText(nextRunAtTo)) {
-            query.byNextRunAtTo(parseHtmlDateTime(nextRunAtTo, zone()));
+            query.byNextRunAtTo(HtmlDateTime.parse(nextRunAtTo, zone()));
         }
         if (hasText(createdAtFrom)) {
-            query.byCreatedAtFrom(parseHtmlDateTime(createdAtFrom, zone()));
+            query.byCreatedAtFrom(HtmlDateTime.parse(createdAtFrom, zone()));
         }
         if (hasText(createdAtTo)) {
-            query.byCreatedAtTo(parseHtmlDateTime(createdAtTo, zone()));
+            query.byCreatedAtTo(HtmlDateTime.parse(createdAtTo, zone()));
         }
         if (hasText(variablesLike)) {
             query.byVariablesLike(variablesLike);
@@ -86,17 +84,10 @@ public record ProcessSearchRequest(
     }
 
     private ZoneId zone() {
-        return hasText(timeZone) ? ZoneId.of(timeZone) : ZoneId.systemDefault();
+        return HtmlDateTime.zone(timeZone);
     }
 
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
-    }
-
-    private static Instant parseHtmlDateTime(String value, ZoneId zone) {
-        if (value.endsWith("Z")) {
-            return Instant.parse(value);
-        }
-        return LocalDateTime.parse(value).atZone(zone).toInstant();
     }
 }

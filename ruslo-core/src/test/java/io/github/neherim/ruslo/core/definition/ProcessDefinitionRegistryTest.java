@@ -8,7 +8,6 @@ import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo.TransitionTrigger;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,7 +31,7 @@ class ProcessDefinitionRegistryTest {
                     .on(Outcome.FAIL, State.WAIT))
                 .every(Duration.ofSeconds(30), context -> {}, State.WAIT)
                 .after(Duration.ofMinutes(5), State.DONE)
-                .at(VariableType.of("dueDate", Instant.class), context -> Outcome.OK, routes -> routes
+                .at(TimerType.of("dueDate"), context -> Outcome.OK, routes -> routes
                     .on(Outcome.OK, State.WAIT)
                     .on(Outcome.FAIL, State.DONE)))
             .terminal(State.DONE)
@@ -60,7 +59,7 @@ class ProcessDefinitionRegistryTest {
                 transition(TransitionTrigger.AT, null, "FAIL", State.DONE)), wait.transitions());
         assertEquals(Optional.of(Duration.ofSeconds(30)), wait.everyInterval());
         assertEquals(Optional.of(Duration.ofMinutes(5)), wait.afterDelay());
-        assertEquals(Optional.of("dueDate"), wait.atVariable());
+        assertEquals(Optional.of("dueDate"), wait.atTimer());
 
         assertEquals(List.of(), state(info.states(), State.DONE).transitions());
     }

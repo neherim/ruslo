@@ -64,6 +64,24 @@ public class DefaultProcessContext implements ProcessContext {
     }
 
     @Override
+    public void setTimer(TimerType timer, Instant moment) {
+        processInstance.getProcessSpec().checkTimerDeclared(timer);
+        processInstance.setTimer(timer, moment);
+    }
+
+    @Override
+    public boolean cancelTimer(TimerType timer) {
+        processInstance.getProcessSpec().checkTimerDeclared(timer);
+        return processInstance.cancelTimer(timer);
+    }
+
+    @Override
+    public Optional<Instant> getTimer(TimerType timer) {
+        processInstance.getProcessSpec().checkTimerDeclared(timer);
+        return processInstance.getTimer(timer);
+    }
+
+    @Override
     public int attempt() {
         return processInstance.getAttempt();
     }

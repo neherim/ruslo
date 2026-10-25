@@ -13,6 +13,7 @@ create table xs_process_instance (
     status varchar not null default 'ACTIVE',
     type varchar not null,
     variables text,
+    timers text,
     messages text,
     correlation_id varchar,
     attempt int not null default 0,
@@ -20,7 +21,6 @@ create table xs_process_instance (
     next_run_at timestamp with time zone,
     every_due_at timestamp with time zone,
     after_due_at timestamp with time zone,
-    at_due_at timestamp with time zone,
     lease_owner uuid,
     row_version bigint not null default 0
 );

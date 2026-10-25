@@ -86,7 +86,7 @@ A custom handler:
   `lastError` keeps the original error.
 - A branching handler that returns `null` is treated as failed with `IllegalStateException` and goes through the
   same policy.
-- A successful handler resets `attempt` and `lastError`. Edge case: if the `at` variable is moved during a retry
+- A successful handler resets `attempt` and `lastError`. Edge case: if the `at` timer is moved during a retry
   backoff to a moment before the failed event, `at` fires after the backoff instead of the retry; if its target is
   the await itself, its success resets `attempt`.
 - `lastError` stores `SimpleClassName: message` (`UnsupportedCountryException: Unsupported country: XX`);

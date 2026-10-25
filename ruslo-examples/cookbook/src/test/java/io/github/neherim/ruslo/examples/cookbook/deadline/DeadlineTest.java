@@ -49,7 +49,7 @@ class DeadlineTest {
         var processId = startReservation();
         var waiting = emulator.runUntilStop(processId);
         assertTrue(waiting.state().is(SeatReservationDefinition.State.WAITING_FOR_PAYMENT));
-        assertEquals(DUE, waiting.variables().get(SeatReservationDefinition.PAYMENT_DUE).orElseThrow());
+        assertEquals(DUE, waiting.timers().get(SeatReservationDefinition.PAYMENT_DUE.name()));
 
         // Before the deadline the process waits, after it the seat is released
         emulator.setTime(DUE.minusSeconds(1));

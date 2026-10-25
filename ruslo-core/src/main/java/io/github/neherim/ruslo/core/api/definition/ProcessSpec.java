@@ -24,7 +24,7 @@ public class ProcessSpec {
     private final Map<String, String> stateDescriptions;
     private final ProcessErrorHandler processErrorHandler;
     private final ProcessStateId fallbackState;
-    private final Set<String> atVariableNames;
+    private final Set<String> timerNames;
 
     ProcessSpec(
             ProcessTypeId type,
@@ -42,10 +42,10 @@ public class ProcessSpec {
         this.stateDescriptions = Map.copyOf(stateDescriptions);
         this.processErrorHandler = processErrorHandler;
         this.fallbackState = fallbackState;
-        this.atVariableNames = stateSpecs.values()
+        this.timerNames = stateSpecs.values()
             .stream()
             .filter(spec -> spec instanceof AwaitState await && await.at() != null)
-            .map(spec -> ((AwaitState) spec).at().variable().name())
+            .map(spec -> ((AwaitState) spec).at().timer().name())
             .collect(Collectors.toUnmodifiableSet());
     }
 
@@ -117,9 +117,16 @@ public class ProcessSpec {
         return Set.of();
     }
 
-    /** Returns the names of the variables used by {@code at} timers of any await; their values are always {@link Instant}. */
-    public Set<String> getAtVariableNames() {
-        return atVariableNames;
+    /**
+     * Checks that an {@code at} of some await of the process waits for the timer.
+     *
+     * @throws IllegalArgumentException if no {@code at} of the process uses the timer
+     */
+    public void checkTimerDeclared(TimerType timer) {
+        if (!timerNames.contains(timer.name())) {
+            throw new IllegalArgumentException("Timer " + timer.name() + " is not used by any at of process "
+                    + type.name());
+        }
     }
 
     public ProcessErrorHandler getProcessErrorHandler() {
@@ -195,13 +202,13 @@ public class ProcessSpec {
     }
 
     /**
-     * Event at the moment stored in {@code variable}. Entering the await and writing a new value of the variable set
-     * the timer to that value; no variable, no timer. After firing with the await itself as the target it is off
-     * until the variable gets a new value, so a handler that writes the next moment makes a schedule.
+     * Event at the moment of a process {@code timer}: fires while the process is in this await and the timer is set
+     * and due; a past moment fires at once. The fired timer is cancelled before the handler runs, so the handler sees
+     * it unset and may set it again to make a schedule. See {@link ProcessContext#setTimer(TimerType, Instant)}.
      * {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
      */
     public record AtEvent(
-            VariableType<Instant> variable,
+            TimerType timer,
             Function<ProcessContext, Enum<?>> handler,
             Exit exit
     ) {

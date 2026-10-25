@@ -29,7 +29,7 @@ typed way: `details.variables().get(AMOUNT)` returns an `Optional` of the variab
 
 ## Timers and retries
 
-`every`, `after` and `at` timers and `retryAfter` delays, of steps too, come due when the emulator moves time
+`every` and `after` timers, process timers of `at` and `retryAfter` delays, of steps too, come due when the emulator moves time
 (`fastForwardTime` or `setTime`): `runUntilStop` stops at a step waiting for a retry, `runOneStep` runs it at once.
 The application's own `Clock` beans do not affect the engine clock:
 
@@ -59,14 +59,16 @@ class OrderServiceTest {
 }
 ```
 
-A deadline from a variable (`at`) is tested with `setTime`. Handlers take the time from `context.now()`, the engine
-clock, so a step that computes the deadline sees the time the test set:
+A deadline of a process timer (`at`) is tested with `setTime`. Handlers take the time from `context.now()`, the
+engine clock, so a step that sets the timer sees the time the test set. `details.timers()` shows the set timers:
 
 ```java
 var start = Instant.parse("2026-10-07T10:00:00Z");
 emulator.setTime(start);
 var processId = processEngine.newProcess(SeatReservationDefinition.TYPE).start();
-emulator.runUntilStop(processId);                    // the step writes PAYMENT_DUE = context.now() + 15 minutes
+var waiting = emulator.runUntilStop(processId);      // the step sets PAYMENT_DUE = context.now() + 15 minutes
+assertEquals(start.plus(SeatReservationDefinition.PAYMENT_TIME),
+        waiting.timers().get(SeatReservationDefinition.PAYMENT_DUE.name()));
 
 emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
 assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
@@ -114,10 +116,13 @@ assertEquals(Set.of("order", "paymentId"), context.variableNames());
 | `businessKey(String)` | none |
 | `now(Instant)` | `now()` from the system clock |
 | `variable(VariableType<T>, T)`, `variable(String, Object)` | no variables |
+| `timer(TimerType, Instant)` | no timers |
 | `jsonMapper(ObjectMapper)` | the engine's default mapper; set the same one as in `ProcessEngineBuilder.withJsonMapper` |
 
 `TestProcessContext.create()` is a context with default values. Besides the `ProcessContext` methods, it has
-`variableNames()`, the names of all variables. Example: `CheckApplicationStepTest` of the `branching` recipe
+`variableNames()`, the names of all variables, and `timers()`, the set timers by name. Timer moments are truncated to
+microseconds, as in the engine. The context knows no definition, so `setTimer` does not check that an `at` declares
+the timer. Example: `CheckApplicationStepTest` of the `branching` recipe
 in `ruslo-examples/cookbook`.
 
 ## What the emulator does not check

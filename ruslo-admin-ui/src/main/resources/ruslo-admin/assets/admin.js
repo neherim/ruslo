@@ -448,6 +448,40 @@ const AdminUi = (() => {
         return {handleClick, formatValues};
     })();
 
+    const TimerForms = (() => {
+        // datetime-local takes local time without a zone; the form sends the browser zone with it.
+        function toLocalInput(iso) {
+            const date = iso ? new Date(iso) : new Date();
+            if (Number.isNaN(date.getTime())) return '';
+            const pad = value => String(value).padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+                + `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+        }
+
+        function handleClick(event) {
+            const setButton = closest(event, '[data-timer-set]');
+            if (!setButton) return false;
+
+            const row = setButton.closest('.timer-row');
+            const dialog = document.getElementById('set-timer-modal');
+            if (!row || !dialog) return false;
+
+            const statusLine = document.getElementById('set-timer-status');
+            if (statusLine) {
+                statusLine.textContent = '';
+                statusLine.classList.remove('error');
+            }
+            dialog.querySelector('input[name="name"]').value = row.dataset.timerName || '';
+            const momentInput = dialog.querySelector('input[name="moment"]');
+            momentInput.value = toLocalInput(row.dataset.timerMoment);
+            Dialogs.openDialog('set-timer-modal');
+            momentInput.focus();
+            return true;
+        }
+
+        return {handleClick};
+    })();
+
     // Polling (process card, dashboard) skips a tick while the user is busy with the page,
     // so a redraw does not close a dialog, menu or full-screen diagram and does not drop a text selection.
     function canRefresh() {
@@ -990,6 +1024,7 @@ const AdminUi = (() => {
         CopyButtons.handleClick,
         Confirmations.handleClick,
         VariableForms.handleClick,
+        TimerForms.handleClick,
         Diagram.handleControlClick,
         StartProcess.handleClick,
         Diagram.handleDialogClick,

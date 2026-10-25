@@ -13,8 +13,8 @@ documentation listed at the end is optional.
 A process is a graph of explicit states of three kinds:
 
 - **step**: runs code and always leaves for the next state;
-- **await**: waits for a message, a periodic timer (`every`), a delay from entering (`after`) or a moment from a
-  variable (`at`);
+- **await**: waits for a message, a periodic timer (`every`), a delay from entering (`after`) or a named process
+  timer (`at`);
 - **terminal**: completes the process.
 
 **Handlers report a result, the definition declares the target.** A handler never names the next state.
@@ -77,7 +77,7 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
 | `message(type, handler, ...)` | `ProcessMessageHandler<T>`: `(ctx, IncomingMessage<T>) -> void` | `BranchingMessageHandler<T, O>` |
 | `every(interval, handler, ...)` | `ProcessTimerHandler` | `BranchingTimerHandler<O>` |
 | `after(delay[, handler], ...)` | optional `ProcessTimerHandler` | `BranchingTimerHandler<O>` |
-| `at(variable[, handler], ...)` | optional `ProcessTimerHandler` | `BranchingTimerHandler<O>` |
+| `at(timer[, handler], ...)` | optional `ProcessTimerHandler` | `BranchingTimerHandler<O>` |
 
 Branching example:
 
@@ -96,14 +96,24 @@ line where the target must become routes. `build()` checks that all enum constan
 
 - At most one `every`, one `after` and one `at` per await, in any combination; at least one event must lead to
   another state.
-- `after(delay)` fires `delay` after entering the await. `at(variable)` fires at the `Instant` stored in the
-  variable (`VariableType<Instant>`): no variable, no timer; a new value (handler, step, admin) moves the timer,
-  earlier or later; a past moment fires right away. The variable must be an `Instant` in every state and at start: writing another value
-  throws `IllegalArgumentException` (a handler error in a step or handler).
-- **A fired timer targeting the await itself**: `every` moves to its next grid point, `after` is off until the await
-  is entered again, `at` is off until its variable gets a new value. An `at` handler that writes the next date makes
-  a schedule; one that does not leaves the await waiting for its other events (no error). Writing the same value
-  does not set `at` again. Re-entering the await sets all timers anew.
+- `every` and `after` are await timers: they live one entry of the await. `after(delay)` fires `delay` after
+  entering the await.
+- `at(T)` waits for a **process timer** `T` (`static final TimerType DUE = TimerType.of("due")`): a named moment the
+  code sets with `context.setTimer(T, moment)` (or `newProcess(...).timer(T, moment)` at start) and cancels with
+  `context.cancelTimer(T)`; `context.getTimer(T)` returns `Optional<Instant>`. It fires when the process is in that
+  await and the timer is set and due; a past moment fires right away; `setTimer` moves it earlier or later without
+  re-entry. No timer set, no `at`. `T` must be used by some `at` of the process, otherwise these methods and the
+  start throw `IllegalArgumentException`; `setTimer(T, null)` throws `NullPointerException`. Moments are truncated
+  to microseconds.
+- **A fired process timer is cancelled before its handler runs** (rolled back if the handler fails): the handler
+  sees `getTimer(T)` empty and does not get the fired moment. Setting it again makes a schedule; not setting it
+  leaves the await waiting for its other events (no error). Keep a date that is business data (report date, paid
+  until) in a variable and set the timer from it.
+- Transitions do not touch process timers: a timer set in a step waits for the await that declares it, one timer can
+  serve several awaits, and a timer left when a message leaves the await fires at once on re-entry if its moment
+  passed. Cancel it with `cancelTimer` in the handler that leaves when it is no longer needed.
+- **A fired await timer targeting the await itself**: `every` moves to its next grid point, `after` is off until the
+  await is entered again. Re-entering the await sets `every` and `after` anew.
 - A timer without a handler cannot target the await itself.
 - **An event whose target is the await itself means "keep waiting"**: the handled message is removed,
   other queued messages and the timers are kept. Use it for reminders
@@ -113,10 +123,11 @@ line where the target must become routes. `build()` checks that all enum constan
 - The earliest due event is handled first; on a tie: message, `every`, `after`, `at`. A retry backoff pauses the
   whole await: a due timer waits until the failed event is handled. For a hard deadline, limit retries
   (`fixed(maxRetries, delay)` + `fallbackState`) or catch the error in the handler.
-- A deadline that can move (extension by a message, a due date from the order) is `at(DUE_DATE, ...)` plus a
-  message handler that writes `DUE_DATE` and targets the await itself. A schedule by calendar dates is `at` whose
-  handler writes the next date; compute it from the original date (e.g. sign-up date plus n months), not from the
-  previous date (the day drifts after a short month) and not from the current time.
+- A deadline that can move (extension by a message, a due date from the order) is `at(DUE, ...)` plus a message
+  handler that calls `setTimer(DUE, newMoment)` and targets the await itself. A schedule by calendar dates is `at`
+  whose handler writes the next date to a variable and sets the timer to it; compute the date from the original
+  date (e.g. sign-up date plus n months) and the previous date variable, not from the current time (the day drifts
+  after a short month, and a late charge would shift the schedule).
 - Polling an external system: `every` with branching routes back to the same await. Do not build a
   "step → await → step" loop: re-entering an await clears the queue and resets `after`.
 - Run the first `every` check immediately: `every(interval, handler, next, o -> o.initialDelay(Duration.ZERO))`.
@@ -125,12 +136,13 @@ line where the target must become routes. `build()` checks that all enum constan
 
 ### ProcessContext
 
-`getVariable(type)` (nullable), `setVariable(type, value)`, `removeVariable(type)`, `processId()`,
+`getVariable(type)` (nullable), `setVariable(type, value)`, `removeVariable(type)`, `getTimer(timer)`,
+`setTimer(timer, moment)`, `cancelTimer(timer)`, `processId()`,
 `processType()`, `state()`, `businessKey()`, `correlationId()`, `attempt()`, `now()`.
 
 - Take the time from `context.now()` (the engine clock), never `Instant.now()`: timers compare with the engine
   clock, and in tests the emulator controls it. A deadline for `at`:
-  `context.setVariable(DUE, context.now().plus(Duration.ofMinutes(15)))`.
+  `context.setTimer(DUE, context.now().plus(Duration.ofMinutes(15)))`.
 - Variables and message payloads are stored as JSON (Jackson). Their class must be concrete and non-generic:
   wrap a `List`/`Map` in a record (`record OrderItems(List<String> ids) {}`).
 - Mutating an object returned by `getVariable` without calling `setVariable` is lost.
@@ -295,13 +307,14 @@ class OrderProcessTest {
 - Emulator: `runUntilStop(id)`, `runOneStep(id)`, `runUntilState(id, state)`, `runAll()`,
   `sendMessageAndRunUntilStop(id, type, payload)`, `fastForwardTime(d)`, `setTime(instant)`.
   Results are `ProcessInstanceDetails`: check `state()`, `status()`, `lastError()`,
-  `variables().get(TYPE)` (`Optional`).
+  `variables().get(TYPE)` (`Optional`), `timers().get(DUE.name())`.
 - Control time **only** through the emulator; the application's own `Clock` beans do not affect engine timers.
-  For an `at` deadline: `emulator.setTime(start)`, start and run the process (its step writes the deadline from
+  For an `at` deadline: `emulator.setTime(start)`, start and run the process (its step sets the timer from
   `context.now()`), then `setTime(deadline)`.
 - `runUntilStop` stops at a step waiting for a retry delay; `runOneStep` runs it at once.
 - Unit-test a single handler with `TestProcessContext.builder().variable(TYPE, value).attempt(1).now(instant).build()`;
-  it round-trips variables through JSON like the engine does.
+  it round-trips variables through JSON like the engine does. `Builder.timer(T, moment)` and `timers()` cover process
+  timers; it does not check that an `at` declares them.
 - Test failures: make a dependency throw, then assert `status() == FAILED` / the fallback state and
   `lastError()`; advance time past `retryAfter` delays with `fastForwardTime`.
 

@@ -31,7 +31,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
                 });
         var now = Instant.parse("2026-09-24T10:00:00Z");
         clock.setTime(now);
-        var process = factory.newInstance(TYPE, now, null, "routing", Map.of());
+        var process = factory.newInstance(TYPE, now, null, "routing", Map.of(), Map.of());
         assertEquals(ACTION_WORKER, process.getWorkerId().orElseThrow());
         assertEquals(now, process.getNextRunAt().orElseThrow());
         dao.insert(process);

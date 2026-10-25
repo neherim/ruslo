@@ -149,7 +149,7 @@ class ProcessEngineAdminUiPageControllersTest {
                 Map.of(
                         "amount", "42",
                         "customer", "{\"name\":\"Ada\"}"),
-                "AWAIT", List.of("payment", "shipping"), null);
+                "AWAIT", List.of("payment", "shipping"), null, List.of());
         var adminService = new CountingAdminService(
                 process,
                 List.of(new DefinitionResponse(
@@ -276,7 +276,7 @@ class ProcessEngineAdminUiPageControllersTest {
     }
 
     @Test
-    void processDetailsTabsShouldExposeOnlyVariablesAndHistoryWithCounts() throws Exception {
+    void processDetailsTabsShouldExposeOnlyVariablesTimersAndHistoryWithCounts() throws Exception {
         var fragments = Files.readString(Path.of(
                 "src/main/resources/templates/ruslo-admin/process-details/fragments.html"));
         var context = new Context();
@@ -289,6 +289,7 @@ class ProcessEngineAdminUiPageControllersTest {
 
         assertThat(fragments)
             .contains("th:text=\"|Variables (${process.variablesCount()})|\"")
+            .contains("th:text=\"|Timers (${process.timersCount()})|\"")
             .contains("th:text=\"|History (${process.historyCount()})|\"")
             .doesNotContain("tab-messages")
             .doesNotContain("tab-meta")
@@ -296,6 +297,7 @@ class ProcessEngineAdminUiPageControllersTest {
             .doesNotContain("processMetadata");
         assertThat(html)
             .contains("Variables (1)")
+            .contains("Timers (0)")
             .contains("History (0)")
             .doesNotContain("Metadata");
     }
@@ -442,7 +444,7 @@ class ProcessEngineAdminUiPageControllersTest {
                         new StateHistoryResponse("START", Instant.parse("2026-05-01T10:00:00Z"), false),
                         new StateHistoryResponse("WAIT", Instant.parse("2026-05-01T10:01:00Z"), true)),
                 Map.of("customer", "{\"name\":\"Ada\"}", "amount", "42"),
-                "AWAIT", List.of("payment"), "every 10m · after 1h · at dueDate");
+                "AWAIT", List.of("payment"), "every 10m · after 1h · at dueDate", List.of());
 
         var html = renderDetails(process);
 
@@ -474,6 +476,46 @@ class ProcessEngineAdminUiPageControllersTest {
     }
 
     @Test
+    void processDetailsTimersShouldShowMomentAwaitedMarkAndDisableUnavailableActions() {
+        var processId = UUID.randomUUID();
+        var process = new ProcessDetailsResponse(
+                processId,
+                "ADMIN_TEST",
+                "WAIT",
+                null,
+                io.github.neherim.ruslo.core.api.view.ProcessStatus.ACTIVE,
+                null,
+                null,
+                "trace-1",
+                0,
+                null,
+                List.of(),
+                Map.of(),
+                "AWAIT", List.of(), "at paymentDue", List.of(
+                        new ProcessDetailsResponse.TimerResponse("oldDue", Instant.parse("2026-05-01T09:00:00Z"),
+                                false, false),
+                        new ProcessDetailsResponse.TimerResponse("paymentDue", Instant.parse("2026-05-01T10:15:00Z"),
+                                true, true),
+                        new ProcessDetailsResponse.TimerResponse("reminder", null, false, true)));
+
+        var html = renderDetails(process);
+
+        assertThat(html)
+            .contains("Timers (3)")
+            .contains("id=\"set-timer-modal\"")
+            .contains("hx-post=\"htmx/processes/" + processId + "/timers\"")
+            .contains("hx-vals='js:{timeZone: AdminUi.browserTimeZone()}'")
+            .contains("data-timer-name=\"paymentDue\" data-timer-moment=\"2026-05-01T10:15:00Z\"")
+            .contains("datetime=\"2026-05-01T10:15:00Z\"")
+            .contains(">awaited</span>")
+            .contains(">not awaited</span>")
+            .contains(">not set</span>")
+            .contains("title=\"Set: not declared by any at of the current definition\"")
+            .contains("title=\"Cancel: not set\"")
+            .contains("hx-delete=\"htmx/processes/" + processId + "/timers?name=paymentDue\"");
+    }
+
+    @Test
     void completedProcessDetailsShouldNotPollAndShouldDisableUnavailableActions() {
         var process = new ProcessDetailsResponse(
                 UUID.randomUUID(),
@@ -488,7 +530,7 @@ class ProcessEngineAdminUiPageControllersTest {
                 null,
                 List.of(new StateHistoryResponse("DONE", Instant.parse("2026-05-01T10:00:00Z"), false)),
                 Map.of(),
-                "TERMINAL", List.of(), null);
+                "TERMINAL", List.of(), null, List.of());
 
         var html = renderDetails(process);
 
@@ -895,7 +937,7 @@ class ProcessEngineAdminUiPageControllersTest {
                 null,
                 List.of(),
                 Map.of("amount", "42"),
-                "AWAIT", List.of(), null);
+                "AWAIT", List.of(), null, List.of());
     }
 
     private static String renderDetails(ProcessDetailsResponse process) {

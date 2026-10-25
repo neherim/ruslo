@@ -125,7 +125,7 @@ public class ProcessDefinitionRegistry {
                         await.messages().stream().map(e -> e.type().name()).collect(Collectors.toUnmodifiableSet()),
                         Optional.ofNullable(await.every()).map(ProcessSpec.EveryEvent::interval),
                         Optional.ofNullable(await.after()).map(ProcessSpec.AfterEvent::delay),
-                        Optional.ofNullable(await.at()).map(at -> at.variable().name()),
+                        Optional.ofNullable(await.at()).map(at -> at.timer().name()),
                         List.copyOf(transitions));
             }
             case ProcessSpec.TerminalState terminal -> new ProcessSpecInfo.StateInfo(terminal.state(), description,

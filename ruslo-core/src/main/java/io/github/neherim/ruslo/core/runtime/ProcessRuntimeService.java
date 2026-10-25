@@ -27,6 +27,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -232,6 +233,38 @@ public class ProcessRuntimeService {
         });
     }
 
+    /**
+     * Sets a process timer, see {@link io.github.neherim.ruslo.core.api.ProcessEngineAdmin#setProcessTimer}.
+     *
+     * @throws IllegalArgumentException if no {@code at} of the process uses the timer
+     */
+    public void setTimer(UUID processId, TimerType timer, Instant moment) {
+        Objects.requireNonNull(moment, "Timer moment cannot be null");
+        database.doInTransaction(() -> {
+            var process = findProcessWithLock(processId);
+            process.getProcessSpec().checkTimerDeclared(timer);
+            process.setTimer(timer, moment);
+            processInstanceDao.update(process);
+            database.doAfterCommit(dispatchSignal::wakeUp);
+        });
+    }
+
+    /**
+     * Cancels a process timer without checking that the definition declares it.
+     *
+     * @return {@code true} if the timer was set
+     */
+    public boolean cancelTimer(UUID processId, TimerType timer) {
+        return database.doInTransactionWithResult(() -> {
+            var process = findProcessWithLock(processId);
+            var cancelled = process.cancelTimer(timer);
+            if (cancelled) {
+                processInstanceDao.update(process);
+            }
+            return cancelled;
+        });
+    }
+
     /** Returns the number of {@code ACTIVE} and {@code FAILED} processes. */
     public long countIncompleteProcesses() {
         return processInstanceDao.countIncompleteProcesses();
@@ -250,13 +283,14 @@ public class ProcessRuntimeService {
             ProcessType type,
             @Nullable String businessKey,
             @Nullable String correlationId,
-            Map<String, Object> variables
+            Map<String, Object> variables,
+            Map<TimerType, Instant> timers
     ) {
         var effectiveCorrelationId = correlationId != null && !correlationId.isBlank()
                 ? correlationId
                 : processMdc.getOrCreateCorrelationId();
         var process = processInstanceFactory.newInstance(type, clock.instant(), businessKey,
-                effectiveCorrelationId, variables);
+                effectiveCorrelationId, variables, timers);
 
         return database.doInTransactionWithResult(() -> {
             processInstanceDao.insert(process);

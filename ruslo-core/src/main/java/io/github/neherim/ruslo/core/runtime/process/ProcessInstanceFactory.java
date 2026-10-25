@@ -2,6 +2,7 @@ package io.github.neherim.ruslo.core.runtime.process;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
+import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.utils.UUIDGenerator;
@@ -37,13 +38,13 @@ public class ProcessInstanceFactory {
             String correlationId,
             ProcessStatus status,
             String variablesStr,
+            String timersStr,
             String messagesStr,
             int attempt,
             String lastError,
             Instant nextRunAt,
             Instant everyDueAt,
-            Instant afterDueAt,
-            Instant atDueAt
+            Instant afterDueAt
     ) {
 
         var processType = ProcessType.of(processTypeName);
@@ -51,25 +52,37 @@ public class ProcessInstanceFactory {
         var spec = processDefinitionRegistry.getProcessSpec(processType);
 
         var variables = ProcessVariables.fromString(objectMapper, variablesStr);
+        var timers = ProcessTimers.fromString(objectMapper, timersStr);
         var messages = ProcessMessages.fromString(objectMapper, messagesStr);
 
-        return ProcessInstance.loadFromStorage(id, businessKey, spec, state, status, variables, messages,
-                correlationId, attempt, lastError, nextRunAt, everyDueAt, afterDueAt, atDueAt, clock);
+        return ProcessInstance.loadFromStorage(id, businessKey, spec, state, status, variables, timers, messages,
+                correlationId, attempt, lastError, nextRunAt, everyDueAt, afterDueAt, clock);
     }
 
+    /**
+     * Creates a process in the initial state.
+     *
+     * @throws IllegalArgumentException if no {@code at} of the process uses one of {@code timers}
+     */
     public ProcessInstance newInstance(
             ProcessType type,
             Instant startDate,
             @Nullable String businessKey,
             String correlationId,
-            Map<String, Object> variables
+            Map<String, Object> variables,
+            Map<TimerType, Instant> timers
     ) {
         var id = UUIDGenerator.generate();
         var spec = processDefinitionRegistry.getProcessSpec(type);
         var processVariables = ProcessVariables.fromMap(objectMapper, variables);
+        var processTimers = ProcessTimers.empty(objectMapper);
+        timers.forEach((timer, moment) -> {
+            spec.checkTimerDeclared(timer);
+            processTimers.set(timer.name(), moment);
+        });
 
         return ProcessInstance.createNew(id, businessKey, spec,
-                processVariables, ProcessMessages.empty(objectMapper),
+                processVariables, processTimers, ProcessMessages.empty(objectMapper),
                 correlationId, startDate, clock);
     }
 }

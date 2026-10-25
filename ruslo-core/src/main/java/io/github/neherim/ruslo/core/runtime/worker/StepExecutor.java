@@ -62,9 +62,8 @@ public class StepExecutor {
     }
 
     /**
-     * Executes the message handler, bypassing the queue: queued messages and due {@code every}, {@code after} and
-     * {@code at} events are ignored and keep waiting, error details are kept. The caller checks that the current state awaits
-     * the message.
+     * Executes the message handler, bypassing the queue: queued messages and due timers of the await are ignored
+     * and keep waiting, error details are kept. The caller checks that the current state awaits the message.
      *
      * @param payload an instance of the message type class, or {@code null}
      */
@@ -91,6 +90,7 @@ public class StepExecutor {
     /**
      * Executes the event selected by {@link ProcessInstance#dueAwaitEvent()}. Without a due event, e.g. after a
      * manual change of {@code next_run_at}, only the next run is recomputed: no attempt and no history row.
+     * The {@code at} timer is cancelled before its handler; a handler failure rolls the cancellation back.
      */
     private boolean executeAwait(ProcessInstance process, AwaitState spec) {
         var due = process.dueAwaitEvent();
@@ -104,7 +104,10 @@ public class StepExecutor {
             case MESSAGE -> executeQueuedMessage(process, context);
             case EVERY -> executeTimer(process, context, event, spec.every().handler(), spec.every().exit(), "every");
             case AFTER -> executeTimer(process, context, event, spec.after().handler(), spec.after().exit(), "after");
-            case AT -> executeTimer(process, context, event, spec.at().handler(), spec.at().exit(), "at");
+            case AT -> {
+                process.fireAtTimer();
+                executeTimer(process, context, event, spec.at().handler(), spec.at().exit(), "at");
+            }
         }
         return true;
     }
