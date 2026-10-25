@@ -97,12 +97,13 @@ line where the target must become routes. `build()` checks that all enum constan
 - At most one `every`, one `after` and one `at` per await, in any combination; at least one event must lead to
   another state.
 - `after(delay)` fires `delay` after entering the await. `at(variable)` fires at the `Instant` stored in the
-  variable (`VariableType<Instant>`): no variable, no timer; writing the variable (handler, step, admin) moves the
-  timer, earlier or later. The variable must be an `Instant` in every state and at start: writing another value
+  variable (`VariableType<Instant>`): no variable, no timer; a new value (handler, step, admin) moves the timer,
+  earlier or later; a past moment fires right away. The variable must be an `Instant` in every state and at start: writing another value
   throws `IllegalArgumentException` (a handler error in a step or handler).
-- **A timer fires once per moment.** `after` fires once per entry of the await. After firing, `at` waits for a new
-  value: a handler that writes the next date makes a schedule; one that does not leaves the await waiting for its
-  other events (no error). Writing the same value does not fire it again.
+- **A fired timer targeting the await itself**: `every` moves to its next grid point, `after` is off until the await
+  is entered again, `at` is off until its variable gets a new value. An `at` handler that writes the next date makes
+  a schedule; one that does not leaves the await waiting for its other events (no error). Writing the same value
+  does not set `at` again. Re-entering the await sets all timers anew.
 - A timer without a handler cannot target the await itself.
 - **An event whose target is the await itself means "keep waiting"**: the handled message is removed,
   other queued messages and the timers are kept. Use it for reminders

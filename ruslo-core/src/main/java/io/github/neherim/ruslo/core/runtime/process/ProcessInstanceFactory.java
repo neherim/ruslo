@@ -43,7 +43,7 @@ public class ProcessInstanceFactory {
             Instant nextRunAt,
             Instant everyDueAt,
             Instant afterDueAt,
-            Instant atFiredDueAt
+            Instant atDueAt
     ) {
 
         var processType = ProcessType.of(processTypeName);
@@ -54,7 +54,7 @@ public class ProcessInstanceFactory {
         var messages = ProcessMessages.fromString(objectMapper, messagesStr);
 
         return ProcessInstance.loadFromStorage(id, businessKey, spec, state, status, variables, messages,
-                correlationId, attempt, lastError, nextRunAt, everyDueAt, afterDueAt, atFiredDueAt, clock);
+                correlationId, attempt, lastError, nextRunAt, everyDueAt, afterDueAt, atDueAt, clock);
     }
 
     public ProcessInstance newInstance(

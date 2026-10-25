@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * {@code after} and {@code at} timers: their moments, "once per moment", tie order and retries. The process enters
+ * {@code after} and {@code at} timers: their moments, firing with the await itself as the target, tie order and retries. The process enters
  * the await at 11:00.
  */
 class AwaitAfterAtTimersTest extends BaseTest {
@@ -399,6 +399,32 @@ class AwaitAfterAtTimersTest extends BaseTest {
         assertEquals(Optional.empty(), details(id).nextRunAt());
         engine.resumeFailedProcess(id);
         assertEquals(Optional.of(instant("11:30:00")), details(id).nextRunAt());
+    }
+
+    @Test
+    void reenteringAwaitWithSamePastMomentFiresAgain() {
+        engine(await -> await.message(SIGNAL, (context, message) -> {}, State.AGAIN)
+            .at(DUE, context -> log.add("at"), State.WAIT));
+        var id = start(instant("11:30:00"));
+        at("12:00:00");
+        run(id);
+        engine.sendMessage(id, SIGNAL, "again");
+        emulator(engine).runUntilStop(id);
+        assertEquals(List.of("at", "at"), log);
+    }
+
+    @Test
+    void atDueAtChangedInSqlMovesTimer() {
+        engine(await -> await.message(SIGNAL, (context, message) -> {}, State.MSG_DONE)
+            .at(DUE, context -> log.add("at"), State.WAIT));
+        var id = start(instant("11:30:00"));
+        at("11:30:00");
+        run(id);
+        database.update("update xs_process_instance set at_due_at = ?, next_run_at = ? where id = ?",
+                Timestamp.from(instant("11:20:00")), Timestamp.from(instant("11:30:00")), id);
+        run(id);
+        assertEquals(List.of("at", "at"), log);
+        assertEquals(Optional.of(instant("11:30:00")), details(id).variables().get(DUE));
     }
 
     @Test

@@ -96,15 +96,15 @@ Timer rules:
 
 1. `every(interval)` fires repeatedly, on the grid `entering the await + initialDelay + k * interval`: a late check
    does not shift the next ones, missed points are skipped. `after(delay)` fires `delay` after entering the await.
-   `at(variable)` fires at the moment stored in the variable: no variable, no timer; the variable changed, the timer
-   moved. The variable is always an `Instant`, in every state and at start: another value is rejected on write.
+   `at(variable)` fires at the moment stored in the variable, like an alarm: entering the await and writing a new
+   value set it to the value, removing the variable turns it off; a moment in the past fires right away. The
+   variable is always an `Instant`, in every state and at start: another value is rejected on write.
 2. Each timer is declared at most once per await; any of them can be combined.
-3. **A timer fires once per moment.** The moment of `after` does not change within one entry, so it fires once per
-   entry. After firing, `at` waits for a new value of its variable: a handler that writes the next date makes a
-   schedule; a handler that does not write it leaves the await waiting for its other events. The process does not
-   fail in that case: it is the same as an await whose message never comes. "Once" holds within one entry: entering
-   the await again with the same past moment fires `at` right away, so a loop "await → step → await" must move the
-   moment or leave.
+3. **A fired timer with the await itself as the target**: `every` moves to its next grid point, `after` is off until
+   the await is entered again, `at` is off until its variable gets a new value. So an `at` handler that writes the
+   next date makes a schedule; one that does not write it leaves the await waiting for its other events, as an
+   await whose message never comes. Entering the await again sets every timer anew: `at` with the same past moment
+   fires right away, so a loop "await → step → await" must move the moment or leave.
 4. A handler error pauses the whole await until the retry: a due timer waits until the failed event is handled
    (see [execution.md](execution.md#await-event-selection)).
 

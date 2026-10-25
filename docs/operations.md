@@ -43,7 +43,7 @@ variable, and a timer that is off is visible by `nextRunAt`.
 |---|---|
 | `processEngine.resumeFailedProcess(id)` | Resumes a process from `FAILED`: the failed step or event runs again; `ProcessStatusException` if the process is not in `FAILED` (active or completed) |
 | `processEngineAdmin.moveProcessToState(id, state)` | Moves the process to any declared state, including from `FAILED`; the message queue and the error are cleared, entering a terminal state completes the process |
-| `processEngineAdmin.setProcessVariable(id, type, value)` | Changes a process variable; writing the `at` variable of the current await moves its timer; a value of an `at` variable that is not an `Instant` is rejected in any state |
+| `processEngineAdmin.setProcessVariable(id, type, value)` | Changes a process variable; a new value of the `at` variable of the current await moves its timer; a value of an `at` variable that is not an `Instant` is rejected in any state |
 | `processEngineAdmin.removeProcessVariable(id, name)` | Removes a process variable; removing the `at` variable of the current await turns its timer off |
 | `processEngineAdmin.countIncompleteProcessesByType(overdueAt)` | Number of processes in `ACTIVE` and `FAILED` per type and number of overdue ones: in `ACTIVE` with `nextRunAt` not later than `overdueAt`, including an unhandled message and a due timer |
 | `processEngineAdmin.listApplicationInstances()` | Registered engine instances, the number of processes they have claimed and the registration expiry |
@@ -64,7 +64,7 @@ While investigating an incident you may change timer columns of `xs_process_inst
 | `next_run_at` | When the engine next takes the process: a step, a retry, a message or a timer; `null` if it waits only for messages, is in `FAILED` or completed |
 | `every_due_at` | The next grid point of `every`; `null` for a step and an await without `every` |
 | `after_due_at` | The `after` deadline; `null` if it has fired or `after` is not declared |
-| `at_fired_due_at` | The `at` moment (the variable value) already handled in this entry of the await; reset on entering the await |
+| `at_due_at` | The `at` moment: the variable value on entering the await or after its last change; `null` if it has fired, the variable is not set or `at` is not declared |
 
 Two rules:
 
@@ -77,9 +77,10 @@ Two rules:
 2. **Fencing.** A non-transactional worker checks `lease_owner` and `row_version` and may silently overwrite a
    change. Change only rows with `lease_owner is null`, and always with `row_version = row_version + 1`.
 
-Recipes (the `at` deadline is changed through `setProcessVariable`, not in SQL: an `at` variable written in SQL
-as something other than an `Instant` is a system error, and the engine postpones the process by 60 seconds on every
-run until the value is fixed):
+A change of `at_due_at` does not change the `at` variable, and a change of the variable in SQL does not move the
+timer. Move the `at` deadline with `setProcessVariable` so they stay equal; edit `at_due_at` only for a one-time fix.
+
+Recipes:
 
 ```sql
 -- Run now
@@ -93,9 +94,9 @@ set after_due_at = after_due_at + interval '1 day', next_run_at = current_timest
     row_version = row_version + 1
 where id = ? and status = 'ACTIVE' and lease_owner is null;
 
--- Fire at again for the current value of its variable
+-- Fire at once more right now
 update xs_process_instance
-set at_fired_due_at = null, next_run_at = current_timestamp, row_version = row_version + 1
+set at_due_at = current_timestamp, next_run_at = current_timestamp, row_version = row_version + 1
 where id = ? and status = 'ACTIVE' and lease_owner is null;
 
 -- Move the every grid

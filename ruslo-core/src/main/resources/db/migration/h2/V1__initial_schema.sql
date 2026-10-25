@@ -20,7 +20,7 @@ create table xs_process_instance (
     next_run_at timestamp with time zone,
     every_due_at timestamp with time zone,
     after_due_at timestamp with time zone,
-    at_fired_due_at timestamp with time zone,
+    at_due_at timestamp with time zone,
     lease_owner uuid,
     row_version bigint not null default 0
 );

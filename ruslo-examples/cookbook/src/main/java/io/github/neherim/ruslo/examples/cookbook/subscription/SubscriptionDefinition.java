@@ -31,7 +31,7 @@ import java.time.ZoneOffset;
  *   <li>The caller passes the sign-up date in variable {@link #SUBSCRIBED_AT} and the first charge date, computed
  *       by {@link #nextChargeAt}, in {@link #NEXT_CHARGE_AT}. {@code at(NEXT_CHARGE_AT, ...)} in
  *       {@link State#ACTIVE} charges the fee on that date.</li>
- *   <li>A successful charge writes the next date and targets the await itself: "wait for the next date". A timer fires once per moment, so the new value of the variable makes the schedule.
+ *   <li>A successful charge writes the next date and targets the await itself: "wait for the next date". A new value of the variable sets the timer to the next date, so the charges make a schedule.
  *       A bank decline leads to {@link State#SUSPENDED}.</li>
  *   <li>Message {@link #CANCEL} is declared in the same await, next to {@code at}: whichever event comes first is
  *       handled. A cancelled subscription is not charged again.</li>

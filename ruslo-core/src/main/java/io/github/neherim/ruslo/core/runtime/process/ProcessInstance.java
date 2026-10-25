@@ -8,7 +8,6 @@ import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -37,7 +36,7 @@ public final class ProcessInstance {
     private Instant nextRunAt;
     private Instant everyDueAt;
     private Instant afterDueAt;
-    private Instant atFiredDueAt;
+    private Instant atDueAt;
 
     private ProcessInstance(
             UUID id,
@@ -94,7 +93,7 @@ public final class ProcessInstance {
             Instant nextRunAt,
             Instant everyDueAt,
             Instant afterDueAt,
-            Instant atFiredDueAt,
+            Instant atDueAt,
             Clock clock
     ) {
         var process = new ProcessInstance(id, businessKey, spec, variables, messages, correlationId, clock);
@@ -105,7 +104,7 @@ public final class ProcessInstance {
         process.nextRunAt = nextRunAt;
         process.everyDueAt = everyDueAt;
         process.afterDueAt = afterDueAt;
-        process.atFiredDueAt = atFiredDueAt;
+        process.atDueAt = atDueAt;
         return process;
     }
 
@@ -127,7 +126,7 @@ public final class ProcessInstance {
         resetAttemptsAndError();
         everyDueAt = null;
         afterDueAt = null;
-        atFiredDueAt = null;
+        atDueAt = null;
         switch (behavior) {
             case StepState ignored -> {
                 status = ProcessStatus.ACTIVE;
@@ -137,6 +136,7 @@ public final class ProcessInstance {
                 status = ProcessStatus.ACTIVE;
                 if (await.every() != null) everyDueAt = now.plus(await.every().initialDelay());
                 if (await.after() != null) afterDueAt = now.plus(await.after().delay());
+                if (await.at() != null) atDueAt = variables.getVariable(await.at().variable().name(), Instant.class);
                 recomputeNextRun();
             }
             case TerminalState ignored -> {
@@ -177,7 +177,6 @@ public final class ProcessInstance {
      * {@code after}, {@code at}.
      *
      * @return empty if no event is due
-     * @throws RuntimeException if the {@code at} variable cannot be read as {@link Instant}
      */
     public Optional<DueEvent> dueAwaitEvent() {
         var now = clock.instant();
@@ -194,7 +193,7 @@ public final class ProcessInstance {
     /**
      * Finishes a timer handled with the await itself as the target and clears the errors of previous attempts:
      * {@code every} moves to its next grid point (missed points are skipped), {@code after} is off until the await is
-     * entered again, {@code at} is off until its variable changes.
+     * entered again, {@code at} is off until its variable gets a new value; a new value written by the handler stays.
      */
     public void timerFired(DueEvent event) {
         switch (event.type()) {
@@ -204,7 +203,9 @@ public final class ProcessInstance {
                 everyDueAt = everyDueAt.plus(interval.multipliedBy(missed + 1));
             }
             case AFTER -> afterDueAt = null;
-            case AT -> atFiredDueAt = event.moment();
+            case AT -> {
+                if (event.moment().equals(atDueAt)) atDueAt = null;
+            }
             case MESSAGE -> throw new IllegalArgumentException("Not a timer: " + event.type());
         }
         resetAttemptsAndError();
@@ -265,33 +266,23 @@ public final class ProcessInstance {
         var moments = new EnumMap<AwaitEvent, Instant>(AwaitEvent.class);
         if (everyDueAt != null) moments.put(AwaitEvent.EVERY, everyDueAt);
         if (afterDueAt != null) moments.put(AwaitEvent.AFTER, afterDueAt);
-        var at = atMoment();
-        if (at != null && !at.equals(atFiredDueAt)) moments.put(AwaitEvent.AT, at);
+        if (atDueAt != null) moments.put(AwaitEvent.AT, atDueAt);
         return moments;
     }
 
-    /**
-     * Returns the value of the current await's {@code at} variable truncated to microseconds, the precision of
-     * {@code at_fired_due_at}: otherwise a fired moment read back would differ from the variable and fire again.
-     */
-    private Instant atMoment() {
+    /** Returns whether {@code name} is the {@code at} variable of the current await. */
+    private boolean isCurrentAtVariable(String name) {
         var await = currentAwait();
-        if (await == null || await.at() == null) return null;
-        var value = variables.getVariable(await.at().variable().name(), Instant.class);
-        return value == null ? null : value.truncatedTo(ChronoUnit.MICROS);
+        return await != null && await.at() != null && await.at().variable().name().equals(name);
     }
 
     /**
-     * Updates the next run after a write of the current await's {@code at} variable, except during a
+     * Moves the {@code at} timer; the next run is not moved in {@code FAILED} or during a
      * {@link #hasRetryBackoff() retry backoff}.
      */
-    private void atVariableChanged(String name) {
-        var await = currentAwait();
-        if (status != ProcessStatus.ACTIVE || hasRetryBackoff() || await == null || await.at() == null
-                || !await.at().variable().name().equals(name)) {
-            return;
-        }
-        recomputeNextRun();
+    private void moveAtTimer(Instant moment) {
+        atDueAt = moment;
+        if (status == ProcessStatus.ACTIVE && !hasRetryBackoff()) recomputeNextRun();
     }
 
     /** Checks the value of an {@code at} variable before it is stored. */
@@ -386,7 +377,8 @@ public final class ProcessInstance {
     }
 
     /**
-     * Sets the variable. A write of the current await's {@code at} variable moves its timer.
+     * Sets the variable. A new value of the current await's {@code at} variable moves its timer; the same value
+     * leaves it as is.
      *
      * @throws IllegalArgumentException if the variable is used by an {@code at} timer of any await and the value
      *                                  cannot be read as {@link Instant}; the process is then unchanged
@@ -394,14 +386,15 @@ public final class ProcessInstance {
     public void setVariable(String name, Object value) {
         if (spec.getAtVariableNames().contains(name))
             checkAtVariable(name, () -> variables.convert(value, Instant.class));
+        var changed = !variables.hasValue(name, value);
         variables.setVariable(name, value);
-        atVariableChanged(name);
+        if (changed && isCurrentAtVariable(name)) moveAtTimer(variables.getVariable(name, Instant.class));
     }
 
     /** Removes the variable; removing the current await's {@code at} variable turns its timer off. */
     public boolean removeVariable(String name) {
         var removed = variables.removeVariable(name);
-        if (removed) atVariableChanged(name);
+        if (removed && isCurrentAtVariable(name)) moveAtTimer(null);
         return removed;
     }
 
@@ -429,8 +422,8 @@ public final class ProcessInstance {
         return Optional.ofNullable(afterDueAt);
     }
 
-    public Optional<Instant> getAtFiredDueAt() {
-        return Optional.ofNullable(atFiredDueAt);
+    public Optional<Instant> getAtDueAt() {
+        return Optional.ofNullable(atDueAt);
     }
 
     /** Returns the worker of the current state; empty for a terminal or removed state. */

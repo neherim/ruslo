@@ -73,6 +73,11 @@ public class ProcessVariables {
         return variables.remove(name) != null;
     }
 
+    /** Returns whether the variable holds {@code value}, compared as JSON. */
+    public boolean hasValue(String name, Object value) {
+        return objectMapper.valueToTree(value).equals(variables.get(name));
+    }
+
     /** Returns the value as {@link #getVariable} would read it after {@link #setVariable}. */
     public <T> T convert(Object value, Class<T> clazz) {
         return objectMapper.treeToValue(objectMapper.valueToTree(value), clazz);

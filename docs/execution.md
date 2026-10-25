@@ -29,11 +29,11 @@ is handled. On a tie the order is: message, `every`, `after`, `at`; messages wit
 The moment the dispatcher reached the process does not affect the choice.
 
 **Timer moments.** After a successful `every` the next check is the first grid point after the handling. After a
-successful `after` the timer is off until the await is entered again. The `at` timer is on while its variable has a
-value that has not fired yet in this entry of the await. The value is checked on entering the await, on every write
-or removal of the variable (a handler, a step, `setProcessVariable` / `removeProcessVariable` in the admin API) and
-after `at` fires. Writing the same value does not fire the timer again, so a handler that does not move the moment
-does not make a loop. The value is compared with microsecond precision, the precision of the stored timestamps.
+successful `after` the timer is off until the await is entered again. The `at` timer is set to the value of its
+variable on entering the await and on every write of a new value in the await (a handler, `setProcessVariable` in
+the admin API); removing the variable turns it off. After a successful `at` the timer is off until the variable gets
+a new value; a new value written by the `at` handler itself sets the next moment. Writing the same value does not
+set the timer again, so a handler that does not move the moment does not make a loop.
 
 A moment in the past or equal to now is an event that is already due, selected by the usual rules: the process
 entered the await after the deadline, a message moved the deadline into the past, or dates were missed during

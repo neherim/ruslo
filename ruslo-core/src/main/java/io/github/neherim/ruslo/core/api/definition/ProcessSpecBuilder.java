@@ -340,9 +340,9 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Calls {@code handler} {@code delay} after entering the await, then moves to {@code next}. A timer fires
-         * once per moment (see {@link ProcessSpec.AfterEvent}): if {@code next} is this await, the process keeps
-         * waiting for the other events.
+         * Calls {@code handler} {@code delay} after entering the await, then moves to {@code next}. If {@code next}
+         * is this await, the timer is off until the await is entered again (see {@link ProcessSpec.AfterEvent}) and
+         * the process keeps waiting for the other events.
          */
         public AwaitBuilder after(Duration delay, ProcessTimerHandler handler, ProcessState next) {
             requireNonNull(handler, "Timer handler cannot be null");
@@ -381,11 +381,9 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Calls {@code handler} at the moment stored in {@code variable}, then moves to {@code next}. No variable
-         * means no timer; a write of the variable moves the timer. A timer fires once per moment within one entry of
-         * the await (see {@link ProcessSpec.AtEvent}): if {@code next} is this await, the process waits for a new
-         * value of the variable and for the other events. Entering the await again with the same past moment fires
-         * the timer right away.
+         * Calls {@code handler} at the moment stored in {@code variable}, then moves to {@code next}. The timer
+         * follows the variable (see {@link ProcessSpec.AtEvent}): if {@code next} is this await, the process waits
+         * for a new value of the variable and for the other events.
          */
         public AwaitBuilder at(VariableType<Instant> variable, ProcessTimerHandler handler, ProcessState next) {
             requireNonNull(handler, "Timer handler cannot be null");
