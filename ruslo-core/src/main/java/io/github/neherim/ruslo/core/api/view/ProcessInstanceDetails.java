@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Process instance with variables, timers, last error and state history. The message queue is not exposed.
@@ -36,6 +37,46 @@ public record ProcessInstanceDetails(
         ProcessVariablesView variables,
         Map<String, Instant> timers
 ) {
+    private static final int HISTORY_LIMIT = 10;
+
+    /**
+     * Returns a multi-line summary for test failures and logs: type, id, status, state, attempt, last error, the last
+     * states of the history, variables as JSON, timers and the next run.
+     */
+    @Override
+    public String toString() {
+        var text = new StringBuilder()
+            .append(type.name())
+            .append(' ')
+            .append(id)
+            .append(' ')
+            .append(status)
+            .append(" in ")
+            .append(state.name())
+            .append(", attempt ")
+            .append(attempt);
+        businessKey.ifPresent(key -> text.append("\n  businessKey: ").append(key));
+        lastError.ifPresent(error -> text.append("\n  lastError:   ").append(error));
+        if (!stateHistory.isEmpty()) {
+            text.append("\n  history:     ").append(history());
+        }
+        text.append("\n  variables:   ")
+            .append(variables.asJsonMap())
+            .append("\n  timers:      ")
+            .append(timers)
+            .append("\n  nextRunAt:   ")
+            .append(nextRunAt.map(Instant::toString).orElse("-"));
+        return text.toString();
+    }
+
+    private String history() {
+        int skipped = Math.max(0, stateHistory.size() - HISTORY_LIMIT);
+        var states = stateHistory.subList(skipped, stateHistory.size())
+            .stream()
+            .map(entry -> entry.state().name())
+            .collect(Collectors.joining(" -> "));
+        return skipped == 0 ? states : "(" + skipped + " earlier) -> " + states;
+    }
 
     /** State history entry: the state and when it was entered. */
     public record StateHistoryEntry(ProcessStateId state, Instant changedAt) {

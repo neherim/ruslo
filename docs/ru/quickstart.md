@@ -220,7 +220,6 @@ public class OrderService {
 
 ```java
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ProcessEngineTest
 @SpringBootTest(classes = Main.class)
@@ -238,12 +237,12 @@ class QuickstartOrderTest {
         var processId = orderService.createOrder("customer-1");
 
         var waiting = emulator.runUntilStop(processId);
-        assertTrue(waiting.state().is(OrderState.WAITING_FOR_PAYMENT));
+        assertEquals(OrderState.WAITING_FOR_PAYMENT.id(), waiting.state());
 
         orderService.confirmPayment(processId, "txn-42");
 
         var completed = emulator.runUntilStop(processId);
-        assertTrue(completed.state().is(OrderState.COMPLETED));
+        assertEquals(OrderState.COMPLETED.id(), completed.state());
     }
 
     @Test
@@ -254,7 +253,7 @@ class QuickstartOrderTest {
         orderService.cancelOrder(processId, "customer request");
 
         var cancelled = emulator.runUntilStop(processId);
-        assertTrue(cancelled.state().is(OrderState.CANCELLED));
+        assertEquals(OrderState.CANCELLED.id(), cancelled.state());
         assertEquals("customer request",
                 cancelled.variables().get(Constants.CANCELLATION_REASON).orElseThrow());
     }

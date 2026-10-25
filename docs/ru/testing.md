@@ -16,16 +16,23 @@
 | Метод | Что делает |
 |---|---|
 | `runUntilStop(id)` | Исполняет переходы, пока процесс готов: останавливается в ожидании без наступивших событий, на будущем таймере или повторе с задержкой, в `FAILED` или при завершении. Если после ошибки `fallback` или повтор без задержки ведут в шаг, исполнение продолжается |
-| `runOneStep(id)` | Исполняет один шаг или одно наступившее событие ожидания; для процесса в `FAILED` бросает `IllegalStateException` |
-| `runUntilState(id, state)` | Исполняет переходы до указанного состояния; бросает `IllegalStateException`, если процесс остановился раньше |
+| `runOneStep(id)` | Исполняет один шаг или одно наступившее событие ожидания; для завершённого процесса или процесса в `FAILED` бросает `ProcessStatusException` |
+| `runUntilState(id, state)` | Исполняет переходы до указанного состояния; бросает `IllegalStateException` со сводкой процесса (статус, `lastError`, история), если процесс остановился раньше |
 | `runAll()` | Доводит все активные процессы в БД до ближайшей остановки — для сценариев, где процессы взаимодействуют. Учитывайте, что база общая для тестов с одним контекстом: сюда попадут и активные процессы предыдущих тестов |
-| `sendMessageAndRunUntilStop(id, type, payload)` | Вызывает `sendMessage`, затем `runUntilStop`; если процесс сообщение не принял, бросает `IllegalStateException` |
+| `sendMessageAndRunUntilStop(id, type, payload)` | Вызывает `sendMessage`, затем `runUntilStop`; если процесс сообщение не принял, бросает `MessageNotExpectedException` |
 | `fastForwardTime(duration)` | Перематывает часы движка вперёд |
 | `setTime(instant)` | Устанавливает текущее время часов движка |
 | `resetTime()` | Возвращает часы движка к начальному времени; `@ProcessEngineTest` делает это перед каждым тестом сам |
 
 Методы возвращают `ProcessInstanceDetails`: проверяйте `state()`, `status()` и `lastError()`. Переменные
 читайте типизированно: `details.variables().get(AMOUNT)` возвращает `Optional` значения класса переменной.
+
+Состояние сравнивайте через `assertEquals(OrderState.COMPLETED.id(), details.state())`: при несовпадении сообщение
+показывает фактическое состояние. Без `.id()` проверка не проходит никогда: константа enum не равна
+`ProcessStateId` из details. `assertTrue(details.state().is(...))` фактического состояния не показывает.
+`toString()` у `ProcessInstanceDetails` — сводка статуса, `lastError`, последних состояний истории, переменных и
+таймеров; передайте её сообщением, когда одного состояния мало, чтобы понять причину:
+`assertEquals(OrderState.COMPLETED.id(), details.state(), details::toString)`.
 
 ## Таймеры и повторы
 
@@ -49,7 +56,7 @@ class OrderServiceTest {
         orderService.confirmPayment(processId, new PaymentConfirmed(BigDecimal.valueOf(500)));
 
         var waiting = emulator.runUntilStop(processId);
-        assertTrue(waiting.state().is(State.WAITING_FOR_DELIVERY_TIMER));
+        assertEquals(State.WAITING_FOR_DELIVERY_TIMER.id(), waiting.state());
 
         emulator.fastForwardTime(Duration.ofSeconds(11));   // ожидание ждёт after(10 секунд)
 
@@ -72,7 +79,7 @@ assertEquals(start.plus(SeatReservationDefinition.PAYMENT_TIME),
         waiting.timers().get(SeatReservationDefinition.PAYMENT_DUE.name()));
 
 emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
-assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
+assertEquals(SeatReservationDefinition.State.EXPIRED.id(), emulator.runUntilStop(processId).state());
 ```
 
 Обработчик, вызывающий `Instant.now()`, видит системное время, и такой тест падает.

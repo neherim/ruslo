@@ -66,9 +66,8 @@ public class ProcessEngineEmulator {
                 return findProcess(processId);
             }
         }
-        throw new IllegalStateException(
-                "Process " + processId + " did not stop after " + maxSteps + " steps. "
-                        + "Possible infinite loop in process definition.");
+        throw new IllegalStateException("Process did not stop after " + maxSteps + " steps. "
+                + "Possible infinite loop in process definition, see the history:\n" + findProcess(processId));
     }
 
     /**
@@ -95,15 +94,13 @@ public class ProcessEngineEmulator {
             }
             if (!ready) {
                 throw new IllegalStateException(
-                        "Process " + processId + " stopped in state " + proc.state().name()
-                                + " before reaching state " + state.name() + ".");
+                        "Process stopped before reaching state " + state.name() + ":\n" + proc);
             }
             ready = runtime.forceExecuteOneStep(processId);
             proc = findProcess(processId);
         }
-        throw new IllegalStateException(
-                "Process " + processId + " did not reach state " + state.name()
-                        + " after " + maxSteps + " steps. Possible infinite loop in process definition.");
+        throw new IllegalStateException("Process did not reach state " + state.name() + " after " + maxSteps
+                + " steps. Possible infinite loop in process definition, see the history:\n" + proc);
     }
 
     /**

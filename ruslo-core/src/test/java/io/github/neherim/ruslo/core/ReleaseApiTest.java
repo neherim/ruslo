@@ -44,7 +44,7 @@ class ReleaseApiTest extends BaseTest {
             assertEquals("[]", database.queryForObject("select messages from xs_process_instance where id = ?",
                     rs -> rs.getString(1), id)
                 .orElseThrow());
-            assertTrue(emulator(engine).runUntilStop(id).state().is(State.DONE));
+            assertEquals(State.DONE.id(), emulator(engine).runUntilStop(id).state());
         }
     }
 }

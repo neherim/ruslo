@@ -292,12 +292,12 @@ class OrderProcessTest {
     @Test
     void cancelsWhenNotPaidInTime() {
         var id = orderService.createOrder("customer-1");
-        assertTrue(emulator.runUntilStop(id).state().is(OrderState.WAITING_FOR_PAYMENT));
+        assertEquals(OrderState.WAITING_FOR_PAYMENT.id(), emulator.runUntilStop(id).state());
 
         emulator.fastForwardTime(Duration.ofMinutes(16));
 
         var details = emulator.runUntilStop(id);
-        assertTrue(details.state().is(OrderState.CANCELLED));
+        assertEquals(OrderState.CANCELLED.id(), details.state());
         assertEquals(ProcessStatus.COMPLETED, details.status());
     }
 }
@@ -308,6 +308,10 @@ class OrderProcessTest {
   `sendMessageAndRunUntilStop(id, type, payload)`, `fastForwardTime(d)`, `setTime(instant)`.
   Results are `ProcessInstanceDetails`: check `state()`, `status()`, `lastError()`,
   `variables().get(TYPE)` (`Optional`), `timers().get(DUE.name())`.
+- Assert the state as `assertEquals(State.X.id(), details.state())`, expected value first: the failure shows the
+  actual state. Without `.id()` it never passes (an enum is not equal to `ProcessStateId`); `assertTrue(...is(...))`
+  hides the actual state. `details.toString()` summarizes status, `lastError`, recent history, variables and timers:
+  pass `details::toString` as the message, and read it when `runUntilState` throws.
 - Control time **only** through the emulator; the application's own `Clock` beans do not affect engine timers.
   For an `at` deadline: `emulator.setTime(start)`, start and run the process (its step sets the timer from
   `context.now()`), then `setTime(deadline)`.

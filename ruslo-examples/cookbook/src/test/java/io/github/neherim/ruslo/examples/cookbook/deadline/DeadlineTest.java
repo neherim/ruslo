@@ -16,7 +16,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -39,7 +38,7 @@ class DeadlineTest {
         var confirmed = emulator.sendMessageAndRunUntilStop(
                 processId, SeatReservationDefinition.PAYMENT_RECEIVED, PAYMENT_ID);
 
-        assertTrue(confirmed.state().is(SeatReservationDefinition.State.CONFIRMED));
+        assertEquals(SeatReservationDefinition.State.CONFIRMED.id(), confirmed.state());
         assertEquals(PAYMENT_ID,
                 confirmed.variables().get(SeatReservationDefinition.PAYMENT_ID).orElseThrow());
     }
@@ -48,17 +47,18 @@ class DeadlineTest {
     void releasesSeatWhenPaymentIsLate() {
         var processId = startReservation();
         var waiting = emulator.runUntilStop(processId);
-        assertTrue(waiting.state().is(SeatReservationDefinition.State.WAITING_FOR_PAYMENT));
+        assertEquals(SeatReservationDefinition.State.WAITING_FOR_PAYMENT.id(), waiting.state());
         assertEquals(DUE, waiting.timers().get(SeatReservationDefinition.PAYMENT_DUE.name()));
 
         // Before the deadline the process waits, after it the seat is released
         emulator.setTime(DUE.minusSeconds(1));
-        assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.WAITING_FOR_PAYMENT));
+        assertEquals(SeatReservationDefinition.State.WAITING_FOR_PAYMENT.id(),
+                emulator.runUntilStop(processId).state());
         emulator.setTime(DUE);
         var expired = emulator.runUntilStop(processId);
 
         assertEquals(ProcessStatus.COMPLETED, expired.status());
-        assertTrue(expired.state().is(SeatReservationDefinition.State.EXPIRED));
+        assertEquals(SeatReservationDefinition.State.EXPIRED.id(), expired.state());
 
         // The process does not accept a late payment: the sender handles it
         assertThrows(MessageNotExpectedException.class,
@@ -73,10 +73,11 @@ class DeadlineTest {
         var extended = DUE.plus(Duration.ofMinutes(10));
         emulator.sendMessageAndRunUntilStop(processId, SeatReservationDefinition.EXTEND_PAYMENT_DUE, extended);
         emulator.setTime(DUE);
-        assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.WAITING_FOR_PAYMENT));
+        assertEquals(SeatReservationDefinition.State.WAITING_FOR_PAYMENT.id(),
+                emulator.runUntilStop(processId).state());
 
         emulator.setTime(extended);
-        assertTrue(emulator.runUntilStop(processId).state().is(SeatReservationDefinition.State.EXPIRED));
+        assertEquals(SeatReservationDefinition.State.EXPIRED.id(), emulator.runUntilStop(processId).state());
     }
 
     private UUID startReservation() {

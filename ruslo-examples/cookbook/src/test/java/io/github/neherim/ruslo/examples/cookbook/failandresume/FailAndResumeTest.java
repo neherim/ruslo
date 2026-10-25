@@ -35,7 +35,7 @@ class FailAndResumeTest {
         var failed = emulator.runUntilStop(processId);
 
         assertEquals(ProcessStatus.FAILED, failed.status());
-        assertTrue(failed.state().is(InvoiceDefinition.State.ISSUING));
+        assertEquals(InvoiceDefinition.State.ISSUING.id(), failed.state());
         assertEquals("IllegalArgumentException: Unsupported country: XX", failed.lastError().orElseThrow());
         assertTrue(ids(invoiceOperations.findFailed()).contains(processId));
 
