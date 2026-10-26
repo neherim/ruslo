@@ -14,7 +14,13 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
-/** Builds a {@link ProcessSpec}: process settings first, then states. */
+/**
+ * Builds a {@link ProcessSpec}: process settings first, then states.
+ * <p>
+ * A handler reports a result, the definition declares the target state. A target equal to the current state is not
+ * a state change: the message queue, the {@code every} and {@code after} timers and the state history are kept. A
+ * step runs again; an await keeps waiting for its events.
+ */
 public class ProcessSpecBuilder {
     public ProcessSpecBuilder() {
     }
@@ -227,7 +233,7 @@ public class ProcessSpecBuilder {
 
         /**
          * Handles the message and moves to {@code next}. If {@code next} is this await, the process keeps waiting
-         * without re-entering it.
+         * (see {@link ProcessSpecBuilder}).
          */
         public <T> AwaitBuilder message(MessageType<T> type, ProcessMessageHandler<T> handler, ProcessState next) {
             requireNonNull(handler, "Message handler cannot be null");
@@ -239,7 +245,7 @@ public class ProcessSpecBuilder {
 
         /**
          * Handles the message; its outcome selects the target in {@code routes}. A target equal to this await
-         * keeps waiting without re-entering it.
+         * keeps waiting (see {@link ProcessSpecBuilder}).
          */
         public <T, O extends Enum<O>> AwaitBuilder message(
                 MessageType<T> type,
@@ -340,8 +346,8 @@ public class ProcessSpecBuilder {
 
         /**
          * Calls {@code handler} {@code delay} after entering the await, then moves to {@code next}. If {@code next}
-         * is this await, the timer is off until the await is entered again (see {@link ProcessSpec.AfterEvent}) and
-         * the process keeps waiting for the other events.
+         * is this await, the process keeps waiting for the other events and the timer does not fire again (see
+         * {@link ProcessSpec.AfterEvent}).
          */
         public AwaitBuilder after(Duration delay, ProcessTimerHandler handler, ProcessState next) {
             requireNonNull(handler, "Timer handler cannot be null");

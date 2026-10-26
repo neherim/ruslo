@@ -42,7 +42,7 @@ of the current definition declares; the `every` and `after` moments are not in t
 | Operation | What it does |
 |---|---|
 | `processEngine.resumeFailedProcess(id)` | Resumes a process from `FAILED`: the failed step or event runs again; `ProcessStatusException` if the process is not in `FAILED` (active or completed) |
-| `processEngineAdmin.moveProcessToState(id, state)` | Moves the process to any declared state, including from `FAILED`; the message queue and the error are cleared, entering a terminal state completes the process |
+| `processEngineAdmin.moveProcessToState(id, state)` | Moves the process to any declared state, including from `FAILED`; the error is cleared, a move to another state clears the message queue, entering a terminal state completes the process. A move to the current state is not a state change: the queue and timers are kept, and the step or the due await event runs again |
 | `processEngineAdmin.setProcessVariable(id, type, value)` | Changes a process variable |
 | `processEngineAdmin.removeProcessVariable(id, name)` | Removes a process variable |
 | `processEngineAdmin.setProcessTimer(id, timer, moment)` | Sets a process timer, as `setTimer` in a handler: an `at` of the current await moves at once, `now` fires it right away; `IllegalArgumentException` if no `at` of the process declares the timer. The status is not checked: a timer of a completed process has no effect, a process in `FAILED` or in a retry backoff is not woken earlier |

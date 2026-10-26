@@ -27,9 +27,9 @@ import java.util.Map;
  *   <li>Await {@link State#WAITING_FOR_DECISION} waits for message {@link #DECISION} with an {@code after}
  *       deadline.</li>
  *   <li>On the deadline step {@link State#ESCALATING} passes the approval to the manager ({@link #APPROVER}) and
- *       returns the process to step {@link State#REQUESTING}, which leads back to the await. Entering the await again
- *       restarts its {@code after} deadline: this is the only way to reset it. A deadline stored in a variable
- *       ({@code at}) moves without re-entering the await: recipe {@code deadline}.</li>
+ *       returns the process to step {@link State#REQUESTING}, which leads back to the await. Coming into the await
+ *       from a step restarts its {@code after} deadline: this is the only way to reset it. A process timer
+ *       ({@code at}) moves while the process stays in the await: recipe {@code deadline}.</li>
  *   <li>If there is no manager, the process ends in {@link State#EXPIRED}.</li>
  * </ul>
  * <p>

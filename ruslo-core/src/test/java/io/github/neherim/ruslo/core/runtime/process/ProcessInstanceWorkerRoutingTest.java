@@ -50,8 +50,9 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
 
         clock.setTime(now.plusSeconds(3));
         restored.enterState(State.WAIT);
-        assertTrue(restored.getMessages().isEmpty());
-        assertEquals(now.plusSeconds(5), restored.getAfterDueAt().orElseThrow());
+        assertFalse(restored.getMessages().isEmpty());
+        assertEquals(now.plusSeconds(2), restored.getAfterDueAt().orElseThrow());
+        assertEquals(now.plusSeconds(1), restored.getNextRunAt().orElseThrow());
         clock.setTime(now.plusSeconds(4));
         restored.enterState(State.DONE);
         assertEquals(ProcessStatus.COMPLETED, restored.getStatus());

@@ -196,8 +196,9 @@ public class ProcessEngine implements AutoCloseable {
      * Runs the message handler in the calling thread, in the caller's transaction or a new one; the process
      * row stays locked until that transaction ends. Subsequent steps run on the dispatcher after commit.
      * <p>
-     * The message bypasses the queue: earlier messages and due {@code every}/{@code timeout} events are
-     * ignored, and a transition to another state drops the queued messages unhandled.
+     * The message bypasses the queue: earlier messages and due {@code every}, {@code after} and {@code at} events
+     * are ignored, and a transition to another state drops the queued messages unhandled. If the handler keeps the
+     * process in the await, a pending retry of a failed event is kept.
      * <p>
      * A handler exception propagates as is and rolls the transaction back: nothing is stored, no retry or
      * error is recorded and {@link ProcessErrorHandler} is not called.

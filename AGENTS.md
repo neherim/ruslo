@@ -150,7 +150,8 @@ Spring property values map to these modes as:
 
 ### Process Definitions
 
-- Handlers report a result, the definition declares the target. Steps always leave (`ProcessStep` returns nothing, `BranchingStep<O>` returns an outcome); only await can stay: an await event whose target is its own state keeps waiting (no re-entry: queue and deadline are kept).
+- Handlers report a result, the definition declares the target (`ProcessStep` returns nothing, `BranchingStep<O>` returns an outcome).
+- A transition to the same state is not a state change: the queue, `every`, `after` and history are kept, the error is cleared; a step runs again, an await keeps waiting. The rule lives in `ProcessInstance.enterState`, the single path for every transition.
 - Raw types and casts on handlers are forbidden in production code, tests and examples.
 - User-facing rules and compiler-error hints: `docs/concepts.md`.
 

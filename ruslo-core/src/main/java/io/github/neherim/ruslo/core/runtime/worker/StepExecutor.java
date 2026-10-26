@@ -62,7 +62,8 @@ public class StepExecutor {
 
     /**
      * Executes the message handler, bypassing the queue: queued messages and due timers of the await are ignored
-     * and keep waiting, error details are kept. The caller checks that the current state awaits the message.
+     * and keep waiting. A target equal to the current await keeps the retry of a failed event and its error, since
+     * this message is not that event. The caller checks that the current state awaits the message.
      *
      * @param payload an instance of the message type class, or {@code null}
      */
@@ -72,7 +73,8 @@ public class StepExecutor {
         try (var ignored = processMdc.open(process)) {
             var message = new IncomingMessage<>(UUIDGenerator.generate(), event.type(),
                     event.type().clazz().cast(payload), clock.instant());
-            executeMessage(process, new DefaultProcessContext(process), event, message);
+            var target = executeMessage(process, new DefaultProcessContext(process), event, message);
+            if (!process.getState().is(target)) process.enterState(target);
             recordStepExecuted(process, executedState, started);
         } catch (HandlerException ex) {
             recordStepFailed(process, executedState, started);
@@ -88,8 +90,9 @@ public class StepExecutor {
 
     /**
      * Executes the event selected by {@link ProcessInstance#dueAwaitEvent()}: the event is
-     * {@link ProcessInstance#takeAwaitEvent taken} before its handler. Without a due event, e.g. after a manual
-     * change of {@code next_run_at}, only the next run is recomputed: no attempt and no history row.
+     * {@link ProcessInstance#takeAwaitEvent taken} before its handler, and the handler's target is entered. Without
+     * a due event, e.g. after a manual change of {@code next_run_at}, only the next run is recomputed: no attempt
+     * and no history row.
      */
     private boolean executeAwait(ProcessInstance process, AwaitState spec) {
         var due = process.dueAwaitEvent();
@@ -101,18 +104,18 @@ public class StepExecutor {
         var message = process.getMessages().peekFirst();
         process.takeAwaitEvent(event);
         var context = new DefaultProcessContext(process);
-        var stays = switch (event) {
+        var target = switch (event) {
             case MESSAGE -> executeQueuedMessage(process, context, message.orElseThrow());
             case EVERY -> executeTimer(process, context, spec.every().handler(), spec.every().exit(), "every");
             case AFTER -> executeTimer(process, context, spec.after().handler(), spec.after().exit(), "after");
             case AT -> executeTimer(process, context, spec.at().handler(), spec.at().exit(), "at");
         };
-        if (stays) process.stayInAwait();
+        process.enterState(target);
         return true;
     }
 
-    /** Returns {@code true} if the process stays in the current await. */
-    private static boolean executeTimer(
+    /** Executes the timer handler and returns its target. */
+    private static ProcessStateId executeTimer(
             ProcessInstance process,
             DefaultProcessContext context,
             Function<ProcessContext, Enum<?>> handler,
@@ -120,11 +123,11 @@ public class StepExecutor {
             String name
     ) {
         var outcome = invokeHandler(() -> handler.apply(context));
-        return applyAwait(outcome, exit, process, name);
+        return target(exit, outcome, process, name);
     }
 
-    /** Executes the queued message. Returns {@code true} if the process stays in the current await. */
-    private boolean executeQueuedMessage(
+    /** Executes the queued message and returns the handler's target. */
+    private ProcessStateId executeQueuedMessage(
             ProcessInstance process,
             DefaultProcessContext context,
             PendingMessage pending
@@ -137,7 +140,7 @@ public class StepExecutor {
     }
 
     /** Converts the stored message to the handler type {@code T} from the definition and executes it. */
-    private <T> boolean convertAndExecute(
+    private <T> ProcessStateId convertAndExecute(
             ProcessInstance process,
             DefaultProcessContext context,
             MessageEvent<T> event,
@@ -146,28 +149,15 @@ public class StepExecutor {
         return executeMessage(process, context, event, process.getMessages().convert(pending, event.type()));
     }
 
-    /** Returns {@code true} if the process stays in the current await. */
-    private <T> boolean executeMessage(
+    /** Executes the message handler and returns its target. */
+    private <T> ProcessStateId executeMessage(
             ProcessInstance process,
             DefaultProcessContext context,
             MessageEvent<T> event,
             IncomingMessage<T> message
     ) {
         var outcome = invokeHandler(() -> event.handler().apply(context, message));
-        return applyAwait(outcome, event.exit(), process, "message " + event.type().name());
-    }
-
-    /**
-     * Applies the await event result. A target equal to the current await is not an entry: the process state is
-     * unchanged.
-     *
-     * @return {@code true} if the process stays in the current await
-     */
-    private static boolean applyAwait(Enum<?> outcome, Exit exit, ProcessInstance process, String event) {
-        var target = target(exit, outcome, process, event);
-        if (process.getState().is(target)) return true;
-        process.enterState(target);
-        return false;
+        return target(event.exit(), outcome, process, "message " + event.type().name());
     }
 
     /**

@@ -40,7 +40,7 @@ public record ProcessSpecInfo(
      *
      * @param messageType present only for {@link TransitionTrigger#MESSAGE}
      * @param outcome     present only for branching handlers
-     * @param target      equals the source await if the event keeps waiting
+     * @param target      equals the source state for a transition to the same state
      */
     public record TransitionInfo(
             TransitionTrigger trigger,

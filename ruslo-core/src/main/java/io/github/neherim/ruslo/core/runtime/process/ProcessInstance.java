@@ -102,7 +102,11 @@ public final class ProcessInstance {
         return process;
     }
 
-    /** Enters the target state; the single entry path for every transition. */
+    /**
+     * Enters the target state; the single entry path for every transition. A transition to the current state is not
+     * a state change: the message queue, the await timers and the history are kept, the error is cleared, a step
+     * runs again and an await keeps waiting.
+     */
     public void enterState(ProcessState target) {
         enterStateAt(target, clock.instant());
     }
@@ -114,6 +118,14 @@ public final class ProcessInstance {
         }
         var targetId = ProcessState.of(target.name());
         var behavior = spec.getStateSpec(targetId);
+        if (state != null && state.is(targetId)) {
+            status = ProcessStatus.ACTIVE;
+            resetAttemptsAndError();
+            if (behavior instanceof StepState) nextRunAt = now;
+            else
+                recomputeNextRun();
+            return;
+        }
         messages.clear();
         state = targetId;
         pendingHistory.add(new ProcessStateHist(targetId, now));
@@ -178,7 +190,7 @@ public final class ProcessInstance {
     /**
      * Takes the selected await event before its handler runs, without moving the next run: removes the first queued
      * message, moves {@code every} to the first grid point after now (missed points are skipped), turns {@code after}
-     * off until the await is entered again, cancels the {@code at} timer, so the handler may set it again.
+     * off while the process stays in the await, cancels the {@code at} timer, so the handler may set it again.
      * <p>
      * Leaving the await resets all of this anyway; a handler failure discards it, since the process is then neither
      * stored nor committed.
@@ -197,9 +209,8 @@ public final class ProcessInstance {
     }
 
     /**
-     * Finishes an await run that keeps the process in the await: clears the errors of previous attempts and
-     * recomputes the next run. Also finishes a run without a due event, e.g. after a manual change of
-     * {@code next_run_at}: a retry whose event is no longer due is dropped.
+     * Finishes an await run without a due event, e.g. after a manual change of {@code next_run_at}: clears the errors
+     * of previous attempts and recomputes the next run, so a retry whose event is no longer due is dropped.
      */
     public void stayInAwait() {
         resetAttemptsAndError();
