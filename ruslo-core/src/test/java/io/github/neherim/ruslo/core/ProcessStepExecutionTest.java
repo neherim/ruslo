@@ -624,6 +624,43 @@ class ProcessStepExecutionTest extends BaseTest {
     }
 
     @Test
+    void stepSelfTargetAndMoveToCurrentStepRunStepAgainWithoutHistoryRow() {
+        var runs = new AtomicInteger();
+        BranchingStep<Outcome> step = context -> {
+            var run = runs.incrementAndGet();
+            if (run == 3) throw new IllegalStateException("boom");
+            return run < 3 ? Outcome.FIRST : Outcome.SECOND;
+        };
+        ProcessDefinition definition = builder -> builder.type("LOOP")
+            .initialState(State.START)
+            .step(State.START, step, routes -> routes.on(Outcome.FIRST, State.START).on(Outcome.SECOND, State.DONE))
+            .terminal(State.DONE)
+            .build();
+        var engine = newProcessEngineWith(definition);
+        try {
+            var id = engine.newProcess(ProcessType.of("LOOP")).start();
+            var failed = emulator(engine).runUntilStop(id);
+            assertEquals(ProcessStatus.FAILED, failed.status());
+            assertEquals(3, runs.get());
+            assertEquals(1, failed.stateHistory().size());
+
+            new ProcessEngineAdmin(engine).moveProcessToState(id, State.START);
+            var moved = engine.processes().byId(id).singleDetails().orElseThrow();
+            assertEquals(ProcessStatus.ACTIVE, moved.status());
+            assertEquals(0, moved.attempt());
+            assertEquals(1, moved.stateHistory().size());
+
+            var completed = emulator(engine).runUntilStop(id);
+            assertEquals(ProcessStatus.COMPLETED, completed.status());
+            assertEquals(4, runs.get());
+            assertEquals(List.of("START", "DONE"),
+                    completed.stateHistory().stream().map(entry -> entry.state().name()).toList());
+        } finally {
+            engine.close();
+        }
+    }
+
+    @Test
     void afterRunsHandlerThenEntersTarget() {
         var clock = new MutableClock(Instant.parse("2026-09-24T10:00:00Z"));
         var reasons = new ArrayList<String>();

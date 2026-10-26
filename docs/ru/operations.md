@@ -42,7 +42,7 @@ Optional<ProcessInstanceDetails> order = processEngine.processes().byBusinessKey
 | Операция | Что делает |
 |---|---|
 | `processEngine.resumeFailedProcess(id)` | Возобновляет процесс из `FAILED`: упавший шаг или событие выполняется снова; `ProcessStatusException`, если процесс не в `FAILED` (активен или завершён) |
-| `processEngineAdmin.moveProcessToState(id, state)` | Переводит процесс в любое объявленное состояние, в том числе из `FAILED`; очередь сообщений и ошибка сбрасываются, вход в terminal завершает процесс |
+| `processEngineAdmin.moveProcessToState(id, state)` | Переводит процесс в любое объявленное состояние, в том числе из `FAILED`; ошибка сбрасывается, переход в другое состояние очищает очередь сообщений, вход в terminal завершает процесс. Перевод в текущее состояние — не смена состояния: очередь и таймеры сохраняются, шаг или наступившее событие ожидания выполняется снова |
 | `processEngineAdmin.setProcessVariable(id, type, value)` | Меняет переменную процесса |
 | `processEngineAdmin.removeProcessVariable(id, name)` | Удаляет переменную процесса |
 | `processEngineAdmin.setProcessTimer(id, timer, moment)` | Ставит таймер процесса, как `setTimer` в обработчике: `at` текущего ожидания сразу переносится, `now` срабатывает сразу; `IllegalArgumentException`, если таймер не объявлен ни одним `at` процесса. Статус не проверяется: таймер завершённого процесса ни на что не влияет, процесс в `FAILED` или в паузе ретрая раньше времени не просыпается |

@@ -17,8 +17,8 @@ import org.springframework.stereotype.Component;
  * How it works:
  * <ul>
  *   <li>Step {@link AccrueBonusStep} processes one batch of {@link #BATCH_SIZE} accounts and returns
- *       {@link AccrueBonusStep.Batch#MORE}. Its target is the same state {@link State#ACCRUING}: a step that
- *       targets itself runs again.</li>
+ *       {@link AccrueBonusStep.Batch#MORE}. Its target is the same state {@link State#ACCRUING}: a transition
+ *       to the same state is not a state change, so the step runs again without a new state history row.</li>
  *   <li>The cursor, the id of the last processed account, is stored in variable {@link #CURSOR}. Each batch is a
  *       separate transition with its own transaction.</li>
  *   <li>If a batch fails, only that batch is rolled back. After a retry or {@code resumeFailedProcess} the step

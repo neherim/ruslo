@@ -170,7 +170,7 @@ public class ProcessSpec {
 
     /**
      * Message event. {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
-     * A target equal to the await itself keeps waiting.
+     * A target equal to the await itself keeps waiting, see {@link ProcessSpecBuilder}.
      */
     public record MessageEvent<T>(
             MessageType<T> type,
@@ -183,7 +183,7 @@ public class ProcessSpec {
      * Periodic event: fires at entering the await plus {@code initialDelay} plus {@code k * interval}. The interval
      * counts from the planned points, not from handling; missed points are skipped.
      * {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
-     * A target equal to the await itself keeps waiting.
+     * A target equal to the await itself keeps waiting, see {@link ProcessSpecBuilder}.
      */
     public record EveryEvent(
             Duration interval,
@@ -194,9 +194,9 @@ public class ProcessSpec {
     }
 
     /**
-     * One-time event {@code delay} after entering the await; after firing with the await itself as the target it is
-     * off until the await is entered again. {@code handler} returns the outcome of a branching handler, {@code null}
-     * otherwise.
+     * One-time event {@code delay} after entering the await from another state; the process staying in the await
+     * (see {@link ProcessSpecBuilder}) does not restart it. {@code handler} returns the outcome of a branching
+     * handler, {@code null} otherwise.
      */
     public record AfterEvent(Duration delay, Function<ProcessContext, Enum<?>> handler, Exit exit) {
     }

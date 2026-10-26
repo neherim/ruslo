@@ -13,6 +13,10 @@ The initial state is a step or an await.
 The main rule: **the handler reports a result, the definition declares the target**. A handler never names the next
 state: the whole transition graph, including await loops, is visible in one place.
 
+**A transition to the same state is not a state change.** The message queue, the `every` and `after` timers and
+the state history stay as they are; the error and `attempt` are cleared. A step runs again; an await keeps waiting
+for its events.
+
 ```java
 MessageType<String> APPROVED = MessageType.of("approved", String.class);
 
@@ -63,7 +67,8 @@ BranchingStep<Validation> validateStep = context -> isValid(context) ? Validatio
 ```
 
 The compiler checks that the step's enum matches the routes, and `build()` checks that all constants are covered.
-A step whose target is itself runs again.
+A step whose target is itself runs again, without a new state history row: a loop over batches, each batch
+committed in its own transition (recipe `batch`).
 
 ## Awaits
 
@@ -116,8 +121,9 @@ Timer rules:
    `NullPointerException`: only `cancelTimer` removes a timer.
 3. `at(T)` fires when the process is in this await and timer `T` is set and due; a moment in the past fires right
    away. Each timer kind (`every`, `after`, `at`) is declared at most once per await; any of them can be combined.
-4. **A fired timer with the await itself as the target**: `every` moves to its next grid point, `after` is off until
-   the await is entered again. **A fired process timer is cancelled before its handler runs**: the handler sees
+4. **A fired timer with the await itself as the target** does not take the process out of the await: `every`
+   moves to its next grid point, `after` does not fire again until the process comes into the await from another
+   state. **A fired process timer is cancelled before its handler runs**: the handler sees
    `getTimer(T)` empty and can set it again, which makes a schedule; a handler that does not set it leaves the await
    waiting for its other events. The handler does not get the moment the timer fired at: if it is needed as data
    (a report date, "paid until"), keep it in a variable.
@@ -165,16 +171,25 @@ static final TimerType NEXT_RUN = TimerType.of("nextRun");
 a fired timer is cancelled without exceptions, so a handler never sees a stale moment and a loop cannot fire twice
 on one moment.
 
-**An event whose target is the await itself means "keep waiting".** This is not a re-entry: the handled message is
-removed, the other messages and the timers are kept (the `every` schedule, the `after` moment, the process
-timers), and no state history row is written. Use it for:
+**An event whose target is the await itself keeps waiting**, as any transition to the same state: the handled
+message is removed, the other messages and the timers are kept (the `every` schedule, the `after` moment, the
+process timers), and no state history row is written. Use it for:
 
 - a periodic side effect: `every(Duration.ofDays(1), sendReminder, WAITING_FOR_PAYMENT)`;
 - intermediate messages: `message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`.
 
 Any transition to another state closes the await and removes unhandled messages. To start the await over, with an
-empty queue and a new `after` deadline, go to a step that leads back to the await. A deadline that must move
-without re-entry is an `at`: set its timer.
+empty queue and a new `after` deadline, go through a step that leads back to the await. For example, an inactivity
+timeout that every activity message restarts:
+
+```java
+.await(ACTIVE, await -> await
+    .message(ACTIVITY, Session::onActivity, RECORDING_ACTIVITY)
+    .after(Duration.ofMinutes(30), EXPIRED))
+.step(RECORDING_ACTIVITY, Session::recordActivity, ACTIVE)
+```
+
+A deadline that must move while the process stays in the await is an `at`: set its timer.
 
 If several events are due, the earliest one is handled; the exact rules are in [execution.md](execution.md#await-event-selection).
 
@@ -278,14 +293,14 @@ positive delays and an exit from every await.
 
 - Do not use raw types or casts on handlers: they bypass the compiler checks, and a wrong handler form shows up only
   at runtime.
-- A handler does not name the target state. A step always leaves as the definition says; only an await can stay,
-  through an event whose target is the await itself.
+- A handler does not name the target state. A transition to the same state is not a state change: a step runs
+  again, an await keeps waiting with its queue and timers. To start an await over, go through a step.
 - To add a branch, replace `ProcessStep` with `BranchingStep<Outcome>` and return an outcome: the compiler points to
   the place in the definition where the target must become routes. The same for await events:
   `ProcessMessageHandler<T>` → `BranchingMessageHandler<T, Outcome>`, `ProcessTimerHandler` → `BranchingTimerHandler<Outcome>`.
 - Retry after a technical error with `ErrorResult.retryAfter`, not with a step that repeats itself.
-- Do periodic checks with `every` in an await, not with a "step → await → step" loop: re-entering the await clears
-  the queue and resets `after`. A schedule by calendar dates is an `at` whose handler sets its timer to the next
+- Do periodic checks with `every` in an await, not with a "step → await → step" loop: coming into the await from a
+  step clears the queue and restarts `after`. A schedule by calendar dates is an `at` whose handler sets its timer to the next
   date; keep the date itself in a variable.
 
 ## Definition evolution

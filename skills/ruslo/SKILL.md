@@ -21,6 +21,10 @@ A process is a graph of explicit states of three kinds:
 A linear handler returns nothing and has one target; a branching handler returns an enum outcome and the
 definition maps every outcome to a state.
 
+**A transition to the same state is not a state change**: the message queue, the `every` and `after` timers and
+the state history are kept, the error is cleared. A step runs again (a loop over batches); an await keeps waiting.
+To start an await over (empty queue, new `after`), go through a step that leads back to it.
+
 Every transition (one handler call + new state + `ProcessContext` changes) is committed in its own
 transaction. On failure only the uncommitted handler runs again. External calls are therefore
 **at-least-once**: make them idempotent.
@@ -112,10 +116,10 @@ line where the target must become routes. `build()` checks that all enum constan
 - Transitions do not touch process timers: a timer set in a step waits for the await that declares it, one timer can
   serve several awaits, and a timer left when a message leaves the await fires at once on re-entry if its moment
   passed. Cancel it with `cancelTimer` in the handler that leaves when it is no longer needed.
-- **A fired await timer targeting the await itself**: `every` moves to its next grid point, `after` is off until the
-  await is entered again. Re-entering the await sets `every` and `after` anew.
+- **A fired await timer targeting the await itself**: `every` moves to its next grid point, `after` does not fire
+  again until the process comes into the await from another state, which sets `every` and `after` anew.
 - A timer without a handler cannot target the await itself.
-- **An event whose target is the await itself means "keep waiting"**: the handled message is removed,
+- **An event whose target is the await itself keeps waiting** (same-state rule): the handled message is removed,
   other queued messages and the timers are kept. Use it for reminders
   (`every(Duration.ofDays(1), sendReminder, WAITING)`, a one-time `after(Duration.ofDays(3), remind, WAITING)`)
   and intermediate messages.
@@ -129,7 +133,7 @@ line where the target must become routes. `build()` checks that all enum constan
   date (e.g. sign-up date plus n months) and the previous date variable, not from the current time (the day drifts
   after a short month, and a late charge would shift the schedule).
 - Polling an external system: `every` with branching routes back to the same await. Do not build a
-  "step → await → step" loop: re-entering an await clears the queue and resets `after`.
+  "step → await → step" loop: coming into an await from a step clears the queue and restarts `after`.
 - Run the first `every` check immediately: `every(interval, handler, next, o -> o.initialDelay(Duration.ZERO))`.
 - `every` follows a fixed grid from entering the await (`initialDelay + k * interval`); a late check does not shift
   the next ones, missed points are skipped.
@@ -199,7 +203,8 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
   first error.
 - Retry is `ErrorResult.retryAfter`, never a step whose target is itself.
 - A `FAILED` process does not run; continue it with `processEngine.resumeFailedProcess(id)`.
-  `ProcessEngineAdmin.moveProcessToState(id, state)` moves it manually.
+  `ProcessEngineAdmin.moveProcessToState(id, state)` moves it manually; a move to the current state keeps the
+  queue and timers and runs the step or the due event again.
 
 ## Workers
 

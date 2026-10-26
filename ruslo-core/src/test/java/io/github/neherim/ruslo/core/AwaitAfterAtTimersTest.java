@@ -271,9 +271,10 @@ class AwaitAfterAtTimersTest extends BaseTest {
     }
 
     @Test
-    void moveToAwaitWithPastTimerFiresImmediately() {
+    void moveToCurrentAwaitKeepsQueueAndRetriesFailedMessage() {
+        var fail = new AtomicBoolean(true);
         engine(await -> await.message(SIGNAL, (context, message) -> {
-            throw new IllegalStateException("boom");
+            if (fail.get()) throw new IllegalStateException("boom");
         }, State.MSG_DONE)
             .at(DUE, State.AT_DONE));
         var id = start(instant("12:00:00"));
@@ -281,9 +282,13 @@ class AwaitAfterAtTimersTest extends BaseTest {
         engine.sendMessage(id, SIGNAL, "m");
         assertEquals(ProcessStatus.FAILED, run(id).status());
         at("12:30:00");
+        fail.set(false);
         new ProcessEngineAdmin(engine).moveProcessToState(id, State.WAIT);
-        assertEquals(Optional.of(instant("12:00:00")), details(id).nextRunAt());
-        assertEquals("AT_DONE", run(id).state().name());
+        var moved = details(id);
+        assertEquals(ProcessStatus.ACTIVE, moved.status());
+        assertEquals(Optional.of(instant("11:10:00")), moved.nextRunAt());
+        assertEquals(1, moved.stateHistory().size());
+        assertEquals("MSG_DONE", run(id).state().name());
     }
 
     @Test

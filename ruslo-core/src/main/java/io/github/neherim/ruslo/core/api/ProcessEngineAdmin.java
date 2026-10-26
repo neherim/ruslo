@@ -67,9 +67,11 @@ public final class ProcessEngineAdmin {
     }
 
     /**
-     * Moves the process to {@code state} as a regular state entry: the process becomes {@code ACTIVE} (also from
-     * {@code FAILED}), the message queue and error are cleared, and the dispatcher continues. Entering a terminal
-     * state completes the process.
+     * Moves the process to {@code state} as a regular transition: the process becomes {@code ACTIVE} (also from
+     * {@code FAILED}), the error is cleared, and the dispatcher continues. A move to another state clears the message
+     * queue; entering a terminal state completes the process. A move to the current state is not a state change
+     * (see {@link io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder}): the queue and timers are kept, and
+     * the step or the due await event runs again.
      */
     public void moveProcessToState(UUID processId, ProcessState state) {
         processRuntimeService.moveToState(processId, state);

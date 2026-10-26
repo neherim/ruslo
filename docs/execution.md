@@ -29,7 +29,7 @@ is handled. On a tie the order is: message, `every`, `after`, `at`; messages wit
 The moment the dispatcher reached the process does not affect the choice.
 
 **Taking the event.** The engine takes the selected event before calling its handler: it removes the message, moves
-`every` to the first grid point after the current time, turns `after` off until the await is entered again and
+`every` to the first grid point after the current time, turns `after` off until the process comes into the await from another state and
 cancels the `at` timer. If the handler leaves the await, the new state does not need any of it; if it keeps waiting,
 the await goes on with the next events. If the handler fails, the transaction is rolled back together with taking
 the event: the message is back in the queue, the timer is set again, and the retry selects the same event.
