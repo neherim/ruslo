@@ -23,7 +23,7 @@ public class ProcessSpec {
     private final Map<String, StateSpec> stateSpecs;
     private final Map<String, String> stateDescriptions;
     private final ProcessErrorHandler processErrorHandler;
-    private final ProcessStateId fallbackState;
+    private final ProcessStateId giveUpState;
     private final Set<String> timerNames;
 
     ProcessSpec(
@@ -33,7 +33,7 @@ public class ProcessSpec {
             Map<String, StateSpec> stateSpecs,
             Map<String, String> stateDescriptions,
             ProcessErrorHandler processErrorHandler,
-            ProcessStateId fallbackState
+            ProcessStateId giveUpState
     ) {
         this.type = type;
         this.description = description;
@@ -41,7 +41,7 @@ public class ProcessSpec {
         this.stateSpecs = Map.copyOf(stateSpecs);
         this.stateDescriptions = Map.copyOf(stateDescriptions);
         this.processErrorHandler = processErrorHandler;
-        this.fallbackState = fallbackState;
+        this.giveUpState = giveUpState;
         this.timerNames = stateSpecs.values()
             .stream()
             .filter(spec -> spec instanceof AwaitState await && await.at() != null)
@@ -133,9 +133,9 @@ public class ProcessSpec {
         return processErrorHandler;
     }
 
-    /** Returns the state entered on {@link ErrorResult#fallback()}. */
-    public Optional<ProcessStateId> getFallbackState() {
-        return Optional.ofNullable(fallbackState);
+    /** Returns the state entered on {@link ErrorResult#giveUp()}. */
+    public Optional<ProcessStateId> getGiveUpState() {
+        return Optional.ofNullable(giveUpState);
     }
 
     public boolean hasState(ProcessState state) {

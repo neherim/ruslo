@@ -292,9 +292,10 @@ class AwaitAfterAtTimersTest extends BaseTest {
     }
 
     @Test
-    void fallbackFromAwaitKeepsTimer() {
+    void giveUpFromAwaitKeepsTimer() {
         startEngine(builder -> builder.type("TIMERS")
-            .onError((context, error) -> ErrorResult.fallback(), State.MSG_DONE)
+            .onError((context, error) -> ErrorResult.giveUp())
+            .onGiveUp(State.MSG_DONE)
             .initialState(State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
                 throw new IllegalStateException("boom");

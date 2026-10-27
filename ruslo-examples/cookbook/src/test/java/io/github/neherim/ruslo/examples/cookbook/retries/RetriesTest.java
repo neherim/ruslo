@@ -48,7 +48,7 @@ class RetriesTest {
     void doesNotRetryPermanentFailure() {
         var failed = emulator.runUntilStop(startNotification("+1-555-0100"));
 
-        // No retry was scheduled: the process went to the fallback state at once
+        // No retry was scheduled: the process went to the give-up state at once
         assertEquals(NotificationDefinition.State.DELIVERY_FAILED.id(), failed.state());
         assertEquals(0, failed.attempt());
     }

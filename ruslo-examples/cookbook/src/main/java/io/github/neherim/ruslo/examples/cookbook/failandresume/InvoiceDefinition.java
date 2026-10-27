@@ -35,7 +35,7 @@ import java.util.Set;
  *   <li>Without {@code onError} a transient failure (a network error, a lock timeout) also stops the process. Retry
  *       such errors in {@code onError} and return {@code ErrorResult.fail()} only for errors that need a human
  *       (recipe {@code retries}).</li>
- *   <li>If an error has an automatic reaction (cancel the order, notify the customer), declare a fallback state
+ *   <li>If an error has an automatic reaction (cancel the order, notify the customer), declare an {@code onGiveUp} state
  *       instead of stopping, otherwise stopped processes pile up.</li>
  *   <li>Stopped processes must be noticed: set up an alert on a {@code FAILED} search or on metrics.</li>
  * </ul>

@@ -51,7 +51,7 @@ public class ProcessEngineEmulator {
 
     /**
      * Executes steps until the process is not ready to run: an await without a due event, a future timer or
-     * retry, {@code FAILED} or completion. A failure alone does not stop it: a fallback state or a zero-delay
+     * retry, {@code FAILED} or completion. A failure alone does not stop it: a give-up state or a zero-delay
      * retry runs immediately.
      *
      * @throws IllegalStateException if the step limit is exceeded

@@ -79,7 +79,7 @@ public class StepErrorHandler {
     /**
      * Applies the same error policy after an administrative execution of {@code state} was rolled back.
      *
-     * @return {@code true} if the process is ready to continue immediately, e.g. {@code fallback} or a zero-delay
+     * @return {@code true} if the process is ready to continue immediately, e.g. {@code giveUp} or a zero-delay
      *         retry leads to a step
      */
     public boolean handleAdministrativeError(Throwable cause, UUID processId, ProcessStateId state) {
@@ -123,9 +123,9 @@ public class StepErrorHandler {
         switch (result) {
             case ErrorResult.RetryAfter retry -> process.scheduleRetryAfter(retry.delay(), error);
             case ErrorResult.Fail ignored -> markFailed(process, error);
-            case ErrorResult.Fallback ignored -> {
-                var fallback = process.getProcessSpec().getFallbackState().orElse(null);
-                if (fallback != null && !process.getState().is(fallback)) process.enterState(fallback);
+            case ErrorResult.GiveUp ignored -> {
+                var giveUpState = process.getProcessSpec().getGiveUpState().orElse(null);
+                if (giveUpState != null && !process.getState().is(giveUpState)) process.enterState(giveUpState);
                 else
                     markFailed(process, error);
             }

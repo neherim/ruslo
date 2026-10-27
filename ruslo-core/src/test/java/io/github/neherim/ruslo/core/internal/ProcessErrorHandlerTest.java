@@ -26,28 +26,28 @@ class ProcessErrorHandlerTest {
     }
 
     @Test
-    void exponentialFallsBackWhenRetriesAreExhausted() {
+    void exponentialGivesUpWhenRetriesAreExhausted() {
         var handler = ProcessErrorHandler.exponential(
                 3, Duration.ofSeconds(1), Duration.ofMinutes(1));
 
         var result = handler.handle(null, error(3));
 
-        assertInstanceOf(ErrorResult.Fallback.class, result);
+        assertInstanceOf(ErrorResult.GiveUp.class, result);
     }
 
     @Test
-    void fixedRetriesThenFallsBack() {
+    void fixedRetriesThenGivesUp() {
         var handler = ProcessErrorHandler.fixed(2, Duration.ofSeconds(1));
 
         assertEquals(Duration.ofSeconds(1), assertInstanceOf(ErrorResult.RetryAfter.class,
                 handler.handle(null, error(1)))
             .delay());
-        assertInstanceOf(ErrorResult.Fallback.class, handler.handle(null, error(2)));
+        assertInstanceOf(ErrorResult.GiveUp.class, handler.handle(null, error(2)));
     }
 
     @Test
-    void noRetryFallsBackImmediately() {
-        assertInstanceOf(ErrorResult.Fallback.class, ProcessErrorHandler.noRetry().handle(null, error(0)));
+    void noRetryGivesUpImmediately() {
+        assertInstanceOf(ErrorResult.GiveUp.class, ProcessErrorHandler.noRetry().handle(null, error(0)));
     }
 
     @Test

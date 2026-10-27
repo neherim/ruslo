@@ -148,7 +148,8 @@ class ProcessMdcTest extends BaseTest {
         @Override
         public ProcessSpec define(ProcessSpecBuilder builder) {
             return builder.type(TYPE)
-                .onError(errorHandler(), State.DONE)
+                .onError(errorHandler())
+                .onGiveUp(State.DONE)
                 .initialState(State.INIT)
                 .step(State.INIT, ctx -> {}, State.DONE)
                 .terminal(State.DONE)
@@ -161,7 +162,7 @@ class ProcessMdcTest extends BaseTest {
                         "correlation_id", MDC.get("correlation_id"),
                         "process_id", MDC.get("process_id"),
                         "process_type", MDC.get("process_type")));
-                return ErrorResult.fallback();
+                return ErrorResult.giveUp();
             };
         }
 

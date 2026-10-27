@@ -39,7 +39,7 @@ public class ExponentialBackoffProcessErrorHandler implements ProcessErrorHandle
         if (error.attempt() < maxRetries) {
             return ErrorResult.retryAfter(calculateDelay(error.attempt()));
         }
-        return ErrorResult.fallback();
+        return ErrorResult.giveUp();
     }
 
     private Duration calculateDelay(int attempt) {

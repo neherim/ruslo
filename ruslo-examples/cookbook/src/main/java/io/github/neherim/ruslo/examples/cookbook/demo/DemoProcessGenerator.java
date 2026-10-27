@@ -75,7 +75,7 @@ public class DemoProcessGenerator implements ApplicationRunner {
         }
     }
 
-    /** {@code retries}: a recipient without {@code @} goes to fallback at once, an unavailable gateway after retries. */
+    /** {@code retries}: a recipient without {@code @} gives up at once, an unavailable gateway after retries. */
     private void startNotifications() {
         startNotification("ada@example.com");
         startNotification("grace@example.com");

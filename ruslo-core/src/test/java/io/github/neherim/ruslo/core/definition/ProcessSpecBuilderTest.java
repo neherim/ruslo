@@ -224,20 +224,20 @@ class ProcessSpecBuilderTest {
     }
 
     @Test
-    void checksFallbackStateIsDeclared() {
-        assertRejected("fallbackState", () -> new ProcessSpecBuilder().type(TYPE)
-            .onError(ProcessErrorHandler.noRetry(), State.OTHER)
+    void checksGiveUpStateIsDeclared() {
+        assertRejected("onGiveUp state", () -> new ProcessSpecBuilder().type(TYPE)
+            .onGiveUp(State.OTHER)
             .initialState(State.START)
             .step(State.START, STEP, State.DONE)
             .terminal(State.DONE)
             .build());
         var spec = new ProcessSpecBuilder().type(TYPE)
-            .onError(ProcessErrorHandler.noRetry(), State.DONE)
+            .onGiveUp(State.DONE)
             .initialState(State.START)
             .step(State.START, STEP, State.DONE)
             .terminal(State.DONE)
             .build();
-        assertEquals(State.DONE.id(), spec.getFallbackState().orElseThrow());
+        assertEquals(State.DONE.id(), spec.getGiveUpState().orElseThrow());
     }
 
     @Test

@@ -10,11 +10,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ErrorFallbackTest extends BaseTest {
+class ErrorGiveUpTest extends BaseTest {
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
 
     @Test
-    void fixedWithoutFallbackStateFailsAfterRetries() {
+    void fixedWithoutGiveUpStateFailsAfterRetries() {
         var runs = new AtomicInteger();
         var info = runFailing(runs, builder -> builder.onError(ProcessErrorHandler.fixed(3, Duration.ZERO)), false);
         assertEquals(ProcessStatus.FAILED, info.status());
@@ -23,53 +23,54 @@ class ErrorFallbackTest extends BaseTest {
     }
 
     @Test
-    void fixedWithFallbackStateMovesThereAfterRetries() {
+    void fixedWithGiveUpStateMovesThereAfterRetries() {
         var runs = new AtomicInteger();
         var info = runFailing(runs,
-                builder -> builder.onError(ProcessErrorHandler.fixed(3, Duration.ZERO), State.FALLBACK), false);
+                builder -> builder.onError(ProcessErrorHandler.fixed(3, Duration.ZERO)).onGiveUp(State.COMPENSATE),
+                false);
         assertEquals(ProcessStatus.ACTIVE, info.status());
-        assertEquals("FALLBACK", info.state().name());
+        assertEquals("COMPENSATE", info.state().name());
         assertEquals(4, runs.get());
     }
 
     @Test
-    void noRetryWithFallbackStateMovesThereImmediately() {
+    void noRetryWithGiveUpStateMovesThereImmediately() {
         var runs = new AtomicInteger();
-        var info = runFailing(runs, builder -> builder.onError(ProcessErrorHandler.noRetry(), State.FALLBACK), false);
-        assertEquals("FALLBACK", info.state().name());
+        var info = runFailing(runs, builder -> builder.onGiveUp(State.COMPENSATE), false);
+        assertEquals("COMPENSATE", info.state().name());
         assertEquals(1, runs.get());
     }
 
     @Test
-    void fallbackInsideFallbackStateFailsWithoutLooping() {
+    void giveUpInsideGiveUpStateFailsWithoutLooping() {
         var runs = new AtomicInteger();
-        var info = runFailing(runs, builder -> builder.onError(ProcessErrorHandler.noRetry(), State.FALLBACK), true);
+        var info = runFailing(runs, builder -> builder.onGiveUp(State.COMPENSATE), true);
         assertEquals(ProcessStatus.FAILED, info.status());
-        assertEquals("FALLBACK", info.state().name());
+        assertEquals("COMPENSATE", info.state().name());
         assertTrue(info.lastError().orElseThrow().contains("compensation failed"));
     }
 
     @Test
-    void messageHandlerErrorMovesToFallbackState() {
+    void messageHandlerErrorMovesToGiveUpState() {
         var handled = new AtomicInteger();
-        ProcessDefinition definition = builder -> builder.type("FALLBACK_MESSAGE")
-            .onError(ProcessErrorHandler.noRetry(), State.FALLBACK)
+        ProcessDefinition definition = builder -> builder.type("GIVE_UP_MESSAGE")
+            .onGiveUp(State.COMPENSATE)
             .initialState(State.START)
             .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
                 handled.incrementAndGet();
                 throw new IllegalStateException("handler failed");
             }, State.DONE))
-            .step(State.FALLBACK, context -> {}, State.DONE)
+            .step(State.COMPENSATE, context -> {}, State.DONE)
             .terminal(State.DONE)
             .build();
         var engine = newProcessEngineWith(definition);
         try {
-            var id = engine.newProcess(ProcessType.of("FALLBACK_MESSAGE")).start();
+            var id = engine.newProcess(ProcessType.of("GIVE_UP_MESSAGE")).start();
             emulator(engine).runOneStep(id);
             engine.sendMessage(id, SIGNAL, "first");
             var info = emulator(engine).runOneStep(id);
-            assertEquals("FALLBACK", info.state().name());
+            assertEquals("COMPENSATE", info.state().name());
             assertEquals(ProcessStatus.ACTIVE, info.status());
             assertEquals(1, handled.get());
         } finally {
@@ -85,7 +86,7 @@ class ErrorFallbackTest extends BaseTest {
             var retried = emulator(engine).runOneStep(id);
             assertEquals("START", retried.state().name());
             assertEquals(1, retried.attempt());
-            assertEquals("FALLBACK", emulator(engine).runOneStep(id).state().name());
+            assertEquals("COMPENSATE", emulator(engine).runOneStep(id).state().name());
         } finally {
             engine.close();
         }
@@ -103,7 +104,7 @@ class ErrorFallbackTest extends BaseTest {
     }
 
     @Test
-    void runUntilStopContinuesAfterErrorWhenRetryAndFallbackLeadToStep() {
+    void runUntilStopContinuesAfterErrorWhenRetryAndGiveUpLeadToStep() {
         var engine = newProcessEngineWith(customDefinition());
         try {
             var id = engine.newProcess(ProcessType.of("CUSTOM_ERRORS")).start();
@@ -136,47 +137,48 @@ class ErrorFallbackTest extends BaseTest {
         }
     }
 
-    /** Retries the first error, falls back on the second; an {@code IllegalArgumentException} fails the process. */
+    /** Retries the first error, gives up on the second; an {@code IllegalArgumentException} fails the process. */
     private ProcessDefinition customDefinition() {
         ProcessErrorHandler handler = (context, error) -> {
             if (error.cause() instanceof IllegalArgumentException) return ErrorResult.fail();
-            return error.attempt() < 1 ? ErrorResult.retryAfter(Duration.ZERO) : ErrorResult.fallback();
+            return error.attempt() < 1 ? ErrorResult.retryAfter(Duration.ZERO) : ErrorResult.giveUp();
         };
         return builder -> builder.type("CUSTOM_ERRORS")
-            .onError(handler, State.FALLBACK)
+            .onError(handler)
+            .onGiveUp(State.COMPENSATE)
             .initialState(State.START)
             .step(State.START, context -> {
                 throw new IllegalStateException("boom");
             }, State.DONE)
-            .step(State.FALLBACK, context -> {}, State.DONE)
+            .step(State.COMPENSATE, context -> {}, State.DONE)
             .terminal(State.DONE)
             .build();
     }
 
-    /** Runs a process with a failing START (and a failing FALLBACK if {@code failFallback}) until it stops. */
+    /** Runs a process with a failing START (and a failing COMPENSATE if {@code failCompensation}) until it stops. */
     private io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails runFailing(
             AtomicInteger runs,
             java.util.function.UnaryOperator<ProcessSpecBuilder.TypedBuilder> settings,
-            boolean failFallback
+            boolean failCompensation
     ) {
-        ProcessDefinition definition = builder -> settings.apply(builder.type("FALLBACK_STEP"))
+        ProcessDefinition definition = builder -> settings.apply(builder.type("GIVE_UP_STEP"))
             .initialState(State.START)
             .step(State.START, context -> {
                 runs.incrementAndGet();
                 throw new IllegalStateException("step failed");
             }, State.DONE)
-            .step(State.FALLBACK, context -> {
-                if (failFallback) throw new IllegalStateException("compensation failed");
+            .step(State.COMPENSATE, context -> {
+                if (failCompensation) throw new IllegalStateException("compensation failed");
             }, State.DONE)
             .terminal(State.DONE)
             .build();
         var engine = newProcessEngineWith(definition);
         try {
-            var id = engine.newProcess(ProcessType.of("FALLBACK_STEP")).start();
+            var id = engine.newProcess(ProcessType.of("GIVE_UP_STEP")).start();
             var emulator = emulator(engine);
             for (var i = 0; i < 10 && emulator.runOneStep(id).status() == ProcessStatus.ACTIVE; i++) {
-                if (engine.processes().byId(id).singleDetails().orElseThrow().state().name().equals("FALLBACK")
-                        && !failFallback)
+                if (engine.processes().byId(id).singleDetails().orElseThrow().state().name().equals("COMPENSATE")
+                        && !failCompensation)
                     break;
             }
             return engine.processes().byId(id).singleDetails().orElseThrow();
@@ -188,7 +190,7 @@ class ErrorFallbackTest extends BaseTest {
     private enum State implements ProcessState {
         START,
         WAIT,
-        FALLBACK,
+        COMPENSATE,
         DONE
     }
 }

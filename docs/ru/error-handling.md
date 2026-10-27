@@ -31,49 +31,51 @@ Handler возвращает один из трёх результатов:
   [execution.md](execution.md#выбор-события-ожидания)).
 - `ErrorResult.fail()` — остановить процесс в текущем состоянии со статусом `FAILED`. Продолжить можно через
   `resumeFailedProcess(id)`, который повторит упавшее событие.
-- `ErrorResult.fallback()` — уйти в запасное состояние процесса (см. ниже), а если его нет — в `FAILED`.
+- `ErrorResult.giveUp()` — прекратить повторы и отдать решение definition: уйти в состояние, объявленное через
+  `onGiveUp` (см. ниже), а если его нет — остановиться в `FAILED`, как `fail()`.
 
-## Запасное состояние
+## Состояние отказа
 
 Обработка ошибок объявляется на уровне процесса:
 
 ```java
-.onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(1), Duration.ofMinutes(5)),
-         CANCELLING)   // fallbackState: куда уйти, когда повторы исчерпаны
+.onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(1), Duration.ofMinutes(5)))
+.onGiveUp(CANCELLING)   // куда уйти, когда handler вернул giveUp()
 .initialState(CREATED)
 // ...
 .step(CANCELLING, cancelOrderStep, CANCELLED)
 .terminal(CANCELLED)
 ```
 
-Формы: `onError(handler)` — без запасного состояния, и `onError(handler, fallbackState)`.
+Оба вызова необязательны: `onError` задаёт handler (по умолчанию `noRetry()`), `onGiveUp` — состояние для
+`giveUp()`. `fail()` не смотрит на `onGiveUp`: он всегда останавливает процесс в текущем состоянии.
 
-`fallback()` выполняет обычный переход в `fallbackState` (при выходе из ожидания очередь сообщений очищается).
-Процесс остаётся в `FAILED`, если `fallbackState` не объявлен или ошибка произошла в самом `fallbackState` —
+`giveUp()` выполняет обычный переход в состояние `onGiveUp` (при выходе из ожидания очередь сообщений очищается).
+Процесс останавливается в `FAILED`, если `onGiveUp` не объявлен или ошибка произошла в самом состоянии `onGiveUp` —
 иначе падающая компенсация зациклилась бы. **Косвенные циклы** (`CANCELLING → X`, ошибка в `X` → `CANCELLING`)
 движок не обнаруживает — следите за топологией definition сами.
 
-Причину перехода можно передать через `ProcessContext`: handler записывает переменную, запасное состояние её читает.
+Причину перехода можно передать через `ProcessContext`: handler записывает переменную, состояние `onGiveUp` её читает.
 
 ## Стандартные handlers
 
 | Handler | Поведение |
 |---|---|
-| `ProcessErrorHandler.noRetry()` | Сразу возвращает `fallback()` |
-| `ProcessErrorHandler.fixed(maxRetries, delay)` | До `maxRetries` повторов с фиксированной задержкой, затем `fallback()` |
+| `ProcessErrorHandler.noRetry()` | Сразу возвращает `giveUp()` |
+| `ProcessErrorHandler.fixed(maxRetries, delay)` | До `maxRetries` повторов с фиксированной задержкой, затем `giveUp()` |
 | `ProcessErrorHandler.exponential(maxRetries, initialDelay, maxDelay)` | То же с удваивающейся задержкой |
 
-Политика по умолчанию — `noRetry()`: без `fallbackState` процесс сразу уходит в `FAILED`.
-**С объявленным `fallbackState` `noRetry()` переводит процесс в запасное состояние сразу после первой ошибки.**
+Политика по умолчанию — `noRetry()`: без `onGiveUp` процесс после первой ошибки уходит в `FAILED`, с `onGiveUp` —
+в это состояние.
 
 Пример собственного handler:
 
 ```java
 (context, error) -> {
-    if (error.cause() instanceof PermanentlyUnavailableException) return ErrorResult.fallback();
+    if (error.cause() instanceof PermanentlyUnavailableException) return ErrorResult.giveUp();
     if (error.cause() instanceof DataCorruptionException) return ErrorResult.fail();
     if (error.attempt() < 3) return ErrorResult.retryAfter(Duration.ofSeconds(10));
-    return ErrorResult.fallback();
+    return ErrorResult.giveUp();
 }
 ```
 

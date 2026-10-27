@@ -54,16 +54,18 @@ public class ProcessSpecBuilder {
             return this;
         }
 
-        /** Sets the error handler; {@link ErrorResult#fallback()} then stops the process in {@code FAILED}. */
+        /** Sets the error handler; the default is {@link ProcessErrorHandler#noRetry()}. */
         public TypedBuilder onError(ProcessErrorHandler handler) {
             draft.errorHandler = requireNonNull(handler, "Process error handler cannot be null");
             return this;
         }
 
-        /** Sets the error handler and the state entered on {@link ErrorResult#fallback()}. */
-        public TypedBuilder onError(ProcessErrorHandler handler, ProcessState fallbackState) {
-            onError(handler);
-            draft.fallbackState = Draft.id(fallbackState);
+        /**
+         * Sets the state entered when the error handler returns {@link ErrorResult#giveUp()}. Without it
+         * {@code giveUp()} stops the process in {@code FAILED}.
+         */
+        public TypedBuilder onGiveUp(ProcessState state) {
+            draft.giveUpState = Draft.id(state);
             return this;
         }
 
@@ -450,7 +452,7 @@ public class ProcessSpecBuilder {
         private String description;
         private WorkerId defaultWorker = WorkerId.DEFAULT;
         private ProcessErrorHandler errorHandler = ProcessErrorHandler.noRetry();
-        private ProcessStateId fallbackState;
+        private ProcessStateId giveUpState;
         private ProcessStateId initial;
 
         private Draft(ProcessTypeId type) {
@@ -508,8 +510,8 @@ public class ProcessSpecBuilder {
                     }
                 }
             }
-            if (fallbackState != null) checkDeclared(fallbackState, "fallbackState");
-            return new ProcessSpec(type, description, initial, states, stateDescriptions, errorHandler, fallbackState);
+            if (giveUpState != null) checkDeclared(giveUpState, "onGiveUp state");
+            return new ProcessSpec(type, description, initial, states, stateDescriptions, errorHandler, giveUpState);
         }
 
         private void checkAwait(AwaitState await, Map<String, Class<?>> payloads) {

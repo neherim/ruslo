@@ -17,29 +17,29 @@ public interface ProcessErrorHandler {
     ErrorResult handle(ProcessContext context, ProcessError error);
 
     /**
-     * Returns a handler that never retries: always {@link ErrorResult#fallback()}.
+     * Returns a handler that never retries: always {@link ErrorResult#giveUp()}.
      */
     static ProcessErrorHandler noRetry() {
-        return (context, error) -> ErrorResult.fallback();
+        return (context, error) -> ErrorResult.giveUp();
     }
 
     /**
      * Returns a handler that retries up to {@code maxRetries} times with a fixed delay,
-     * then returns {@link ErrorResult#fallback()}.
+     * then returns {@link ErrorResult#giveUp()}.
      */
     static ProcessErrorHandler fixed(int maxRetries, Duration delay) {
         return (context, error) -> {
             if (error.attempt() < maxRetries) {
                 return ErrorResult.retryAfter(delay);
             }
-            return ErrorResult.fallback();
+            return ErrorResult.giveUp();
         };
     }
 
     /**
      * Returns a handler that retries up to {@code maxRetries} times with a delay that starts at
      * {@code initialDelay} and doubles after each failure up to {@code maxDelay}, then returns
-     * {@link ErrorResult#fallback()}.
+     * {@link ErrorResult#giveUp()}.
      */
     static ProcessErrorHandler exponential(int maxRetries, Duration initialDelay, Duration maxDelay) {
         return new ExponentialBackoffProcessErrorHandler(maxRetries, initialDelay, maxDelay);

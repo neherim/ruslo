@@ -51,7 +51,8 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
-            .onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(1), Duration.ofMinutes(5)), CANCELLED)
+            .onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(1), Duration.ofMinutes(5)))
+            .onGiveUp(CANCELLED)
             .initialState(CREATED)
             .step(CREATED, bean(CreateOrderStep.class), WAITING_FOR_PAYMENT)
             .await(WAITING_FOR_PAYMENT, await -> await
@@ -126,7 +127,7 @@ line where the target must become routes. `build()` checks that all enum constan
 - Any transition to another state closes the await and **drops unprocessed messages**.
 - The earliest due event is handled first; on a tie: message, `every`, `after`, `at`. A retry backoff pauses the
   whole await: a due timer waits until the failed event is handled. For a hard deadline, limit retries
-  (`fixed(maxRetries, delay)` + `fallbackState`) or catch the error in the handler.
+  (`fixed(maxRetries, delay)` + `onGiveUp`) or catch the error in the handler.
 - A deadline that can move (extension by a message, a due date from the order) is `at(DUE, ...)` plus a message
   handler that calls `setTimer(DUE, newMoment)` and targets the await itself. A schedule by calendar dates is `at`
   whose handler writes the next date to a variable and sets the timer to it; compute the date from the original
@@ -193,14 +194,14 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
 ## Errors
 
 - An exception from a handler is a **technical failure**: its transaction rolls back and the process-level
-  `ProcessErrorHandler` decides: `ErrorResult.retryAfter(delay)`, `fail()` (status `FAILED`) or `fallback()`
-  (go to the fallback state given in `onError(handler, fallbackState)`, else `FAILED`). An error in the fallback
-  state itself stops the process in `FAILED`.
+  `ProcessErrorHandler` decides: `ErrorResult.retryAfter(delay)`, `fail()` (stop in `FAILED` in the current
+  state, ignores `onGiveUp`) or `giveUp()` (go to the state given in `onGiveUp(state)`, else `FAILED`). An error in
+  the `onGiveUp` state itself stops the process in `FAILED`.
 - Expected business situations (declined card, rejected application) are **outcomes of a branching handler**,
   not exceptions.
 - Built-ins: `ProcessErrorHandler.noRetry()` (default), `fixed(maxRetries, delay)`,
-  `exponential(maxRetries, initialDelay, maxDelay)`. With a fallback state, `noRetry()` goes there on the
-  first error.
+  `exponential(maxRetries, initialDelay, maxDelay)`. With `onGiveUp`, `noRetry()` goes there on the first
+  error.
 - Retry is `ErrorResult.retryAfter`, never a step whose target is itself.
 - A `FAILED` process does not run; continue it with `processEngine.resumeFailedProcess(id)`.
   `ProcessEngineAdmin.moveProcessToState(id, state)` moves it manually; a move to the current state keeps the
@@ -272,7 +273,7 @@ public void execute(ProcessContext context) {
 processEngine.sendMessage(context.getVariable(PARENT_ID), PART_DONE, context.getVariable(PART_NUMBER));
 ```
 
-A failed part does not report and the parent waits: give parts a retry policy, report failure from their fallback
+A failed part does not report and the parent waits: give parts a retry policy, report failure from their `onGiveUp`
 state, or add an `after` to the parent's await. Route zero parts past the await with a `BranchingStep`.
 
 **Cancellation by the user at any stage.** Declare a `CANCEL` message in every await where cancellation is allowed,
@@ -324,7 +325,7 @@ class OrderProcessTest {
 - Unit-test a single handler with `TestProcessContext.builder().variable(TYPE, value).attempt(1).now(instant).build()`;
   it round-trips variables through JSON like the engine does. `Builder.timer(T, moment)` and `timers()` cover process
   timers; it does not check that an `at` declares them.
-- Test failures: make a dependency throw, then assert `status() == FAILED` / the fallback state and
+- Test failures: make a dependency throw, then assert `status() == FAILED` / the `onGiveUp` state and
   `lastError()`; advance time past `retryAfter` delays with `fastForwardTime`.
 
 ## Do not
