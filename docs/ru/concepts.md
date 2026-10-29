@@ -100,10 +100,10 @@ enum Validation { VALID, REJECTED }
 `every` и `after` относятся к одному входу в ожидание; движок задаёт их, когда процесс входит в него.
 
 - `after(delay)` срабатывает один раз, через `delay` после входа.
-- `every(interval)` срабатывает по фиксированной сетке от входа: `initialDelay + k * interval` (`initialDelay` по
-  умолчанию равен `interval`). Опоздавшая проверка не сдвигает сетку, пропущенные точки не выполняются пачкой.
-  Первую проверку можно выполнить сразу при входе:
-  `every(interval, handler, target, options -> options.initialDelay(Duration.ZERO))`.
+- `every(period)` срабатывает по фиксированной сетке от входа: `firstAfter + k * period` (`firstAfter` по умолчанию
+  равен `period`). Опоздавшая проверка не сдвигает сетку, пропущенные точки не выполняются пачкой. Чтобы сдвинуть
+  первую проверку, передайте `Interval` вместо `Duration`; выполнить её сразу при входе:
+  `every(Interval.of(period).firstAfter(Duration.ZERO), handler, target)`.
 
 ### Таймеры процесса: `at`
 

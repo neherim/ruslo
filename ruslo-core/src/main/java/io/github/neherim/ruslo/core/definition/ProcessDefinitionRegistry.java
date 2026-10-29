@@ -123,7 +123,7 @@ public class ProcessDefinitionRegistry {
                 yield new ProcessSpecInfo.StateInfo(await.state(), description, ProcessSpecInfo.StateKind.AWAIT,
                         Optional.of(WorkerId.DEFAULT),
                         await.messages().stream().map(e -> e.type().name()).collect(Collectors.toUnmodifiableSet()),
-                        Optional.ofNullable(await.every()).map(ProcessSpec.EveryEvent::interval),
+                        Optional.ofNullable(await.every()).map(every -> every.interval().period()),
                         Optional.ofNullable(await.after()).map(ProcessSpec.AfterEvent::delay),
                         Optional.ofNullable(await.at()).map(at -> at.timer().name()),
                         List.copyOf(transitions));

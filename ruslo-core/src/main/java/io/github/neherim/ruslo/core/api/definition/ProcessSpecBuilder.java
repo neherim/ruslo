@@ -172,24 +172,6 @@ public class ProcessSpecBuilder {
         }
     }
 
-    /** {@code every} options. */
-    public static class EveryOptions {
-        private Duration initialDelay;
-
-        private EveryOptions(Duration interval) {
-            this.initialDelay = interval;
-        }
-
-        /**
-         * Sets the delay of the first check after entering the await, the start of the check grid; defaults to the
-         * interval. {@link Duration#ZERO} checks immediately.
-         */
-        public EveryOptions initialDelay(Duration initialDelay) {
-            this.initialDelay = requireNonNull(initialDelay, "Initial delay cannot be null");
-            return this;
-        }
-    }
-
     /**
      * Outcome-to-target routes of a branching step or event.
      *
@@ -271,71 +253,55 @@ public class ProcessSpecBuilder {
             return this;
         }
 
+        /** Same as {@link #every(Interval, ProcessTimerHandler, ProcessState)} with {@link Interval#of(Duration)}. */
+        public AwaitBuilder every(Duration period, ProcessTimerHandler handler, ProcessState next) {
+            return every(Interval.of(period), handler, next);
+        }
+
         /**
-         * Calls {@code handler} every {@code interval} and moves to {@code next}. If {@code next} is this await,
-         * the process keeps waiting until the next check.
+         * Calls {@code handler} on the {@code interval} schedule and moves to {@code next}. If {@code next} is this
+         * await, the process keeps waiting until the next check.
          * <p>
-         * Checks follow a grid: entering the await from another state plus {@code initialDelay} plus
-         * {@code k * interval}. An event that targets this await, this one included, does not restart the grid. A
+         * Checks follow a grid: entering the await from another state plus {@code firstAfter} plus
+         * {@code k * period}. An event that targets this await, this one included, does not restart the grid. A
          * late check does not shift the next ones; missed points are skipped, and the next check is the first point
          * after the check starts.
          */
-        public AwaitBuilder every(Duration interval, ProcessTimerHandler handler, ProcessState next) {
-            return every(interval, handler, next, options -> {});
-        }
-
-        /** Same as {@link #every(Duration, ProcessTimerHandler, ProcessState)}, with options. */
-        public AwaitBuilder every(
-                Duration interval,
-                ProcessTimerHandler handler,
-                ProcessState next,
-                Consumer<EveryOptions> options
-        ) {
+        public AwaitBuilder every(Interval interval, ProcessTimerHandler handler, ProcessState next) {
             requireNonNull(handler, "Timer handler cannot be null");
             return addEvery(interval, context -> {
                 handler.handle(context);
                 return null;
-            }, new Target(Draft.id(next)), options);
+            }, new Target(Draft.id(next)));
         }
 
-        /**
-         * Calls {@code handler} every {@code interval}; its outcome selects the target in {@code routes}.
-         * A target equal to this await keeps waiting until the next check. Checks follow the grid described in
-         * {@link #every(Duration, ProcessTimerHandler, ProcessState)}.
-         */
+        /** Same as {@link #every(Interval, BranchingTimerHandler, Consumer)} with {@link Interval#of(Duration)}. */
         public <O extends Enum<O>> AwaitBuilder every(
-                Duration interval,
+                Duration period,
                 BranchingTimerHandler<O> handler,
                 Consumer<Routes<O>> routes
         ) {
-            return every(interval, handler, routes, options -> {});
+            return every(Interval.of(period), handler, routes);
         }
 
-        /** Same as {@link #every(Duration, BranchingTimerHandler, Consumer)}, with options. */
+        /**
+         * Calls {@code handler} on the {@code interval} schedule; its outcome selects the target in {@code routes}.
+         * A target equal to this await keeps waiting until the next check. Checks follow the grid described in
+         * {@link #every(Interval, ProcessTimerHandler, ProcessState)}.
+         */
         public <O extends Enum<O>> AwaitBuilder every(
-                Duration interval,
+                Interval interval,
                 BranchingTimerHandler<O> handler,
-                Consumer<Routes<O>> routes,
-                Consumer<EveryOptions> options
+                Consumer<Routes<O>> routes
         ) {
             requireNonNull(handler, "Timer handler cannot be null");
-            return addEvery(interval, handler::handle, draft.routes(routes, where("every")), options);
+            return addEvery(interval, handler::handle, draft.routes(routes, where("every")));
         }
 
-        private AwaitBuilder addEvery(
-                Duration interval,
-                Function<ProcessContext, Enum<?>> handler,
-                Exit exit,
-                Consumer<EveryOptions> definition
-        ) {
-            requirePositive(interval, "every");
+        private AwaitBuilder addEvery(Interval interval, Function<ProcessContext, Enum<?>> handler, Exit exit) {
+            requireNonNull(interval, "Interval cannot be null");
             if (every != null) throw new IllegalArgumentException("Duplicate every in " + where());
-            var options = new EveryOptions(interval);
-            requireNonNull(definition, "Every options cannot be null").accept(options);
-            if (options.initialDelay.isNegative()) {
-                throw new IllegalArgumentException("Initial delay of every in " + where() + " cannot be negative");
-            }
-            every = new EveryEvent(interval, options.initialDelay, handler, exit);
+            every = new EveryEvent(interval, handler, exit);
             return this;
         }
 

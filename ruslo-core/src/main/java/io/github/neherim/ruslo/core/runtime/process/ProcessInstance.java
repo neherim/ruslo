@@ -139,7 +139,7 @@ public final class ProcessInstance {
             }
             case AwaitState await -> {
                 status = ProcessStatus.ACTIVE;
-                if (await.every() != null) everyDueAt = now.plus(await.every().initialDelay());
+                if (await.every() != null) everyDueAt = now.plus(await.every().interval().firstAfter());
                 if (await.after() != null) afterDueAt = now.plus(await.after().delay());
                 recomputeNextRun();
             }
@@ -200,7 +200,7 @@ public final class ProcessInstance {
         switch (event) {
             case MESSAGE -> messages.removeFirst();
             case EVERY -> {
-                var interval = awaitState().every().interval();
+                var interval = awaitState().every().interval().period();
                 var missed = Duration.between(everyDueAt, clock.instant()).dividedBy(interval);
                 everyDueAt = everyDueAt.plus(interval.multipliedBy(missed + 1));
             }

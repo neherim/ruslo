@@ -61,9 +61,9 @@ class StepExecutorTest {
     @Test
     void nullOutcomeOfBranchingEveryIsHandlerError() {
         var process = process(builder -> builder.step(State.START, context -> {}, State.WAIT)
-            .await(State.WAIT, await -> await.every(Duration.ofSeconds(5), context -> (Outcome) null,
-                    routes -> routes.on(Outcome.A, State.DONE).on(Outcome.B, State.WAIT),
-                    options -> options.initialDelay(Duration.ZERO))));
+            .await(State.WAIT, await -> await.every(Interval.of(Duration.ofSeconds(5)).firstAfter(Duration.ZERO),
+                    context -> (Outcome) null,
+                    routes -> routes.on(Outcome.A, State.DONE).on(Outcome.B, State.WAIT))));
         executor.executeNextProcessStep(process);
         var error = assertThrows(HandlerException.class, () -> executor.executeNextProcessStep(process)).getCause();
         assertTrue(error.getMessage().contains("Branching every in state WAIT"), error.getMessage());
