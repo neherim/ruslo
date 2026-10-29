@@ -235,7 +235,7 @@ public class ProcessSpecBuilder {
 
         /**
          * Handles the message and moves to {@code next}. If {@code next} is this await, the process keeps waiting
-         * (see {@link ProcessSpecBuilder}).
+         * and {@code every} and {@code after} are not restarted (see {@link ProcessSpecBuilder}).
          */
         public <T> AwaitBuilder message(MessageType<T> type, ProcessMessageHandler<T> handler, ProcessState next) {
             requireNonNull(handler, "Message handler cannot be null");
@@ -247,7 +247,7 @@ public class ProcessSpecBuilder {
 
         /**
          * Handles the message; its outcome selects the target in {@code routes}. A target equal to this await
-         * keeps waiting (see {@link ProcessSpecBuilder}).
+         * keeps waiting and does not restart {@code every} and {@code after} (see {@link ProcessSpecBuilder}).
          */
         public <T, O extends Enum<O>> AwaitBuilder message(
                 MessageType<T> type,
@@ -275,9 +275,10 @@ public class ProcessSpecBuilder {
          * Calls {@code handler} every {@code interval} and moves to {@code next}. If {@code next} is this await,
          * the process keeps waiting until the next check.
          * <p>
-         * Checks follow a grid: entering the await plus {@code initialDelay} plus {@code k * interval}. A late check
-         * does not shift the next ones; missed points are skipped, and the next check is the first point after the
-         * check starts.
+         * Checks follow a grid: entering the await from another state plus {@code initialDelay} plus
+         * {@code k * interval}. An event that targets this await, this one included, does not restart the grid. A
+         * late check does not shift the next ones; missed points are skipped, and the next check is the first point
+         * after the check starts.
          */
         public AwaitBuilder every(Duration interval, ProcessTimerHandler handler, ProcessState next) {
             return every(interval, handler, next, options -> {});
@@ -339,17 +340,19 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Moves to {@code next} {@code delay} after entering the await. {@code next} must not be this await: without
-         * a handler the event would do nothing.
+         * Moves to {@code next} {@code delay} after entering the await from another state. An event that targets
+         * this await does not restart the delay; to restart it, go through a step that leads back to the await.
+         * {@code next} must not be this await: without a handler the event would do nothing.
          */
         public AwaitBuilder after(Duration delay, ProcessState next) {
             return addAfter(delay, NO_HANDLER, withoutHandler(next, "after"));
         }
 
         /**
-         * Calls {@code handler} {@code delay} after entering the await, then moves to {@code next}. If {@code next}
-         * is this await, the process keeps waiting for the other events and the timer does not fire again (see
-         * {@link ProcessSpec.AfterEvent}).
+         * Calls {@code handler} {@code delay} after entering the await from another state, then moves to
+         * {@code next}. An event that targets this await does not restart the delay; to restart it, go through a
+         * step that leads back to the await. If {@code next} is this await, the process keeps waiting for the other
+         * events and the timer does not fire again.
          */
         public AwaitBuilder after(Duration delay, ProcessTimerHandler handler, ProcessState next) {
             requireNonNull(handler, "Timer handler cannot be null");

@@ -180,8 +180,9 @@ public class ProcessSpec {
     }
 
     /**
-     * Periodic event: fires at entering the await plus {@code initialDelay} plus {@code k * interval}. The interval
-     * counts from the planned points, not from handling; missed points are skipped.
+     * Periodic event: fires at entering the await from another state plus {@code initialDelay} plus
+     * {@code k * interval}; the process staying in the await does not restart it. The interval counts from the
+     * planned points, not from handling; missed points are skipped.
      * {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
      * A target equal to the await itself keeps waiting, see {@link ProcessSpecBuilder}.
      */
