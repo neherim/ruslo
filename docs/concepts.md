@@ -100,9 +100,10 @@ The same rule applies to steps and to manual moves: a transition to the current 
 `every` and `after` belong to one entry into the await; the engine sets them when the process enters it.
 
 - `after(delay)` fires once, `delay` after entering.
-- `every(interval)` fires on a fixed grid from entering: `initialDelay + k * interval` (`initialDelay` defaults to
-  `interval`). A late check does not shift the grid, and missed points are not run in a batch. The first check can
-  run right on entering: `every(interval, handler, target, options -> options.initialDelay(Duration.ZERO))`.
+- `every(period)` fires on a fixed grid from entering: `firstAfter + k * period` (`firstAfter` defaults to
+  `period`). A late check does not shift the grid, and missed points are not run in a batch. To move the first
+  check, pass an `Interval` instead of a `Duration`; to run it right on entering:
+  `every(Interval.of(period).firstAfter(Duration.ZERO), handler, target)`.
 
 ### Process timers: `at`
 

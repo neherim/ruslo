@@ -26,7 +26,7 @@ class PollingTest {
             .start();
         emulator.runUntilStop(processId);
 
-        // The first check runs initialDelay after entering the await, the next ones every poll interval.
+        // The first check runs FIRST_CHECK_DELAY after entering the await, the next ones every poll interval.
         // The report service stub has the report ready by the third check.
         emulator.fastForwardTime(ReportGenerationDefinition.FIRST_CHECK_DELAY);
         assertEquals(ReportGenerationDefinition.State.WAITING_FOR_REPORT.id(),

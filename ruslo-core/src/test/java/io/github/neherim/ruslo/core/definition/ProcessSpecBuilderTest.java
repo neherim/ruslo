@@ -43,8 +43,8 @@ class ProcessSpecBuilderTest {
         assertEquals(MESSAGE, spec.getMessageEvent(MESSAGE, State.WAIT).orElseThrow().type());
         assertEquals(Set.of("MESSAGE"), spec.getApplicableMessageTypeNames(State.WAIT));
         var await = (AwaitState) spec.getStateSpec(State.WAIT);
-        assertEquals(Duration.ofSeconds(1), await.every().interval());
-        assertEquals(Duration.ofSeconds(1), await.every().initialDelay());
+        assertEquals(Interval.of(Duration.ofSeconds(1)), await.every().interval());
+        assertEquals(Duration.ofSeconds(1), await.every().interval().firstAfter());
         assertEquals(Duration.ofSeconds(2), await.after().delay());
     }
 
@@ -67,19 +67,20 @@ class ProcessSpecBuilderTest {
     }
 
     @Test
-    void setsEveryInitialDelay() {
+    void setsEveryFirstCheck() {
         var spec = new ProcessSpecBuilder().type(TYPE)
             .initialState(State.WAIT)
-            .await(State.WAIT, await -> await.every(Duration.ofMinutes(5), ON_TIMER,
-                    State.DONE, options -> options.initialDelay(Duration.ZERO)))
-            .await(State.OTHER, await -> await.every(Duration.ofMinutes(5),
+            .await(State.WAIT, await -> await.every(Interval.of(Duration.ofMinutes(5)).firstAfter(Duration.ZERO),
+                    ON_TIMER, State.DONE))
+            .await(State.OTHER, await -> await.every(
+                    Interval.of(Duration.ofMinutes(5)).firstAfter(Duration.ofSeconds(10)),
                     context -> Outcome.A, routes -> routes.on(Outcome.A, State.DONE)
-                        .on(Outcome.B, State.WAIT),
-                    options -> options.initialDelay(Duration.ofSeconds(10))))
+                        .on(Outcome.B, State.WAIT)))
             .terminal(State.DONE)
             .build();
-        assertEquals(Duration.ZERO, ((AwaitState) spec.getStateSpec(State.WAIT)).every().initialDelay());
-        assertEquals(Duration.ofSeconds(10), ((AwaitState) spec.getStateSpec(State.OTHER)).every().initialDelay());
+        assertEquals(Duration.ZERO, ((AwaitState) spec.getStateSpec(State.WAIT)).every().interval().firstAfter());
+        assertEquals(Duration.ofSeconds(10),
+                ((AwaitState) spec.getStateSpec(State.OTHER)).every().interval().firstAfter());
     }
 
     @Test
@@ -211,8 +212,8 @@ class ProcessSpecBuilderTest {
         assertRejected("must be positive", () -> startWithStep().await(State.WAIT,
                 await -> await.every(Duration.ofSeconds(-1), ON_TIMER, State.DONE)));
         assertRejected("cannot be negative", () -> startWithStep().await(State.WAIT,
-                await -> await.every(Duration.ofSeconds(1), ON_TIMER, State.DONE,
-                        options -> options.initialDelay(Duration.ofSeconds(-1)))));
+                await -> await.every(Interval.of(Duration.ofSeconds(1)).firstAfter(Duration.ofSeconds(-1)), ON_TIMER,
+                        State.DONE)));
         assertRejected("conflicting payload classes", () -> startWithStep().await(State.WAIT, await -> await
             .message(MESSAGE, ON_MESSAGE, State.WAIT)
             .after(Duration.ofSeconds(1), State.DONE))

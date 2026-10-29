@@ -406,15 +406,14 @@ class AwaitTimersTest extends BaseTest {
 
     private ProcessDefinition everyDefinition(
             String type,
-            Duration initialDelay,
+            Duration firstAfter,
             ProcessTimerHandler onEvery,
             State everyTarget
     ) {
         return builder -> builder.type(type)
             .initialState(State.WAIT)
             .await(State.WAIT, await -> await
-                .every(Duration.ofMinutes(10), onEvery, everyTarget,
-                        options -> options.initialDelay(initialDelay))
+                .every(Interval.of(Duration.ofMinutes(10)).firstAfter(firstAfter), onEvery, everyTarget)
                 .after(Duration.ofHours(1), State.TIMEOUT_DONE))
             .terminal(State.EVERY_DONE)
             .terminal(State.TIMEOUT_DONE)

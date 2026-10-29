@@ -107,7 +107,7 @@ Maven multi-module project (`Java 21`, Spring Boot 4.0 baseline):
 | Package | Responsibility |
 |---|---|
 | `core.api` | Engine entry points and setup: `ProcessEngine`, `ProcessEngineBuilder`, `ProcessEngineAdmin`, `ProcessEngineEmulator`, `ProcessStartBuilder`, `WorkerSpec`, `DatabaseDialect` |
-| `core.api.definition` | Process description: `ProcessDefinition`, `ProcessSpecBuilder`, `ProcessStep`, `BranchingStep<O>`, `ProcessMessageHandler<T>`, `BranchingMessageHandler<T, O>`, `ProcessTimerHandler`, `BranchingTimerHandler<O>`, `ErrorResult`, `ProcessErrorHandler`, `ProcessError`, `ProcessContext`, `ProcessType`, `ProcessState`, `MessageType`, `VariableType`, `WorkerId` |
+| `core.api.definition` | Process description: `ProcessDefinition`, `ProcessSpecBuilder`, `ProcessStep`, `BranchingStep<O>`, `ProcessMessageHandler<T>`, `BranchingMessageHandler<T, O>`, `ProcessTimerHandler`, `BranchingTimerHandler<O>`, `Interval`, `ErrorResult`, `ProcessErrorHandler`, `ProcessError`, `ProcessContext`, `ProcessType`, `ProcessState`, `MessageType`, `VariableType`, `WorkerId` |
 | `core.api.view` | Reading process state: `ProcessQuery`, `ProcessInstanceDetails`, `ProcessVariablesView`, `ProcessInstanceSummary`, `ProcessSpecInfo`, `ProcessStatus` |
 | `core.api.exception` | Public exceptions, e.g. `MessageNotExpectedException`, `ProcessStatusException`, `TooManyRowsException`, `DatabaseMigrationException` |
 | `core.api.test` | Test support: `MutableClock`, `TestProcessContext` |

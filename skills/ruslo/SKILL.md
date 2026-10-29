@@ -135,8 +135,8 @@ line where the target must become routes. `build()` checks that all enum constan
   and a late charge would shift the schedule).
 - Polling an external system: `every` with branching routes back to the same await. Do not build a
   "step → await → step" loop: coming into an await from a step clears the queue and restarts `after`.
-- Run the first `every` check immediately: `every(interval, handler, next, o -> o.initialDelay(Duration.ZERO))`.
-- `every` follows a fixed grid from entering the await (`initialDelay + k * interval`); a late check does not shift
+- Run the first `every` check immediately: `every(Interval.of(period).firstAfter(Duration.ZERO), handler, next)`.
+- `every` follows a fixed grid from entering the await (`firstAfter + k * period`); a late check does not shift
   the next ones, missed points are skipped.
 
 ### ProcessContext

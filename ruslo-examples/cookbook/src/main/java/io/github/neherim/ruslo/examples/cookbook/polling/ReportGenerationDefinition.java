@@ -1,5 +1,6 @@
 package io.github.neherim.ruslo.examples.cookbook.polling;
 
+import io.github.neherim.ruslo.core.api.definition.Interval;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
@@ -24,7 +25,7 @@ import java.time.Duration;
  *       service's {@link ReportStatus} as the outcome: while the job is in progress, the target is the await itself
  *       ("keep waiting"); a ready report leads to {@link State#COMPLETED}, a service error to
  *       {@link State#REPORT_FAILED}.</li>
- *   <li>{@code initialDelay} postpones the first check: the report is never ready right after the order.
+ *   <li>{@link Interval#firstAfter} postpones the first check: the report is never ready right after the order.
  *       Subsequent checks run every {@link #POLL_INTERVAL}.</li>
  *   <li>{@code after} is the overall deadline: it counts from entering the await, and checks targeting the await
  *       itself do not reset it. The deadline handler cancels the job at the service.</li>
@@ -66,12 +67,11 @@ public class ReportGenerationDefinition implements ProcessDefinition {
             .initialState(State.REQUESTING)
             .step(State.REQUESTING, this::requestReport, State.WAITING_FOR_REPORT)
             .await(State.WAITING_FOR_REPORT, await -> await
-                .every(POLL_INTERVAL, this::checkStatus,
+                .every(Interval.of(POLL_INTERVAL).firstAfter(FIRST_CHECK_DELAY), this::checkStatus,
                         routes -> routes
                             .on(ReportStatus.IN_PROGRESS, State.WAITING_FOR_REPORT)
                             .on(ReportStatus.READY, State.COMPLETED)
-                            .on(ReportStatus.FAILED, State.REPORT_FAILED),
-                        options -> options.initialDelay(FIRST_CHECK_DELAY))
+                            .on(ReportStatus.FAILED, State.REPORT_FAILED))
                 .after(REPORT_DEADLINE, this::cancel, State.TIMED_OUT))
             .terminal(State.COMPLETED)
             .terminal(State.REPORT_FAILED)
