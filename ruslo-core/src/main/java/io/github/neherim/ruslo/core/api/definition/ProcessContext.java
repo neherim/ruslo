@@ -53,12 +53,8 @@ public interface ProcessContext {
 
     /**
      * Sets the process timer to {@code moment}, replacing its previous moment. The moment is stored truncated to
-     * microseconds, and {@link #getTimer} returns the truncated value. An {@code at} of an await fires when the
-     * process is in that await and the timer is due; a past moment fires at once. State transitions do not touch
-     * timers: the timer lives until it fires or is {@link #cancelTimer cancelled}, also when the process leaves the
-     * await by another event. A fired timer is cancelled before its handler runs; if the handler fails, the
-     * transaction is rolled back and the retry sees the timer again. The handler does not get the fired moment:
-     * keep it in a variable if it is business data.
+     * microseconds, and {@link #getTimer} returns the truncated value. When the timer fires and how long it lives:
+     * see {@link TimerType}.
      *
      * @throws IllegalArgumentException if no {@code at} of the process uses the timer
      * @throws NullPointerException     if {@code moment} is {@code null}; only {@link #cancelTimer} removes a timer

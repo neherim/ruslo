@@ -3,7 +3,6 @@ package io.github.neherim.ruslo.core.api.definition;
 import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -180,8 +179,9 @@ public class ProcessSpec {
     }
 
     /**
-     * Periodic event: fires at entering the await plus {@code initialDelay} plus {@code k * interval}. The interval
-     * counts from the planned points, not from handling; missed points are skipped.
+     * Periodic event: fires at entering the await from another state plus {@code initialDelay} plus
+     * {@code k * interval}; the process staying in the await does not restart it. The interval counts from the
+     * planned points, not from handling; missed points are skipped.
      * {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
      * A target equal to the await itself keeps waiting, see {@link ProcessSpecBuilder}.
      */
@@ -202,10 +202,8 @@ public class ProcessSpec {
     }
 
     /**
-     * Event at the moment of a process {@code timer}: fires while the process is in this await and the timer is set
-     * and due; a past moment fires at once. The fired timer is cancelled before the handler runs, so the handler sees
-     * it unset and may set it again to make a schedule. See {@link ProcessContext#setTimer(TimerType, Instant)}.
-     * {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
+     * Event at the moment of a process {@code timer}; who sets the timer, when it fires and how long it lives: see
+     * {@link TimerType}. {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
      */
     public record AtEvent(
             TimerType timer,
