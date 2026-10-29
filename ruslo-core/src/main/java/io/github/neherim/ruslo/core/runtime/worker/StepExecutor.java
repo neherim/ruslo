@@ -108,7 +108,7 @@ public class StepExecutor {
             case MESSAGE -> executeQueuedMessage(process, context, message.orElseThrow());
             case EVERY -> executeTimer(process, context, spec.every().handler(), spec.every().exit(), "every");
             case AFTER -> executeTimer(process, context, spec.after().handler(), spec.after().exit(), "after");
-            case AT -> executeTimer(process, context, spec.at().handler(), spec.at().exit(), "at");
+            case AT -> executeAt(process, context, spec.at());
         };
         process.enterState(target);
         return true;
@@ -124,6 +124,17 @@ public class StepExecutor {
     ) {
         var outcome = invokeHandler(() -> handler.apply(context));
         return target(exit, outcome, process, name);
+    }
+
+    /**
+     * Executes the {@code at} handler and returns its target. The timer stays set while the handler runs, so the
+     * handler reads the fired moment; a timer the handler left unchanged is cancelled, so it does not fire again.
+     */
+    private static ProcessStateId executeAt(ProcessInstance process, DefaultProcessContext context, AtEvent at) {
+        var fired = process.getTimer(at.timer());
+        var target = executeTimer(process, context, at.handler(), at.exit(), "at");
+        if (process.getTimer(at.timer()).equals(fired)) process.cancelTimer(at.timer());
+        return target;
     }
 
     /** Executes the queued message and returns the handler's target. */

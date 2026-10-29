@@ -123,10 +123,9 @@ Timer rules:
    away. Each timer kind (`every`, `after`, `at`) is declared at most once per await; any of them can be combined.
 4. **A fired timer with the await itself as the target** does not take the process out of the await: `every`
    moves to its next grid point, `after` does not fire again until the process comes into the await from another
-   state. **A fired process timer is cancelled before its handler runs**: the handler sees
-   `getTimer(T)` empty and can set it again, which makes a schedule; a handler that does not set it leaves the await
-   waiting for its other events. The handler does not get the moment the timer fired at: if it is needed as data
-   (a report date, "paid until"), keep it in a variable.
+   state. **A fired process timer stays set while its handler runs**: the handler reads the fired moment with
+   `getTimer(T)` and can move the timer, which makes a schedule. A timer the handler left unchanged is cancelled
+   after it, so it does not fire again, and the await waits for its other events.
 5. State transitions do not touch process timers: a timer set in a step waits for the await that declares it. One
    timer can be declared in several awaits (a deadline across several states).
 6. **A process timer lives until it fires or is cancelled.** An await left by a message keeps its timer set: on a
@@ -151,25 +150,29 @@ Rule 6 by example: an await with a deadline, a message leads to a step, the step
 The deadline is shared by both entries into `WAITING_FOR_DOCUMENTS`: if it passed while `CHECKING` ran, the
 process is rejected right after returning. If each return needs a new deadline, `check` sets it again.
 
-A schedule by dates is an `at` whose handler sets the timer to the next date. The date itself is data, so it is
-kept in a variable; the timer only wakes the process:
+A schedule by dates is an `at` whose handler moves the timer to the next date:
 
 ```java
-static final VariableType<LocalDate> REPORT_DATE = VariableType.of("reportDate", LocalDate.class);
 static final TimerType NEXT_RUN = TimerType.of("nextRun");
 
-.step(PLAN, ReportDefinition::planFirstRun, SCHEDULED)          // writes REPORT_DATE, sets NEXT_RUN
+.step(PLAN, ReportDefinition::planFirstRun, SCHEDULED)          // sets NEXT_RUN
 .await(SCHEDULED, await -> await
     .at(NEXT_RUN, ReportDefinition::buildReport, routes -> routes
-        .on(Run.MORE, SCHEDULED)                                // sets NEXT_RUN for the next REPORT_DATE
+        .on(Run.MORE, SCHEDULED)                                // moves NEXT_RUN to the next date
         .on(Run.LAST, DONE))
     .message(CANCEL, ReportDefinition::onCancel, CANCELLED))
+
+static Run buildReport(ProcessContext context) {
+    var runAt = context.getTimer(NEXT_RUN).orElseThrow();       // the fired moment
+    // build the report for runAt
+    context.setTimer(NEXT_RUN, runAt.plus(Duration.ofDays(1)));
+    return Run.MORE;
+}
 ```
 
-`buildReport` builds the report for `REPORT_DATE`, writes the next date and sets `NEXT_RUN` to its moment
-(`Run.MORE`), or returns `Run.LAST`. Keeping the date both in a variable and in the timer is the price of rule 4:
-a fired timer is cancelled without exceptions, so a handler never sees a stale moment and a loop cannot fire twice
-on one moment.
+Count the next date from the fired moment, not from `context.now()`: a late run then does not shift the schedule.
+If the business date is not the moment itself, for example a date in the customer's time zone, keep it in a
+variable. Full example: the `subscription` recipe in `ruslo-examples/cookbook`.
 
 **An event whose target is the await itself keeps waiting**, as any transition to the same state: the handled
 message is removed, the other messages and the timers are kept (the `every` schedule, the `after` moment, the
@@ -301,7 +304,7 @@ positive delays and an exit from every await.
 - Retry after a technical error with `ErrorResult.retryAfter`, not with a step that repeats itself.
 - Do periodic checks with `every` in an await, not with a "step → await → step" loop: coming into the await from a
   step clears the queue and restarts `after`. A schedule by calendar dates is an `at` whose handler sets its timer to the next
-  date; keep the date itself in a variable.
+  date, counted from the fired moment that `getTimer` returns.
 
 ## Definition evolution
 

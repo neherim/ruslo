@@ -392,8 +392,9 @@ public class ProcessSpecBuilder {
 
         /**
          * Calls {@code handler} when {@code timer} is due, then moves to {@code next}. The code sets the timer, and it
-         * outlives the await: see {@link TimerType}. The timer is cancelled before the handler: if {@code next} is
-         * this await, the process waits for the other events and for the timer the handler sets again.
+         * outlives the await: see {@link TimerType}. The handler reads the fired moment from the timer; a timer it
+         * left unchanged is cancelled after it. If {@code next} is this await, the process waits for the other events
+         * and for the timer the handler moved.
          */
         public AwaitBuilder at(TimerType timer, ProcessTimerHandler handler, ProcessState next) {
             requireNonNull(handler, "Timer handler cannot be null");

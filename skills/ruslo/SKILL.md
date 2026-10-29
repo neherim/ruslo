@@ -110,10 +110,10 @@ line where the target must become routes. `build()` checks that all enum constan
   re-entry. No timer set, no `at`. `T` must be used by some `at` of the process, otherwise these methods and the
   start throw `IllegalArgumentException`; `setTimer(T, null)` throws `NullPointerException`. Moments are truncated
   to microseconds.
-- **A fired process timer is cancelled before its handler runs** (rolled back if the handler fails): the handler
-  sees `getTimer(T)` empty and does not get the fired moment. Setting it again makes a schedule; not setting it
-  leaves the await waiting for its other events (no error). Keep a date that is business data (report date, paid
-  until) in a variable and set the timer from it.
+- **A fired process timer stays set while its handler runs**: `getTimer(T)` returns the fired moment. Moving the
+  timer makes a schedule; count the next moment from the fired one, not from `now()`. A timer the handler left
+  unchanged (or set to the same moment) is cancelled after it, and the await waits for its other events (no error).
+  Keep a date in a variable only if it is not the moment itself (e.g. a date in the customer's time zone).
 - Transitions do not touch process timers: a timer set in a step waits for the await that declares it, one timer can
   serve several awaits, and a timer left when a message leaves the await fires at once on re-entry if its moment
   passed. Cancel it with `cancelTimer` in the handler that leaves when it is no longer needed.
