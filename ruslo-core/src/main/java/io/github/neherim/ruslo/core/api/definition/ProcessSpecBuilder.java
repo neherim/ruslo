@@ -383,17 +383,17 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Moves to {@code next} when {@code timer} is due (see {@link ProcessSpec.AtEvent}). {@code next} must not
-         * be this await: without a handler the event would do nothing.
+         * Moves to {@code next} when {@code timer} is due. The code sets the timer, and it outlives the await: see
+         * {@link TimerType}. {@code next} must not be this await: without a handler the event would do nothing.
          */
         public AwaitBuilder at(TimerType timer, ProcessState next) {
             return addAt(timer, NO_HANDLER, withoutHandler(next, "at"));
         }
 
         /**
-         * Calls {@code handler} when {@code timer} is due, then moves to {@code next}. The timer is cancelled before
-         * the handler (see {@link ProcessSpec.AtEvent}): if {@code next} is this await, the process waits for the
-         * other events and for the timer the handler sets again.
+         * Calls {@code handler} when {@code timer} is due, then moves to {@code next}. The code sets the timer, and it
+         * outlives the await: see {@link TimerType}. The timer is cancelled before the handler: if {@code next} is
+         * this await, the process waits for the other events and for the timer the handler sets again.
          */
         public AwaitBuilder at(TimerType timer, ProcessTimerHandler handler, ProcessState next) {
             requireNonNull(handler, "Timer handler cannot be null");
