@@ -4,51 +4,37 @@
 
 Процесс — это набор явных состояний трёх видов:
 
-- **шаг** (`step`) выполняет действие и всегда переходит дальше;
+- **шаг** (`step`) выполняет код и всегда переходит дальше;
 - **ожидание** (`await`) ждёт сообщения или таймера;
 - **terminal** завершает процесс.
 
-Начальное состояние — шаг или ожидание.
-
-Главное правило: **обработчик сообщает результат, цель объявляет definition**. Обработчик не называет следующее
-состояние: весь граф переходов, включая петли ожидания, виден в одном месте.
-
-**Переход в то же состояние — не смена состояния.** Очередь сообщений, таймеры `every` и `after` и история
-состояний не меняются; ошибка и `attempt` сбрасываются. Шаг выполняется снова; ожидание продолжает ждать своих
-событий.
+Главное правило: **обработчик сообщает результат, цель объявляет definition.** Обработчик не называет следующее
+состояние, поэтому весь граф переходов виден в одном месте.
 
 ```java
-MessageType<String> APPROVED = MessageType.of("approved", String.class);
-
-ProcessDefinition definition = builder -> builder.type("APPROVAL")
-    .initialState(State.CREATE)
-    .step(State.CREATE, context -> createOrder(context), State.WAIT)
-    .await(State.WAIT, await -> await
-        .message(APPROVED, (context, message) -> { }, State.DONE)
-        .after(Duration.ofHours(1), State.EXPIRED))
-    .terminal(State.DONE)
-    .terminal(State.EXPIRED)
-    .build();
-```
-
-Процесс идентифицируется только типом (`ProcessType`), он же используется для запуска:
-`processEngine.newProcess(type).start()`. Тип удобно объявлять константой в классе definition — тогда
-запуск, поиск и тесты ссылаются на одно и то же значение, а один класс definition можно зарегистрировать
-под разными типами:
-
-```java
-public class ApprovalProcessDefinition implements ProcessDefinition {
+public class ApprovalDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("APPROVAL");
+    public static final MessageType<Decision> DECISION = MessageType.of("decision", Decision.class);
 
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder.type(TYPE)
-            ...
+            .initialState(State.CREATED)
+            .step(State.CREATED, ApprovalDefinition::notifyApprover, State.WAITING)
+            .await(State.WAITING, await -> await
+                .message(DECISION, ApprovalDefinition::onDecision, State.DONE)
+                .after(Duration.ofDays(3), State.EXPIRED))
+            .terminal(State.DONE)
+            .terminal(State.EXPIRED)
+            .build();
     }
 }
 
-UUID processId = processEngine.newProcess(ApprovalProcessDefinition.TYPE).start();
+UUID processId = processEngine.newProcess(ApprovalDefinition.TYPE).start();
 ```
+
+Тип процесса (`ProcessType`) идентифицирует definition: по нему процессы запускают, ищут и тестируют. Объявите его,
+типы сообщений и типы переменных константами и ссылайтесь на них везде.
 
 ## Шаги
 
@@ -60,154 +46,120 @@ UUID processId = processEngine.newProcess(ApprovalProcessDefinition.TYPE).start(
 ```java
 enum Validation { VALID, REJECTED }
 
-BranchingStep<Validation> validateStep = context -> isValid(context) ? Validation.VALID : Validation.REJECTED;
-
 .step(VALIDATING, validateStep, routes -> routes
     .on(Validation.VALID, RESERVING)
     .on(Validation.REJECTED, CANCELLED))
 ```
 
-Компилятор проверяет, что enum шага и routes совпадают, а `build()` — что покрыты все константы.
-Шаг с целью в самого себя выполняется снова, без новой строки в истории состояний: цикл по пачкам, каждая пачка
-фиксируется своим переходом (рецепт `batch`).
+Компилятор проверяет, что маршруты используют enum шага, а `build()` — что для каждой константы задан маршрут.
+
+Шаг, целью которого указан он сам, выполняется снова: цикл по пачкам, где каждая пачка фиксируется своим переходом
+(рецепт `batch`).
 
 ## Ожидания
 
-Ожидание объявляет события:
+Ожидание объявляет события, которых ждёт:
 
-| Событие | Когда срабатывает | Обработчик |
+| Событие | Срабатывает | Обработчик |
 |---|---|---|
-| `message(type, handler, next \| routes)` | пришло сообщение типа `type` | `ProcessMessageHandler<T>` или `BranchingMessageHandler<T, O>` |
-| `every(interval, handler, next \| routes)` | повторно, каждые `interval` по сетке от входа в ожидание | `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
-| `after(delay[, handler], next \| routes)` | через `delay` после входа в ожидание | нет, `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
-| `at(timer[, handler], next \| routes)` | в момент таймера процесса `TimerType` | нет, `ProcessTimerHandler` или `BranchingTimerHandler<O>` |
+| `message(type, handler, target)` | когда приходит сообщение типа `type` | обязателен |
+| `every(interval, handler, target)` | регулярно, каждые `interval` | обязателен |
+| `after(delay[, handler], target)` | один раз, через `delay` после входа в ожидание | необязателен |
+| `at(timer[, handler], target)` | в момент таймера процесса `timer` | необязателен |
 
-Хотя бы одно событие должно вести в другое состояние.
+`target` — состояние или, для ветвящегося обработчика, `routes -> routes.on(...)`. Каждый вид таймера объявляется в
+ожидании не больше одного раза, и хотя бы одно событие ведёт в другое состояние.
 
 ```java
-enum Payment { PAID, PENDING }
+.await(WAITING_FOR_PAYMENT, await -> await
+    .message(PAYMENT_CONFIRMED, PaymentDefinition::onPaid, SHIPPING)
+    .every(Duration.ofDays(1), PaymentDefinition::remind, WAITING_FOR_PAYMENT)   // ежедневное напоминание
+    .at(PAYMENT_DUE, CANCELLED))                                               // срок, который задаёт код
+```
 
+### Остаться в ожидании
+
+Событие, целью которого указано само ожидание, оставляет процесс ждать: обработанное сообщение удаляется, остальные
+сообщения в очереди и таймеры сохраняются. Так делают напоминания, опрос внешней системы и промежуточные сообщения
+(`message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`).
+
+Переход в другое состояние закрывает ожидание, и **его необработанные сообщения удаляются**. Чтобы начать ожидание
+заново, с пустой очередью и новыми таймерами, пройдите через шаг, который ведёт обратно в него:
+
+```java
+.await(ACTIVE, await -> await
+    .message(ACTIVITY, Session::onActivity, RECORDING_ACTIVITY)   // каждая активность перезапускает таймаут
+    .after(Duration.ofMinutes(30), EXPIRED))
+.step(RECORDING_ACTIVITY, Session::recordActivity, ACTIVE)
+```
+
+То же правило действует для шагов и ручных переходов: переход в текущее состояние — не смена состояния.
+
+### Таймеры ожидания: `every` и `after`
+
+`every` и `after` относятся к одному входу в ожидание; движок задаёт их, когда процесс входит в него.
+
+- `after(delay)` срабатывает один раз, через `delay` после входа.
+- `every(interval)` срабатывает по фиксированной сетке от входа: `initialDelay + k * interval` (`initialDelay` по
+  умолчанию равен `interval`). Опоздавшая проверка не сдвигает сетку, пропущенные точки не выполняются пачкой.
+  Первую проверку можно выполнить сразу при входе:
+  `every(interval, handler, target, options -> options.initialDelay(Duration.ZERO))`.
+
+### Таймеры процесса: `at`
+
+`at(T)` ждёт таймер процесса: именованный момент (`TimerType`), который задаёт ваш код. Он нужен для срока, который
+сдвигается (продление сообщением, срок из заказа), и для расписания по датам.
+
+```java
 static final TimerType PAYMENT_DUE = TimerType.of("paymentDue");
 
-.step(RESERVING, PaymentDefinition::reserve, WAITING_FOR_PAYMENT)               // ставит PAYMENT_DUE
-.await(WAITING_FOR_PAYMENT, await -> await
-    .every(Duration.ofSeconds(30), PaymentDefinition::checkPayment, routes -> routes   // polling внешнего условия
-        .on(Payment.PAID, SHIPPING)
-        .on(Payment.PENDING, WAITING_FOR_PAYMENT))                                 // ждать дальше
-    .message(EXTEND_PAYMENT_DUE, PaymentDefinition::extend, WAITING_FOR_PAYMENT)   // ставит PAYMENT_DUE
-    .after(Duration.ofDays(3), PaymentDefinition::remind, WAITING_FOR_PAYMENT)     // одно напоминание
-    .at(PAYMENT_DUE, PaymentDefinition::markExpired, CANCELLED))
-
-static void reserve(ProcessContext context) {
+static void reserve(ProcessContext context) {                      // шаг перед ожиданием
     context.setTimer(PAYMENT_DUE, context.now().plus(Duration.ofDays(5)));
 }
 
-static void extend(ProcessContext context, IncomingMessage<Instant> message) {
+static void extend(ProcessContext context, IncomingMessage<Instant> message) {   // цель — само ожидание
     context.setTimer(PAYMENT_DUE, message.payload());
 }
 ```
 
-Таймеры бывают двух видов. `every` и `after` — **таймеры ожидания**: они живут одно вхождение в ожидание, и их
-моменты движок ставит от времени входа. `at` ждёт **таймер процесса**: именованный момент (`TimerType`), который
-ставит и снимает код; он живёт между состояниями, пока не сработает или не будет снят.
+- Таймер задаётся `context.setTimer`, при запуске — `newProcess(...).timer(...)` или оператором, а отменяется
+  `context.cancelTimer`. Изменение действует сразу, без повторного входа в ожидание.
+- `at` срабатывает, когда процесс в его ожидании и момент таймера наступил; момент в прошлом срабатывает сразу.
+- Переходы не трогают таймеры процесса. Таймер живёт, пока не сработает или не будет отменён, поэтому один срок
+  может охватывать несколько ожиданий. Если после выхода из ожидания по другому событию таймер больше не нужен,
+  отмените его в этом обработчике.
+- Пока выполняется обработчик `at`, таймер хранит момент срабатывания. Обработчик, который сдвигает таймер, строит
+  расписание; таймер, оставленный без изменений, отменяется после обработчика.
 
-Правила таймеров:
-
-1. `every(interval)` срабатывает повторно, по сетке `вход в ожидание + initialDelay + k * interval`: опоздавшая
-   проверка не сдвигает следующие, пропущенные точки не выполняются. `after(delay)` срабатывает через `delay` после
-   входа в ожидание.
-2. Таймер процесса ставит `context.setTimer(T, moment)` или при старте `newProcess(...).timer(T, moment)`, снимает
-   `context.cancelTimer(T)`; `context.getTimer(T)` возвращает `Optional<Instant>`. Момент хранится с точностью до
-   микросекунд, и `getTimer` возвращает усечённое значение. `T` должен использоваться в каком-нибудь `at` процесса,
-   иначе эти методы и старт бросают `IllegalArgumentException`. `null` вместо момента — `NullPointerException`:
-   снимает таймер только `cancelTimer`.
-3. `at(T)` срабатывает, когда процесс в этом ожидании, а таймер `T` поставлен и наступил; момент в прошлом
-   срабатывает сразу. Каждый вид таймера (`every`, `after`, `at`) объявляется в ожидании не больше одного раза;
-   сочетать можно любые.
-4. **Сработавший таймер с целью «само ожидание»** не выводит процесс из ожидания: `every` переходит к следующей
-   точке сетки, `after` не сработает снова, пока процесс не придёт в ожидание из другого состояния. **Сработавший таймер процесса остаётся поставленным, пока выполняется его
-   обработчик**: обработчик читает момент срабатывания через `getTimer(T)` и может передвинуть таймер, так
-   получается расписание. Таймер, который обработчик не изменил, снимается после обработчика, поэтому не сработает
-   снова, и ожидание ждёт остальных событий.
-5. Переходы между состояниями таймеры процесса не трогают: таймер, поставленный в шаге, ждёт ожидания, которое его
-   объявило. Один таймер может объявляться в нескольких ожиданиях (сквозной дедлайн).
-6. **Таймер процесса живёт, пока не сработал или не снят.** Ожидание, покинутое по сообщению, оставляет свой
-   таймер поставленным: при новом входе в ожидание с этим `at` прошедший момент сработает сразу. Если таймер больше
-   не нужен, обработчик, уводящий из ожидания, снимает его `cancelTimer`. То же при `moveProcessToState` оператором
-   и при `ErrorResult.giveUp` из ожидания.
-7. Ошибка обработчика приостанавливает всё ожидание до повтора: наступивший таймер ждёт, пока упавшее событие не
-   будет обработано (см. [execution.md](execution.md#выбор-события-ожидания)).
-
-Таймер без обработчика не может вести в само ожидание: он ничего бы не делал. Первую проверку `every` можно
-выполнить сразу при входе в ожидание: `every(interval, handler, next, options -> options.initialDelay(Duration.ZERO))`.
-
-Правило 6 на примере: ожидание с дедлайном, сообщение уводит в шаг, шаг возвращает в ожидание.
+Расписание по датам:
 
 ```java
-.await(WAITING_FOR_DOCUMENTS, await -> await
-    .message(DOCUMENT, Onboarding::onDocument, CHECKING)
-    .at(DOCUMENTS_DUE, REJECTED))
-.step(CHECKING, Onboarding::check, WAITING_FOR_DOCUMENTS)
-```
-
-Дедлайн общий для обоих входов в `WAITING_FOR_DOCUMENTS`: если он прошёл, пока выполнялся `CHECKING`, процесс
-отклоняется сразу после возврата. Если каждому возврату нужен новый дедлайн, `check` ставит его заново.
-
-Расписание по датам — это `at`, обработчик которого передвигает таймер на следующую дату:
-
-```java
-static final TimerType NEXT_RUN = TimerType.of("nextRun");
-
-.step(PLAN, ReportDefinition::planFirstRun, SCHEDULED)          // ставит NEXT_RUN
 .await(SCHEDULED, await -> await
     .at(NEXT_RUN, ReportDefinition::buildReport, routes -> routes
-        .on(Run.MORE, SCHEDULED)                                // передвигает NEXT_RUN на следующую дату
-        .on(Run.LAST, DONE))
-    .message(CANCEL, ReportDefinition::onCancel, CANCELLED))
+        .on(Run.MORE, SCHEDULED)
+        .on(Run.LAST, DONE)))
 
 static Run buildReport(ProcessContext context) {
-    var runAt = context.getTimer(NEXT_RUN).orElseThrow();       // момент срабатывания
-    // строим отчёт за runAt
+    var runAt = context.getTimer(NEXT_RUN).orElseThrow();         // момент срабатывания
+    // построить отчёт за runAt
     context.setTimer(NEXT_RUN, runAt.plus(Duration.ofDays(1)));
     return Run.MORE;
 }
 ```
 
-Следующую дату считайте от момента срабатывания, а не от `context.now()`: тогда опоздавший запуск не сдвигает
-расписание. Если бизнес-дата — не сам момент, например дата в часовом поясе клиента, храните её в переменной.
-Полный пример — рецепт `subscription` в `ruslo-examples/cookbook`.
+Считайте следующий момент от момента срабатывания, а не от `context.now()`: тогда опоздавший запуск не сдвигает
+расписание. Полные примеры — рецепты `deadline` и `subscription` в [`ruslo-examples/cookbook`](../../ruslo-examples/cookbook).
 
-**Событие с целью в само ожидание продолжает ждать**, как любой переход в то же состояние: обработанное
-сообщение удаляется, остальные сообщения и таймеры сохраняются (расписание `every`, момент `after`,
-таймеры процесса), строка в истории состояний не пишется. Так объявляются:
-
-- периодический побочный эффект — `every(Duration.ofDays(1), sendReminder, WAITING_FOR_PAYMENT)`;
-- промежуточные сообщения — `message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`.
-
-Любой переход в другое состояние закрывает ожидание и удаляет необработанные сообщения. Чтобы начать ожидание
-заново — с пустой очередью и новым дедлайном `after`, — пройдите через шаг, ведущий обратно в ожидание. Например,
-таймаут бездействия, который перезапускает каждое сообщение об активности:
-
-```java
-.await(ACTIVE, await -> await
-    .message(ACTIVITY, Session::onActivity, RECORDING_ACTIVITY)
-    .after(Duration.ofMinutes(30), EXPIRED))
-.step(RECORDING_ACTIVITY, Session::recordActivity, ACTIVE)
-```
-
-Дедлайн, который должен сдвигаться, пока процесс остаётся в ожидании, — это `at`: поставьте его таймер.
-
-Если наступило несколько событий, обрабатывается самое раннее; точные правила — в [execution.md](execution.md#выбор-события-ожидания).
+Если наступило сразу несколько событий, обрабатывается самое раннее; точный порядок — в
+[execution.md](execution.md#выбор-события-ожидания).
 
 ## Сообщения
 
-Первый аргумент `message` объявляет имя и класс payload. Обработчик получает `IncomingMessage<T>` с id, типом,
-payload и временем приёма.
+Тип сообщения задаёт имя и класс payload: `MessageType.of("payment", PaymentConfirmed.class)`. Обработчик получает
+`IncomingMessage<T>` с payload и временем получения.
 
-Сообщение принимается, только когда процесс находится в ожидании, которое его объявило. Ранние и запоздавшие
-сообщения не сохраняются, `sendMessage` бросает `MessageNotExpectedException`; буферизации нет. Учтите, что каждый шаг перед ожиданием
-фиксируется отдельно, поэтому между запуском процесса и входом в ожидание есть окно, когда сообщение будет
-отклонено. Гарантии доставки описаны в [guarantees.md](guarantees.md#сообщения).
+Сообщение принимается, только пока процесс находится в ожидании, которое объявляет его тип; ранние сообщения не
+буферизуются. Что гарантирует и что бросает `sendMessage` — в [guarantees.md](guarantees.md#сообщения).
 
 ## Контекст процесса
 
@@ -215,115 +167,66 @@ payload и временем приёма.
 
 | Метод | Назначение |
 |---|---|
-| `getVariable(type)`, `setVariable(type, value)`, `removeVariable(type)` | Переменные процесса; изменения сохраняются вместе с переходом |
-| `getTimer(timer)`, `setTimer(timer, moment)`, `cancelTimer(timer)` | Таймеры процесса для `at`, см. [правила таймеров](#ожидания); изменения сохраняются вместе с переходом |
-| `processId()`, `processType()`, `state()` | Идентификация процесса |
-| `businessKey()` | Бизнес-ключ, заданный при запуске через `newProcess(...).businessKey(...)` |
-| `correlationId()` | Идентификатор для логов: задаётся через `newProcess(...).correlationId(...)`, иначе берётся из MDC вызывающего потока или генерируется |
-| `attempt()` | Число предыдущих неудачных попыток в текущем состоянии |
-| `now()` | Текущее время часов движка, тех же, что у таймеров; используйте вместо `Instant.now()`, чтобы в тестах им управлял эмулятор |
+| `getVariable`, `setVariable`, `removeVariable` | Переменные процесса |
+| `getTimer`, `setTimer`, `cancelTimer` | Таймеры процесса для `at` |
+| `processId()`, `processType()`, `state()`, `businessKey()`, `correlationId()` | Идентификация процесса |
+| `attempt()` | Число неудачных попыток текущего шага или события |
+| `now()` | Время движка; используйте вместо `Instant.now()`, чтобы им управляли тесты |
 
-Переменные и payload сообщений хранятся в БД как JSON (Jackson). Переменные процесса лежат в колонке
-`xs_process_instance.variables` одним JSON-объектом, например `{"orderId":"A-1","amount":42}`; по нему
-ищет `ProcessQuery.byVariablesLike("%\"orderId\":\"A-1\"%")`. Таймеры процесса хранятся отдельно, в колонке
-`timers`. Меняйте их классы совместимо: уже запущенные
-процессы прочитают сохранённый JSON новым классом. Собственный `ObjectMapper` задаётся через
-`ProcessEngineBuilder.withJsonMapper(...)`.
+Изменения контекста сохраняются вместе с переходом.
 
-`TimerType` принимает только непустое имя: `TimerType.of("paymentDue")`. `MessageType<T>` и `VariableType<T>`
-принимают непустое имя и класс: `MessageType.of("payment", PaymentConfirmed.class)`
-или `MessageType<PaymentConfirmed> payment = MessageType.of("payment")`. Класс должен быть конкретным, без параметров
-типа: `List`, `Map` и другие generic-классы отклоняются с `IllegalArgumentException`. Оберните коллекцию в record:
-
-```java
-record OrderItems(List<String> itemIds) {}
-VariableType<OrderItems> ITEMS = VariableType.of("items", OrderItems.class);
-```
+Переменные и payload сообщений хранятся в JSON (Jackson). Их класс должен быть конкретным: оберните `List` или `Map`
+в record (`record OrderItems(List<String> itemIds) {}`). Запущенные процессы читают сохранённый JSON текущим классом,
+поэтому меняйте эти классы совместимо. Свой `ObjectMapper` задаётся через `ProcessEngineBuilder.withJsonMapper(...)`.
 
 ## Статус и ошибки
 
-Статус процесса: `ACTIVE`, `FAILED` или `COMPLETED`. `COMPLETED` означает, что процесс дошёл до terminal.
+Процесс бывает `ACTIVE`, `FAILED` или `COMPLETED` (дошёл до terminal-состояния).
 
-Исключение обработчика — техническая ошибка: изменения откатываются, а дальше решает `ProcessErrorHandler`
-(повторить, остановить в `FAILED` или уйти в состояние `onGiveUp`). Ожидаемые бизнес-ситуации выражайте outcome
-ветвящегося обработчика. Подробнее — в [error-handling.md](error-handling.md).
+Исключение обработчика — техническая ошибка: его изменения откатываются, а дальнейшее решает политика ошибок.
+Ожидаемые бизнес-ситуации выражайте результатами ветвящегося обработчика. См. [error-handling.md](error-handling.md).
 
-## Описание состояния
+## Обработчики
 
-`ProcessState.description()` задаёт человекочитаемую подпись, которую Admin UI показывает на схеме процесса.
-По умолчанию она совпадает с `name()`. Описание не может быть пустым и не влияет ни на идентичность состояния,
-ни на исполнение:
+Definition строится один раз, и его обработчики вызываются многими процессами одновременно. Делайте их без
+состояния, а данные процесса храните в `ProcessContext`.
 
-```java
-enum OrderState implements ProcessState {
-    CREATED("Создание заказа"),
-    WAITING_FOR_PAYMENT("Ожидание оплаты");
+В Spring наследуйте `SpringProcessDefinition` и берите обработчики через `bean(Type.class)` или внедряйте через
+конструктор. Без Spring создайте экземпляры сами и передайте definition в `ProcessEngineBuilder`.
 
-    private final String description;
-
-    OrderState(String description) { this.description = description; }
-
-    @Override
-    public String description() { return description; }
-}
-```
-
-## Жизненный цикл обработчиков
-
-Definition строится один раз при регистрации в engine, а его шаги и обработчики вызываются конкурентно многими
-процессами. Делайте их stateless или thread-safe; данные конкретного процесса храните в `ProcessContext`,
-а не в полях обработчика.
-
-В Spring обработчики передаются в definition через constructor injection или через `bean(Type.class)` базового
-класса `SpringProcessDefinition`. Без Spring экземпляры создаются явно до регистрации definition в `ProcessEngineBuilder`.
-
-## Ошибки компиляции
-
-Тип обработчика (`ProcessStep` / `BranchingStep<O>`, `ProcessMessageHandler<T>` / `BranchingMessageHandler<T, O>`,
-`ProcessTimerHandler` / `BranchingTimerHandler<O>`) связан с формой объявления в definition, поэтому большинство
-ошибок видно на компиляции. Текст сообщений зависит от версии `javac` и IDE; ориентируйтесь на признак.
-
-| Ошибка | Признак | Исправление |
-|---|---|---|
-| Лямбда линейного шага возвращает outcome | `no suitable method found for step(...)`: `bad return type in lambda expression` | Объявить routes (шаг становится ветвящимся) или ничего не возвращать |
-| Ветвящийся шаг объявлен с одной целью | `no suitable method found for step(...)`: `ValidateStep cannot be converted to ProcessStep` | Заменить цель на `routes -> routes.on(...)` |
-| Линейный шаг объявлен с routes | `no suitable method found for step(...)`: `CreateStep cannot be converted to BranchingStep<O>` | Заменить routes на целевое состояние |
-| В routes outcome чужого enum | `Stock cannot be converted to Validation` | Использовать константы того же enum, что возвращает шаг |
-| Обработчик события ожидания | те же признаки с `message(...)` / `every(...)` | Как у шагов: routes для outcome, целевое состояние для линейного обработчика |
-
-Остальную структуру проверяет `build()`: повторяющиеся состояния и события, объявленность целей, полноту routes,
-положительность задержек и наличие выхода из каждого ожидания.
-
-## Правила для пользователей и ИИ-агентов
-
-- Не используйте raw types и приведения типов у обработчиков: они обходят проверки компилятора, и ошибка формы
-  обработчика обнаружится только в runtime.
-- Обработчик не называет целевое состояние. Переход в то же состояние — не смена состояния: шаг выполняется
-  снова, ожидание продолжает ждать с очередью и таймерами. Чтобы начать ожидание заново, пройдите через шаг.
-- Чтобы добавить ветку, замените `ProcessStep` на `BranchingStep<Outcome>` и верните outcome: компилятор укажет
-  место в definition, где цель нужно заменить на routes. Для событий ожидания аналогично:
-  `ProcessMessageHandler<T>` → `BranchingMessageHandler<T, Outcome>`, `ProcessTimerHandler` → `BranchingTimerHandler<Outcome>`.
-- Повтор после технической ошибки — `ErrorResult.retryAfter`, а не шаг, который повторяет сам себя.
-- Периодическую проверку делайте через `every` в ожидании, а не циклом «шаг → ожидание → шаг»: приход в ожидание
-  из шага очищает очередь и перезапускает `after`. Расписание по календарным датам — это `at`, обработчик которого
-  ставит его таймер на следующую дату, считая её от момента срабатывания, который возвращает `getTimer`.
+`ProcessState.description()` задаёт подпись состояния на диаграмме Admin UI; по умолчанию это `name()`.
 
 ## Эволюция definition
 
-Движок сохраняет имена типа и состояния, но не версию definition. Уже запущенные процессы используют definition,
-зарегистрированное в текущем приложении:
+Движок хранит имена типа и состояний, но не версию definition. Запущенные процессы используют definition текущего
+приложения:
 
-- изменение обработчика влияет и на живые процессы;
-- удаление или переименование состояния (или типа) оставляет живые процессы в старом состоянии, которое движок
-  не может исполнить. Такой процесс откладывается на 60 секунд с ошибкой в `lastError`, пока его не исправят.
+- изменение обработчика затрагивает и запущенные процессы;
+- процесс в удалённом или переименованном состоянии не может выполняться: он повторяется каждые 60 секунд с ошибкой
+  в `lastError`.
 
-Проще всего сохранять старые состояния, пока в них есть живые процессы. Если состояние всё же удалено, найдите
-затронутые процессы и переведите их в зарегистрированное состояние:
+Сохраняйте старые состояния, пока в них есть процессы. Если состояние всё же удалено, переведите затронутые процессы:
 
 ```java
 processEngine.processes().byTypeName("ORDER").byStateName("OLD_STATE").list()
         .forEach(p -> processEngineAdmin.moveProcessToState(p.id(), OrderState.NEW_STATE));
 ```
 
-Переход очищает очередь сообщений; переменные должны подходить новому обработчику. Для удалённого типа сначала
-верните его definition: `moveProcessToState` не меняет тип.
+## Ошибки компиляции
+
+Тип обработчика связан с формой объявления, поэтому большинство ошибок видно при компиляции. Текст сообщения зависит
+от версии `javac` и IDE; ориентируйтесь на симптом.
+
+| Ошибка | Симптом | Исправление |
+|---|---|---|
+| Линейный шаг возвращает результат | `no suitable method found for step(...)`: `bad return type in lambda expression` | Объявите маршруты или ничего не возвращайте |
+| У ветвящегося шага одна цель | `... cannot be converted to ProcessStep` | Замените цель на `routes -> routes.on(...)` |
+| У линейного шага маршруты | `... cannot be converted to BranchingStep<O>` | Замените маршруты целевым состоянием |
+| Маршруты используют другой enum | `Stock cannot be converted to Validation` | Используйте константы enum, который возвращает шаг |
+| То же для события ожидания | те же симптомы с `message(...)`, `every(...)` | Те же исправления |
+
+Не используйте raw types и приведения типов для обработчиков: они превращают эти ошибки компиляции в ошибки
+выполнения.
+
+`build()` проверяет остальное: повторяющиеся состояния и события, необъявленные цели, неполные маршруты,
+неположительные задержки, ожидание без выхода и незарегистрированные worker.

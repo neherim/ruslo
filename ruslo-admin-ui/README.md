@@ -75,7 +75,7 @@ The diagram is built automatically from the `ProcessDefinition`: nodes are the d
 
 - A node is labeled with `ProcessState.description()` (the state name by default); the name is shown in the tooltip.
 - A step has a solid border, an await a dashed one, a terminal state a double one; a dot marks the initial state.
-- An edge is labeled with the branching outcome, the message name (✉), `every <interval>`, `after <delay>` or `at <variable>` (⏱). An event that keeps the process waiting is drawn as a loop. The transition to the `onGiveUp` state on error is not shown.
+- An edge is labeled with the branching outcome, the message name (✉), `every <interval>`, `after <delay>` or `at <timer>` (⏱). An event that keeps the process waiting is drawn as a loop. The transition to the `onGiveUp` state on error is not shown.
 - The mouse wheel scrolls the page; zoom with Ctrl/⌘ held, a pinch gesture or the toolbar buttons. The legend under the diagram explains the notation.
 
 The Diagram button on the dashboard opens the definition diagram. On the process page the diagram also highlights the visited states and transitions (from the state history) and the current state according to the status (`FAILED` in the error color). If several transitions are declared between two states, all of them are highlighted: the history does not record which event fired. An administrative move outside the declared transitions is drawn as a dashed edge. With history disabled only the current state is highlighted.

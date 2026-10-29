@@ -130,9 +130,9 @@ line where the target must become routes. `build()` checks that all enum constan
   (`fixed(maxRetries, delay)` + `onGiveUp`) or catch the error in the handler.
 - A deadline that can move (extension by a message, a due date from the order) is `at(DUE, ...)` plus a message
   handler that calls `setTimer(DUE, newMoment)` and targets the await itself. A schedule by calendar dates is `at`
-  whose handler writes the next date to a variable and sets the timer to it; compute the date from the original
-  date (e.g. sign-up date plus n months) and the previous date variable, not from the current time (the day drifts
-  after a short month, and a late charge would shift the schedule).
+  whose handler moves its timer to the next date; compute the date from the fired moment (`getTimer`) and the
+  original date (e.g. sign-up date plus n months), not from the current time (the day drifts after a short month,
+  and a late charge would shift the schedule).
 - Polling an external system: `every` with branching routes back to the same await. Do not build a
   "step → await → step" loop: coming into an await from a step clears the queue and restarts `after`.
 - Run the first `every` check immediately: `every(interval, handler, next, o -> o.initialDelay(Duration.ZERO))`.

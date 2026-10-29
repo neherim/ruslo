@@ -1,140 +1,101 @@
-# Execution and transaction boundaries
+# Execution rules
 
 English | [Русский](ru/execution.md)
 
-The summary of guarantees is in [guarantees.md](guarantees.md). This page has the exact rules for edge cases.
+The exact rules behind [guarantees.md](guarantees.md): transaction boundaries, the order of await events and
+concurrent access. You do not need this page to write ordinary processes; read it when timing between events
+matters.
 
 ## Transitions
 
 Every handler call ends with one transaction that saves the new state and the `ProcessContext` changes. The next
-handler runs in a new transaction. If the next state runs on the same worker, the same node continues the process
-without claiming it again; otherwise the process returns to the shared queue.
+handler runs in a new transaction. If the next state runs on the same worker, the same node continues the process;
+otherwise the process returns to the shared queue.
 
-If a process starts in an await, the start saves the process and schedules timers; no user code runs.
-
-A handler exception rolls back its transaction: variable changes are not saved, and the selected message or the due
-timer stays for a retry. The [error policy](error-handling.md) applies next.
+A handler exception rolls back its transaction: variable changes are not saved, and the message or timer that was
+being handled stays for the retry. Then the [error policy](error-handling.md) applies.
 
 ## Await event selection
 
-One run of an await handles **at most one** event. Every event has a time:
+One run of an await handles **one** event. Every event has a time:
 
 - a message: the moment `sendMessage` stored it;
-- `every`: the planned grid point, `entering the await + initialDelay + k * interval`;
-- `after`: entering the await plus `delay`, computed on entering;
-- `at`: the moment of its process timer, if the timer is set.
+- `every`: its grid point;
+- `after`: entering the await plus `delay`;
+- `at`: the moment of the process timer.
 
-An event is due when its time is not later than the engine clock. Among due events, the one with the smallest time
-is handled. On a tie the order is: message, `every`, `after`, `at`; messages with the same time go in arrival order.
-The moment the dispatcher reached the process does not affect the choice.
+An event is due when its time is not later than the engine clock. Among due events the one with the earliest time
+is handled; on a tie the order is message, `every`, `after`, `at`, and messages go in arrival order. When the
+dispatcher reached the process does not matter.
 
-**Taking the event.** The engine takes the selected event before calling its handler: it removes the message, moves
-`every` to the first grid point after the current time and turns `after` off until the process comes into the
-await from another state. The `at` timer stays set while its handler runs and is cancelled after it, unless the
-handler changed it. If the handler leaves the await, the new state does not need any of it; if it keeps waiting,
-the await goes on with the next events. If the handler fails, the transaction is rolled back together with taking
-the event: the message is back in the queue, the timer is as before, and the retry selects the same event.
+The handled event is consumed in the handler's transaction: the message is removed, `every` moves to its next grid
+point after now, `after` is off until the process enters the await again, and an `at` timer the handler did not
+move is cancelled. If the handler fails, all of this is rolled back with it, and the retry selects the same event.
 
-**Timer moments.** The `at` moment is taken from the process
-timer the current await declares: `setTimer` and `cancelTimer` (in a handler, a step, or `setProcessTimer` /
-`cancelProcessTimer` in the admin API) move it at once, without entering the await again. Entering an await does not
-change process timers.
+### Retries pause the await
 
-The `at` handler reads the fired moment with `getTimer`. A handler that moves the timer sets the next moment; one
-that leaves it unchanged, or sets the same moment again, leaves `at` off.
+A handler error pauses the whole await until the retry time: new messages and due timers do not wake the process.
+After the pause the earliest due event is handled, usually the failed one. So a temporary failure delays handling
+but does not change the order of events.
 
-A moment in the past or equal to now is an event that is already due, selected by the usual rules: the process
-entered the await after the deadline, a message moved the deadline into the past, or dates were missed during
-downtime (the `at` handler can skip past dates itself). A process timer that no `at` of the current definition
-declares, for example one left by a previous version of the definition, is stored and shown in the details but
-never fires.
+The consequence: if a message accepted at 11:59 keeps failing, an `after` deadline at 12:00 waits for it; with
+unlimited retries the deadline never fires. For a hard deadline, limit the retries
+(`ProcessErrorHandler.fixed(maxRetries, delay)` with `onGiveUp`) or catch the error in the handler and return an
+outcome that keeps the process waiting.
 
-**Retry backoff.** A handler error pauses the whole await: until the retry time the process does not run, and new
-messages, due timers and changes of process timers do not wake it. After the pause the event is selected by the
-rules above, usually the failed one: its time is earlier than the others. An error postpones handling but does not
-change the order of events, so the result does not depend on temporary failures. A failed `every`, `after` or `at`
-handler is retried by [`onError`](error-handling.md); the timer stays on until it is handled successfully. The
-`ProcessContext` passed to `onError` can change process timers too: setting one does not wake the process before the
-retry, and cancelling the timer of a failed `at` leaves no event after the backoff, so the await keeps waiting for
-its other events.
+### Example
 
-The cost: if a message accepted at 11:59 keeps failing, a deadline at 12:00 does not fire until the message is
-handled or the process leaves the await by its error policy; with unlimited retries it never fires. For a hard
-deadline, limit the retries (`ProcessErrorHandler.fixed(maxRetries, delay)` with `onGiveUp`) or catch the
-error in the handler and return an outcome that keeps the await waiting.
-
-Example (`after(1h)` from entering the await at 11:00, so the deadline is 12:00):
+`after(1h)` from entering the await at 11:00, so the deadline is 12:00:
 
 | Situation | Result |
 |---|---|
-| Message accepted at 11:59, handling started at 12:01 | the message is handled |
-| Message accepted at 11:59, its handling failed and was scheduled for retry at 12:05 | the message is retried at 12:05, `after` waits for it |
-| Message accepted at 11:59, handling at 12:01 failed and was scheduled for retry at 12:06 | the message is retried at 12:06, `after` waits for it |
-| Message accepted at 11:30, its handling failed and was scheduled for retry at 11:35 | the message is retried at 11:35 |
-| Message accepted at 11:59, handled at 12:01 with the await itself as the target | `after` fires right after it |
-| Message accepted at 12:00:30, handling started at 12:01 | `after` fires, the message is removed with the queue |
-| `after` handler failed at 12:00 and was scheduled for retry at 12:05, `at` is 12:02 | `after` is retried at 12:05, `at` waits for it |
-| A message accepted at 11:30 failed and was scheduled for retry at 11:35; `at` was moved from 13:00 to 11:32 | the message is retried at 11:35 |
+| Message accepted at 11:59, handling started at 12:01 | the message is handled: it is earlier than the deadline |
+| Message accepted at 11:59, its handling failed and is retried at 12:05 | the message is retried at 12:05, `after` waits for it |
+| Message accepted at 11:59, handled with the await itself as the target | `after` fires right after it |
+| Message accepted at 12:00:30, handling started at 12:01 | `after` fires; the message is removed with the queue |
 
-Consequences:
+So:
 
-- a message accepted after the deadline but before it is handled is removed on the deadline transition,
-  although `sendMessage` returned successfully;
-- a late `every` sees the current state of the external system: a check scheduled for 11:58
-  and run at 12:01 may see a change made after the deadline;
-- `every` checks missed during downtime are not run in a batch: one runs, and the next is the first point of the
-  grid after it starts; a point passed while the check ran fires right after it;
-- a late check does not shift the grid, so the check after it may come sooner than `interval`: there is no minimum
-  interval between checks. With `every(10m)` and a deadline at 12:00, the 12:00 check runs before `after`
-  however late the previous checks were;
-- timers do not fire in status `FAILED`, and a change of a process timer does not wake such a process; after
-  `resumeFailedProcess` the event is selected by these rules again.
-
-A process taken with no due event, for example after `next_run_at` was changed by hand
-([operations.md](operations.md#editing-timers-in-sql)), only recomputes its next run: no handler runs, no attempt is
-counted and no history row is written.
+- `sendMessage` succeeding does not mean the handler runs: a message accepted after the deadline is removed on the
+  deadline transition;
+- a late `every` check sees the current state of the external system, which may have changed after the deadline;
+- `every` points missed during downtime are not run in a batch: one check runs, then the grid continues;
+- a process in `FAILED` handles no events; after `resumeFailedProcess` these rules apply again.
 
 ## Concurrent access
 
-One node claims a process. A transactional worker holds the process row lock while the handler runs,
-so `sendMessage` for this process waits for the transition to finish and sees either the old await or the already
-committed new state. A non-transactional worker does not hold the lock: before saving the result, the engine checks
-that the process still belongs to this node and has not changed; otherwise the result is discarded and the step
-runs again.
+One node claims a process at a time. A transactional worker holds the process row lock while the handler runs, so
+a concurrent `sendMessage` waits for the transition to commit and sees either the old await or the new state. A
+non-transactional worker does not hold the lock: before saving the result, the engine checks that the process still
+belongs to this node and has not changed; otherwise the result is discarded and the step runs again.
 
-If a node has not renewed its registration for longer than `ruslo.dispatcher.instance-timeout`, its processes are
-released and taken by other nodes. The timeout is measured by database time, so node clock divergence does not
-affect it. A node that comes back after such a pause registers again, and the results of steps it had started are
-discarded.
+If a node has not renewed its registration for longer than `ruslo.dispatcher.instance-timeout`, other nodes take its
+processes. The timeout is measured by database time, so node clock divergence does not affect it. The results of
+steps that the lost node had started are discarded.
 
 ## Application transactions in Spring
 
 Engine operations join the active application transaction (`PROPAGATION_REQUIRED`). So `newProcess(...).start()` and
 `sendMessage()` inside `@Transactional` are atomic with the application changes on the same `DataSource` and
-transaction manager: on rollback neither is saved. The dispatcher wakes up after commit. Process steps run later,
-each transition in its own transaction.
+transaction manager: on rollback neither is saved. Process steps run after commit, each in its own transaction.
 
-Engine errors (database errors, `ProcessNotFoundException`, an undeclared message type) are thrown from inside its
-transaction and, as usual in Spring, mark the application transaction rollback-only even if caught.
-The engine throws expected race outcomes after leaving its transaction, so by themselves they do not mark the
-transaction: if the process is not waiting for the message now, `sendMessage` and `sendMessageSync` throw
-`MessageNotExpectedException`, and if the process is not in `FAILED`, `resumeFailedProcess` throws
-`ProcessStatusException`. A caught rejection does not prevent the application transaction from committing; an
-uncaught one rolls it back, like any exception.
+An engine error (a database error, `ProcessNotFoundException`, an undeclared message type) is thrown inside the
+transaction and, as usual in Spring, marks it rollback-only even if caught.
+
+An expected rejection is thrown after the engine leaves its transaction: `MessageNotExpectedException` from
+`sendMessage` and `sendMessageSync`, `ProcessStatusException` from `resumeFailedProcess`. A caught rejection does not
+prevent the application transaction from committing; an uncaught one rolls it back like any exception.
 
 ## Synchronous message handling
 
-`processEngine.sendMessageSync(processId, type, payload)` runs the message handler in the calling thread,
-in the active application transaction or in a new one. The process row stays locked until commit or rollback.
+`processEngine.sendMessageSync(processId, type, payload)` runs the message handler in the calling thread and
+transaction (or a new one). Use it when the caller needs the transition committed before the call returns, for
+example for a user cancellation (the `cancellation` recipe).
 
-- Only the handler of this message runs synchronously, not the process until it stops; the dispatcher runs the
-  following steps after commit.
-- The message bypasses the queue: earlier messages and due `every`, `after` and `at` are ignored and keep waiting, and on a transition to
-  another state the queued messages are removed unhandled. If the process is waiting to retry a failed event, that
-  retry is kept.
-- Applicability is checked as in `sendMessage`: if the process is not waiting for the message now or has completed,
-  the method throws `MessageNotExpectedException`. A process in `FAILED` is not handled synchronously: the same
-  `MessageNotExpectedException` with `getStatus() == FAILED`, the message is not stored; `resumeFailedProcess` is
-  needed first.
-- A handler exception propagates to the caller and the transaction rolls back: the message is not stored, no error
-  is recorded in the process, and `ProcessErrorHandler` is not called.
+- Only this message's handler runs synchronously; the dispatcher runs the following steps after commit.
+- The message bypasses the queue: earlier messages and due timers keep waiting, and on a transition to another state
+  the queued messages are removed.
+- If the process does not expect the message now, the method throws `MessageNotExpectedException`; for a process in
+  `FAILED` too, with `getStatus() == FAILED`. Nothing is stored.
+- A handler exception propagates to the caller and rolls back the transaction: the message is not stored and the
+  error policy is not called.

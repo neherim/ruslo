@@ -22,6 +22,23 @@ Javadoc is a technical contract, not prose. Write the minimum the caller needs.
 - English is the primary version: `README.md`, `docs/*.md`. The Russian translation lives next to it: `README.ru.md`, `docs/ru/*.md`.
 - Change the English version first, then update the Russian one in the same change so they say the same thing.
 - Documentation may explain in more detail than Javadoc, but stays technical: no filler, no marketing.
+- Documentation describes the model and the recommended usage. Exact edge cases of a method (argument checks,
+  truncation, behavior in rare states) belong in its Javadoc, not in `docs/`.
+- Every fact has one home page; other pages link to it instead of restating it. A behavior change should touch its
+  home page, the Javadoc and `skills/ruslo/SKILL.md`, not every page that mentions the feature.
+
+| Topic | Home |
+|---|---|
+| States, handlers, awaits, timers, `ProcessContext`, definition evolution | `docs/concepts.md` |
+| Transactions, at-least-once, worker modes, message acceptance, timer accuracy | `docs/guarantees.md` |
+| Event order in an await, retry pause, Spring transactions, `sendMessageSync`, concurrency | `docs/execution.md` |
+| Error policy, give-up state, `FAILED` | `docs/error-handling.md` |
+| Properties and builder methods | `docs/configuration.md` |
+| Emulator and `TestProcessContext` | `docs/testing.md` |
+| Search, manual intervention, retention | `docs/operations.md` |
+
+- `README.md` and `docs/quickstart.md` show only the main path and link to the home pages; Admin UI pages are
+  described by what the user can do, not by how the page works.
 
 ## Design Principles
 
