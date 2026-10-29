@@ -30,49 +30,51 @@ The handler returns one of three results:
   they nor due timers are handled before it (see [execution.md](execution.md#await-event-selection)).
 - `ErrorResult.fail()`: stop the process in the current state with status `FAILED`. Continue with
   `resumeFailedProcess(id)`, which retries the failed event.
-- `ErrorResult.fallback()`: go to the process fallback state (see below), or to `FAILED` if there is none.
+- `ErrorResult.giveUp()`: stop retrying and let the definition decide: go to the state declared with `onGiveUp`
+  (see below), or stop in `FAILED` like `fail()` if there is none.
 
-## Fallback state
+## Give-up state
 
 Error handling is declared at the process level:
 
 ```java
-.onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(1), Duration.ofMinutes(5)),
-         CANCELLING)   // fallbackState: where to go when retries are exhausted
+.onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(1), Duration.ofMinutes(5)))
+.onGiveUp(CANCELLING)   // where to go when the handler returns giveUp()
 .initialState(CREATED)
 // ...
 .step(CANCELLING, cancelOrderStep, CANCELLED)
 .terminal(CANCELLED)
 ```
 
-Forms: `onError(handler)` without a fallback state, and `onError(handler, fallbackState)`.
+Both are optional: `onError` sets the handler (default `noRetry()`), `onGiveUp` sets the state for `giveUp()`.
+`fail()` ignores `onGiveUp`: it always stops the process in the current state.
 
-`fallback()` makes an ordinary transition to `fallbackState` (leaving an await clears its message queue).
-The process stays in `FAILED` if `fallbackState` is not declared or the error happened in `fallbackState` itself;
+`giveUp()` makes an ordinary transition to the `onGiveUp` state (leaving an await clears its message queue).
+The process stops in `FAILED` if `onGiveUp` is not declared or the error happened in the `onGiveUp` state itself;
 otherwise a failing compensation would loop. The engine does not detect **indirect loops**
 (`CANCELLING → X`, an error in `X` → `CANCELLING`): watch the definition topology yourself.
 
-To pass the reason for the transition, use `ProcessContext`: the handler writes a variable, the fallback state reads it.
+To pass the reason for the transition, use `ProcessContext`: the handler writes a variable, the `onGiveUp` state reads it.
 
 ## Built-in handlers
 
 | Handler | Behavior |
 |---|---|
-| `ProcessErrorHandler.noRetry()` | Returns `fallback()` immediately |
-| `ProcessErrorHandler.fixed(maxRetries, delay)` | Up to `maxRetries` retries with a fixed delay, then `fallback()` |
+| `ProcessErrorHandler.noRetry()` | Returns `giveUp()` immediately |
+| `ProcessErrorHandler.fixed(maxRetries, delay)` | Up to `maxRetries` retries with a fixed delay, then `giveUp()` |
 | `ProcessErrorHandler.exponential(maxRetries, initialDelay, maxDelay)` | The same with a doubling delay |
 
-The default policy is `noRetry()`: without `fallbackState` the process goes to `FAILED` immediately.
-**With a declared `fallbackState`, `noRetry()` moves the process to the fallback state right after the first error.**
+The default policy is `noRetry()`: without `onGiveUp` the process goes to `FAILED` on the first error, with
+`onGiveUp` it goes to that state.
 
 A custom handler:
 
 ```java
 (context, error) -> {
-    if (error.cause() instanceof PermanentlyUnavailableException) return ErrorResult.fallback();
+    if (error.cause() instanceof PermanentlyUnavailableException) return ErrorResult.giveUp();
     if (error.cause() instanceof DataCorruptionException) return ErrorResult.fail();
     if (error.attempt() < 3) return ErrorResult.retryAfter(Duration.ofSeconds(10));
-    return ErrorResult.fallback();
+    return ErrorResult.giveUp();
 }
 ```
 

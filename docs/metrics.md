@@ -16,7 +16,7 @@ The Spring Boot starter registers Micrometer metrics when a `MeterRegistry` is p
 | `ruslo.processes` | Gauge, `status` | Number of processes in statuses `ACTIVE` and `FAILED`; the values do not overlap |
 | `ruslo.system.errors` | Counter | Errors of the engine itself, not related to your handlers (usually database unavailability) |
 
-A metric is tagged with the state whose handler was called. Retries and fallbacks are not counted separately: errors
+A metric is tagged with the state whose handler was called. Retries and give-ups are not counted separately: errors
 are visible through `outcome=error`, stops through `processes.failed`.
 
 ## Workers

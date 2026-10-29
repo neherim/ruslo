@@ -26,7 +26,7 @@ the application tables used by the recipes are in [`src/main/resources/schema.sq
 | Package | Start with | Task | Documentation |
 |---|---|---|---|
 | [`branching`](src/main/java/io/github/neherim/ruslo/examples/cookbook/branching) | [`LoanApplicationDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/branching/LoanApplicationDefinition.java) | Check an application: approve, reject or send to manual review | [`docs/concepts.md`](../../docs/concepts.md) |
-| [`retries`](src/main/java/io/github/neherim/ruslo/examples/cookbook/retries) | [`NotificationDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/retries/NotificationDefinition.java) | External service temporarily unavailable: retries with growing delay, a fallback state, no retries for unrecoverable errors | [`docs/error-handling.md`](../../docs/error-handling.md) |
+| [`retries`](src/main/java/io/github/neherim/ruslo/examples/cookbook/retries) | [`NotificationDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/retries/NotificationDefinition.java) | External service temporarily unavailable: retries with growing delay, a give-up state, no retries for unrecoverable errors | [`docs/error-handling.md`](../../docs/error-handling.md) |
 | [`failandresume`](src/main/java/io/github/neherim/ruslo/examples/cookbook/failandresume) | [`InvoiceDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/failandresume/InvoiceDefinition.java) | Unrecoverable error: stop the process, find it, fix the data and continue | [`docs/error-handling.md`](../../docs/error-handling.md) |
 | [`transactionalstart`](src/main/java/io/github/neherim/ruslo/examples/cookbook/transactionalstart) | [`PurchaseOrderDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/transactionalstart/PurchaseOrderDefinition.java) | Save an order and start its process in one transaction | [`docs/execution.md`](../../docs/execution.md) |
 | [`deadline`](src/main/java/io/github/neherim/ruslo/examples/cookbook/deadline) | [`SeatReservationDefinition`](src/main/java/io/github/neherim/ruslo/examples/cookbook/deadline/SeatReservationDefinition.java) | Wait for payment until a deadline that can be extended, otherwise release the reservation | [`docs/concepts.md`](../../docs/concepts.md) |
@@ -55,7 +55,7 @@ recipe with different outcomes. Things to try in Admin UI:
 
 - `LOAN_APPLICATION` in `MANUAL_REVIEW`: send the `reviewDecision` message,
   e.g. `{"approved":true,"comment":"ok"}`.
-- `NOTIFICATION`: the notification to a recipient without `@` went to the fallback state `DELIVERY_FAILED` at once,
+- `NOTIFICATION`: the notification to a recipient without `@` went to the give-up state `DELIVERY_FAILED` at once,
   the one to `unavailable.example.com` after three retries.
 - `INVOICE` in status `FAILED`: change the `country` variable to `"DE"` and click Retry current step.
 - `IDENTITY_VERIFICATION`: send `verificationCallback`,

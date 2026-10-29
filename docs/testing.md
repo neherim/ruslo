@@ -15,7 +15,7 @@ and annotate the test with `@ProcessEngineTest`. The annotation:
 
 | Method | What it does |
 |---|---|
-| `runUntilStop(id)` | Runs transitions while the process is ready: stops in an await with no due events, on a future timer or delayed retry, in `FAILED` or on completion. If after an error `fallback` or a retry without delay leads to a step, execution continues |
+| `runUntilStop(id)` | Runs transitions while the process is ready: stops in an await with no due events, on a future timer or delayed retry, in `FAILED` or on completion. If after an error `giveUp` or a retry without delay leads to a step, execution continues |
 | `runOneStep(id)` | Runs one step or one due await event; throws `ProcessStatusException` for a completed process or one in `FAILED` |
 | `runUntilState(id, state)` | Runs transitions up to the given state; throws `IllegalStateException` with the process summary (status, `lastError`, history) if the process stops earlier |
 | `runAll()` | Runs all active processes in the database to their next stop, for scenarios where processes interact. The database is shared by tests with the same context: active processes of previous tests are included too |
@@ -84,7 +84,7 @@ assertEquals(SeatReservationDefinition.State.EXPIRED.id(), emulator.runUntilStop
 A handler that calls `Instant.now()` instead sees the system time, and such a test fails.
 
 Full examples in `ruslo-examples/cookbook`: the `deadline` recipe (`at` timer), the `subscription` recipe (schedule
-by dates) and the `retries` recipe (retries and fallback state).
+by dates) and the `retries` recipe (retries and the give-up state).
 
 Control time through the emulator; there is no need to inject the engine clock into the test. To set your own
 initial clock, declare a `MutableClock` bean (`core.api.test`) named `processEngineClock` with

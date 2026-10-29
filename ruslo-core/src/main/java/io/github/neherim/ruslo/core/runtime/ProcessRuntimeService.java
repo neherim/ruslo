@@ -178,7 +178,7 @@ public class ProcessRuntimeService {
      * Leases are ignored: if a non-transactional worker runs the process at the same time, a user step may run twice.
      *
      * @return {@code true} if the process is ready to continue immediately, also after an error when
-     *         {@code fallback} or a zero-delay retry leads to a step; {@code false} on completion, {@code FAILED},
+     *         {@code giveUp} or a zero-delay retry leads to a step; {@code false} on completion, {@code FAILED},
      *         an await without a due event, a delayed retry or a step scheduled in the future
      * @throws ProcessStatusException if the process is completed or {@code FAILED}
      */

@@ -143,7 +143,7 @@ processEngine.sendMessage(processId, OrderProcess.PAYMENT_CONFIRMED, new Payment
 | [Быстрый старт](docs/ru/quickstart.md) | Рабочий процесс заказа от зависимостей до теста |
 | [Модель процесса](docs/ru/concepts.md) | Шаги, ожидания, ветвления, таймеры, переменные, эволюция definition |
 | [Гарантии](docs/ru/guarantees.md) | Что переживает сбой, доставка сообщений, точность таймеров |
-| [Обработка ошибок](docs/ru/error-handling.md) | Ретраи с задержкой, запасное состояние |
+| [Обработка ошибок](docs/ru/error-handling.md) | Ретраи с задержкой, состояние отказа |
 | [Workers](docs/ru/workers.md) | Отдельные пулы для шагов с внешним I/O |
 | [Исполнение](docs/ru/execution.md) | Точные правила выбора событий и границ транзакций |
 | [Конфигурация](docs/ru/configuration.md) | Все свойства `ruslo.*`; использование без Spring |

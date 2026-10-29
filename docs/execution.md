@@ -59,7 +59,7 @@ its other events.
 
 The cost: if a message accepted at 11:59 keeps failing, a deadline at 12:00 does not fire until the message is
 handled or the process leaves the await by its error policy; with unlimited retries it never fires. For a hard
-deadline, limit the retries (`ProcessErrorHandler.fixed(maxRetries, delay)` with a `fallbackState`) or catch the
+deadline, limit the retries (`ProcessErrorHandler.fixed(maxRetries, delay)` with `onGiveUp`) or catch the
 error in the handler and return an outcome that keeps the await waiting.
 
 Example (`after(1h)` from entering the await at 11:00, so the deadline is 12:00):

@@ -6,7 +6,7 @@ import java.util.Objects;
 /**
  * Decision of a {@link ProcessErrorHandler}.
  */
-public sealed interface ErrorResult permits ErrorResult.RetryAfter, ErrorResult.Fail, ErrorResult.Fallback {
+public sealed interface ErrorResult permits ErrorResult.RetryAfter, ErrorResult.Fail, ErrorResult.GiveUp {
     /**
      * Retries the failed step or event after the delay.
      */
@@ -22,11 +22,12 @@ public sealed interface ErrorResult permits ErrorResult.RetryAfter, ErrorResult.
     }
 
     /**
-     * Gives up and lets the definition decide: moves to {@code fallbackState}, or to {@code FAILED} if none is
-     * declared or the process is already in it.
+     * Gives up and lets the definition decide: moves to the state declared with
+     * {@link ProcessSpecBuilder.TypedBuilder#onGiveUp(ProcessState) onGiveUp}, or stops in {@code FAILED} like
+     * {@link #fail()} if none is declared or the process is already in it.
      */
-    static ErrorResult fallback() {
-        return new Fallback();
+    static ErrorResult giveUp() {
+        return new GiveUp();
     }
 
     record RetryAfter(Duration delay) implements ErrorResult {
@@ -39,6 +40,6 @@ public sealed interface ErrorResult permits ErrorResult.RetryAfter, ErrorResult.
     record Fail() implements ErrorResult {
     }
 
-    record Fallback() implements ErrorResult {
+    record GiveUp() implements ErrorResult {
     }
 }

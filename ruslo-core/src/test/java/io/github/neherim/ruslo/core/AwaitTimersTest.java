@@ -356,16 +356,16 @@ class AwaitTimersTest extends BaseTest {
     }
 
     @Test
-    void fallbackFromAwaitDropsDeadline() {
+    void giveUpFromAwaitDropsDeadline() {
         ProcessDefinition definition = builder -> builder.type("T11")
-            .onError(ProcessErrorHandler.noRetry(), State.FALLBACK)
+            .onGiveUp(State.COMPENSATE)
             .initialState(State.WAIT)
             .await(State.WAIT, await -> await
                 .message(SIGNAL, (context, message) -> {
                     throw new IllegalStateException("boom");
                 }, State.MSG_DONE)
                 .after(Duration.ofHours(1), State.TIMEOUT_DONE))
-            .step(State.FALLBACK, context -> {}, State.MSG_DONE)
+            .step(State.COMPENSATE, context -> {}, State.MSG_DONE)
             .terminal(State.MSG_DONE)
             .terminal(State.TIMEOUT_DONE)
             .build();
@@ -374,7 +374,7 @@ class AwaitTimersTest extends BaseTest {
             var id = start(engine, "T11", "11:00:00");
             at("11:30:00");
             engine.sendMessage(id, SIGNAL, "m");
-            assertEquals("FALLBACK", run(engine, id).state().name());
+            assertEquals("COMPENSATE", run(engine, id).state().name());
             assertEquals("MSG_DONE", run(engine, id).state().name());
         } finally {
             engine.close();
@@ -485,6 +485,6 @@ class AwaitTimersTest extends BaseTest {
         MSG_DONE,
         EVERY_DONE,
         TIMEOUT_DONE,
-        FALLBACK
+        COMPENSATE
     }
 }

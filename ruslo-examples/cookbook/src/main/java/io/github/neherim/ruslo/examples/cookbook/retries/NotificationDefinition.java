@@ -21,14 +21,14 @@ import java.time.Duration;
  * <p>
  * Task: send a notification through an external gateway that sometimes answers with an error. A retry after a pause
  * cures a transient failure. If the gateway stays down for long or rejects the notification itself, the process goes
- * to fallback state {@link State#DELIVERY_FAILED}, where the application decides what to do next.
+ * to {@link State#DELIVERY_FAILED}, where the application decides what to do next.
  * <p>
  * How it works: {@code onError} is called on an exception in a step and returns a decision.
  * <ul>
- *   <li>{@link InvalidRecipientException} cannot be fixed by a retry: {@link ErrorResult#fallback()} at once.</li>
+ *   <li>{@link InvalidRecipientException} cannot be fixed by a retry: {@link ErrorResult#giveUp()} at once.</li>
  *   <li>Other errors are considered transient: the built-in {@link ProcessErrorHandler#exponential} retries the step
- *       after 1, 2 and 4 seconds, and after {@link #MAX_RETRIES} retries also returns {@code fallback()}.</li>
- *   <li>{@code fallback()} moves the process to the state passed as the second argument of {@code onError}.</li>
+ *       after 1, 2 and 4 seconds, and after {@link #MAX_RETRIES} retries also returns {@code giveUp()}.</li>
+ *   <li>{@code giveUp()} moves the process to the state declared with {@code onGiveUp}.</li>
  * </ul>
  * <p>
  * Pitfalls:
@@ -37,7 +37,7 @@ import java.time.Duration;
  *       action repeats: the external call must be idempotent.</li>
  *   <li>The attempt counter ({@link ProcessError#attempt()}) belongs to the current state and resets on the
  *       transition to the next one.</li>
- *   <li>Without a fallback state {@code fallback()} stops the process in status {@code FAILED} until a manual
+ *   <li>Without {@code onGiveUp} {@code giveUp()} stops the process in status {@code FAILED} until a manual
  *       {@code resumeFailedProcess}. Use this when a human must look into the error (recipe
  *       {@code failandresume}).</li>
  * </ul>
@@ -57,12 +57,13 @@ public class NotificationDefinition implements ProcessDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationDefinition.class);
 
-    /** Describes sending a notification with retries and a fallback state. */
+    /** Describes sending a notification with retries and a give-up state. */
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
-            .onError(this::onError, State.DELIVERY_FAILED)
+            .onError(this::onError)
+            .onGiveUp(State.DELIVERY_FAILED)
             .initialState(State.SENDING)
             .step(State.SENDING, NotificationDefinition::send, State.SENT)
             .terminal(State.SENT)
@@ -85,7 +86,7 @@ public class NotificationDefinition implements ProcessDefinition {
     /** Does not retry errors a retry cannot fix; retries the rest with a growing delay. */
     private ErrorResult onError(ProcessContext context, ProcessError error) {
         if (error.cause() instanceof InvalidRecipientException) {
-            return ErrorResult.fallback();
+            return ErrorResult.giveUp();
         }
         return BACKOFF.handle(context, error);
     }

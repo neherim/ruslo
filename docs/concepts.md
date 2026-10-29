@@ -132,7 +132,7 @@ Timer rules:
 6. **A process timer lives until it fires or is cancelled.** An await left by a message keeps its timer set: on a
    new entry into an await with this `at`, a past moment fires at once. If the timer is no longer needed, the
    handler that leaves the await cancels it with `cancelTimer`. The same applies to `moveProcessToState` by an
-   operator and to `ErrorResult.fallback` from an await.
+   operator and to `ErrorResult.giveUp` from an await.
 7. A handler error pauses the whole await until the retry: a due timer waits until the failed event is handled
    (see [execution.md](execution.md#await-event-selection)).
 
@@ -240,7 +240,7 @@ VariableType<OrderItems> ITEMS = VariableType.of("items", OrderItems.class);
 Process status is `ACTIVE`, `FAILED` or `COMPLETED`. `COMPLETED` means the process reached a terminal state.
 
 A handler exception is a technical error: changes are rolled back, and `ProcessErrorHandler` decides what happens
-next (retry, stop in `FAILED` or go to the fallback state). Express expected business situations as an outcome of
+next (retry, stop in `FAILED` or go to the `onGiveUp` state). Express expected business situations as an outcome of
 a branching handler. Details: [error-handling.md](error-handling.md).
 
 ## State description

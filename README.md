@@ -143,7 +143,7 @@ database add 14–28%. Conditions and raw data:
 | [Quickstart](docs/quickstart.md) | A working order process, from dependencies to a test |
 | [Process model](docs/concepts.md) | Steps, awaits, branching, timers, variables, definition evolution |
 | [Guarantees](docs/guarantees.md) | What survives a failure, message delivery, timer accuracy |
-| [Error handling](docs/error-handling.md) | Delayed retries, fallback state |
+| [Error handling](docs/error-handling.md) | Delayed retries, give-up state |
 | [Workers](docs/workers.md) | Separate pools for steps with external I/O |
 | [Execution](docs/execution.md) | Exact rules of event selection and transaction boundaries |
 | [Configuration](docs/configuration.md) | All `ruslo.*` properties; usage without Spring |
