@@ -5,40 +5,35 @@
 Подключите `ruslo-spring-boot-starter-test` (см. [быстрый старт](quickstart.md#6-проверьте-процесс-эмулятором))
 и пометьте тест `@ProcessEngineTest`. Аннотация:
 
-- отключает фоновый диспетчер — процессы исполняются только по вашей команде;
-- регистрирует `ProcessEngineEmulator`, который исполняет процесс в потоке теста;
-- заменяет часы движка на `MutableClock`, чтобы перематывать время через эмулятор;
-- перед каждым тестом возвращает часы движка к начальному времени: Spring переиспользует контекст между тестами,
-  и без сброса перемотка из одного теста сохранялась бы в следующих.
+- выключает фоновый диспетчер: процессы выполняются, только когда это велит тест;
+- регистрирует `ProcessEngineEmulator`, который выполняет процессы в потоке теста;
+- даёт движку часы, которыми управляет эмулятор, и сбрасывает их перед каждым тестом.
 
 ## ProcessEngineEmulator
 
 | Метод | Что делает |
 |---|---|
-| `runUntilStop(id)` | Исполняет переходы, пока процесс готов: останавливается в ожидании без наступивших событий, на будущем таймере или повторе с задержкой, в `FAILED` или при завершении. Если после ошибки `giveUp` или повтор без задержки ведут в шаг, исполнение продолжается |
-| `runOneStep(id)` | Исполняет один шаг или одно наступившее событие ожидания; для завершённого процесса или процесса в `FAILED` бросает `ProcessStatusException` |
-| `runUntilState(id, state)` | Исполняет переходы до указанного состояния; бросает `IllegalStateException` со сводкой процесса (статус, `lastError`, история), если процесс остановился раньше |
-| `runAll()` | Доводит все активные процессы в БД до ближайшей остановки — для сценариев, где процессы взаимодействуют. Учитывайте, что база общая для тестов с одним контекстом: сюда попадут и активные процессы предыдущих тестов |
-| `sendMessageAndRunUntilStop(id, type, payload)` | Вызывает `sendMessage`, затем `runUntilStop`; если процесс сообщение не принял, бросает `MessageNotExpectedException` |
-| `fastForwardTime(duration)` | Перематывает часы движка вперёд |
-| `setTime(instant)` | Устанавливает текущее время часов движка |
-| `resetTime()` | Возвращает часы движка к начальному времени; `@ProcessEngineTest` делает это перед каждым тестом сам |
+| `runUntilStop(id)` | Выполняет переходы, пока процессу есть что делать: останавливается в ожидании без наступивших событий, на будущем таймере или повторе, в `FAILED` или при завершении |
+| `runOneStep(id)` | Выполняет один шаг или одно наступившее событие ожидания |
+| `runUntilState(id, state)` | Выполняет переходы до заданного состояния; если процесс остановился раньше, бросает исключение со сводкой процесса |
+| `runAll()` | Доводит все активные процессы до следующей остановки — для процессов, которые взаимодействуют |
+| `sendMessageAndRunUntilStop(id, type, payload)` | `sendMessage`, затем `runUntilStop` |
+| `fastForwardTime(duration)`, `setTime(instant)` | Двигают часы движка |
 
-Методы возвращают `ProcessInstanceDetails`: проверяйте `state()`, `status()` и `lastError()`. Переменные
-читайте типизированно: `details.variables().get(AMOUNT)` возвращает `Optional` значения класса переменной.
+Методы возвращают `ProcessInstanceDetails`. Сравнивайте состояние по id, ожидаемое значение первым:
 
-Состояние сравнивайте через `assertEquals(OrderState.COMPLETED.id(), details.state())`: при несовпадении сообщение
-показывает фактическое состояние. Без `.id()` проверка не проходит никогда: константа enum не равна
-`ProcessStateId` из details. `assertTrue(details.state().is(...))` фактического состояния не показывает.
-`toString()` у `ProcessInstanceDetails` — сводка статуса, `lastError`, последних состояний истории, переменных и
-таймеров; передайте её сообщением, когда одного состояния мало, чтобы понять причину:
-`assertEquals(OrderState.COMPLETED.id(), details.state(), details::toString)`.
+```java
+assertEquals(OrderState.COMPLETED.id(), details.state(), details::toString);
+```
+
+При несовпадении сообщение покажет фактическое состояние, а `details::toString` добавит статус, `lastError`,
+последнюю историю, переменные и таймеры. Переменные читаются через `details.variables().get(AMOUNT)`.
+
+`runAll()` видит все процессы в базе, в том числе оставшиеся от предыдущих тестов с тем же Spring-контекстом.
 
 ## Таймеры и повторы
 
-Таймеры `every` и `after`, таймеры процесса для `at` и задержки `retryAfter`, в том числе у шагов, наступают, когда время перемотано
-эмулятором (`fastForwardTime` или `setTime`): `runUntilStop` останавливается на шаге, ждущем повтора, `runOneStep`
-выполняет его сразу. Собственные бины `Clock` приложения на часы движка не влияют:
+Таймеры и задержки `retryAfter` наступают, только когда тест двигает часы движка:
 
 ```java
 @ProcessEngineTest
@@ -50,94 +45,66 @@ class OrderServiceTest {
     private ProcessEngineEmulator emulator;
 
     @Test
-    void orderAutoCompletesAfterDeliveryTimeout() {
-        var processId = orderService.createOrder(new CreateOrderRequest("PS5", 1));
+    void cancelsOrderWhenNotPaidInTime() {
+        var processId = orderService.createOrder("customer-1");
         emulator.runUntilStop(processId);
-        orderService.confirmPayment(processId, new PaymentConfirmed(BigDecimal.valueOf(500)));
 
-        var waiting = emulator.runUntilStop(processId);
-        assertEquals(State.WAITING_FOR_DELIVERY_TIMER.id(), waiting.state());
+        emulator.fastForwardTime(Duration.ofHours(3));   // заказ из README ждёт after(2 hours)
 
-        emulator.fastForwardTime(Duration.ofSeconds(11));   // ожидание ждёт after(10 секунд)
-
-        var completed = emulator.runUntilStop(processId);
-        assertEquals(ProcessStatus.COMPLETED, completed.status());
+        var cancelled = emulator.runUntilStop(processId);
+        assertEquals(OrderState.CANCELLED.id(), cancelled.state());
     }
 }
 ```
 
-Срок таймера процесса (`at`) тестируется через `setTime`. Обработчики берут время из `context.now()` — часов
-движка, поэтому шаг, ставящий таймер, видит время, заданное тестом. Поставленные таймеры показывает
-`details.timers()`:
+Для срока `at` сначала задайте время, чтобы шаг, который ставит таймер от `context.now()`, его увидел:
 
 ```java
 var start = Instant.parse("2026-10-07T10:00:00Z");
 emulator.setTime(start);
 var processId = processEngine.newProcess(SeatReservationDefinition.TYPE).start();
-var waiting = emulator.runUntilStop(processId);      // шаг ставит PAYMENT_DUE = context.now() + 15 минут
-assertEquals(start.plus(SeatReservationDefinition.PAYMENT_TIME),
-        waiting.timers().get(SeatReservationDefinition.PAYMENT_DUE.name()));
+emulator.runUntilStop(processId);                    // шаг ставит PAYMENT_DUE = now + PAYMENT_TIME
 
 emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
 assertEquals(SeatReservationDefinition.State.EXPIRED.id(), emulator.runUntilStop(processId).state());
 ```
 
-Обработчик, вызывающий `Instant.now()`, видит системное время, и такой тест падает.
+Обработчики должны брать время из `context.now()`: обработчик, который вызывает `Instant.now()`, не видит время
+теста. Собственные бины `Clock` приложения на движок не влияют.
 
-Полные примеры в `ruslo-examples/cookbook`: рецепты `deadline` (таймер `at`), `subscription` (расписание по датам)
-и `retries` (повторы и состояние отказа).
+Полные примеры в [`ruslo-examples/cookbook`](../../ruslo-examples/cookbook): рецепты `deadline`, `subscription` и
+`retries`.
 
-Временем управляйте через эмулятор, внедрять часы движка в тест не нужно. Чтобы задать собственные начальные часы,
-объявите в тестовой конфигурации бин `MutableClock` (`core.api.test`) с именем `processEngineClock` и
-`@Bean(defaultCandidate = false)` — он заменит часы по умолчанию. Без Spring эмулятор создаётся из движка:
-`new ProcessEngineEmulator(engine)`. Он использует часы движка, поэтому для перемотки времени создайте движок с `MutableClock`
-(`ProcessEngineBuilder.withClock`), иначе `fastForwardTime` и `setTime` бросят `IllegalStateException`.
+## Юнит-тесты обработчика: TestProcessContext
 
-Чтобы управлять временем при работающем диспетчере, подключите вместо `@ProcessEngineTest`
-`@ImportAutoConfiguration(ProcessEngineTestConfiguration.class)`: эмулятор и `MutableClock` появятся, а диспетчер
-останется включённым.
-
-## Юнит-тесты шагов: TestProcessContext
-
-Шаг или обработчик можно проверить без Spring, движка и базы данных, передав ему `TestProcessContext`
-(`core.api.test`, модуль `ruslo-core`). В отличие от мока, он хранит переменные так же, как движок:
-значение сериализуется в JSON при записи и собирается заново при чтении. Поэтому тест ловит значения, которые
-не переживают сериализацию, и изменения объекта, полученного из `getVariable`, без вызова `setVariable` —
-в движке такие изменения теряются.
+Шаг или обработчик можно проверить без Spring, движка и базы данных с `TestProcessContext` (`ruslo-core`). В отличие
+от мока, он хранит переменные в JSON, как движок, поэтому тест ловит значения, которые не переживают сериализацию, и
+объекты, изменённые без `setVariable`.
 
 ```java
 var context = TestProcessContext.builder()
         .variable(ORDER, new Order("PS5", new BigDecimal("500.00")))
-        .attempt(1)                  // 0 — первое исполнение, далее — номер повтора
+        .attempt(1)
         .build();
 
 assertEquals(Outcome.PAID, paymentStep.execute(context));
 assertEquals("p-1", context.getVariable(PAYMENT_ID));
-assertEquals(Set.of("order", "paymentId"), context.variableNames());
 ```
 
-| Метод builder | По умолчанию |
-|---|---|
-| `processId(UUID)`, `correlationId(String)` | случайные |
-| `processType(ProcessType)`, `state(ProcessState)` | `"test"` |
-| `attempt(int)` | `0` |
-| `businessKey(String)` | нет |
-| `now(Instant)` | `now()` по системным часам |
-| `variable(VariableType<T>, T)`, `variable(String, Object)` | без переменных |
-| `timer(TimerType, Instant)` | без таймеров |
-| `jsonMapper(ObjectMapper)` | mapper движка по умолчанию; укажите тот же, что в `ProcessEngineBuilder.withJsonMapper` |
-
-`TestProcessContext.create()` — контекст со значениями по умолчанию. Помимо методов `ProcessContext` есть
-`variableNames()` — имена всех переменных, и `timers()` — поставленные таймеры по имени. Моменты таймеров усекаются
-до микросекунд, как в движке. Контекст не знает определения, поэтому `setTimer` не проверяет, что таймер объявлен в
-`at`. Пример: `CheckApplicationStepTest` рецепта `branching` в
-`ruslo-examples/cookbook`.
+Builder также задаёт id, тип и состояние процесса, business key, `now()`, таймеры и `ObjectMapper`; используйте тот
+же mapper, что и движок. Пример — `CheckApplicationStepTest` рецепта `branching`.
 
 ## Что эмулятор не проверяет
 
-Эмулятор работает в одном потоке и не воспроизводит маршрутизацию по workers, лимиты конкурентности, падение узлов
-и гонки между узлами. Если это важно для вашего процесса, напишите интеграционный тест с запущенным диспетчером
-на той же СУБД, что и в production.
+Эмулятор работает в одном потоке: он не воспроизводит маршрутизацию по workers, лимиты конкурентности, падения
+узлов и гонки между узлами. Если они важны, напишите интеграционный тест с работающим диспетчером на базе как в
+production.
 
-Передавайте в definition те же экземпляры шагов и обработчиков, что использует приложение: тогда тест проверяет
-настоящий граф процесса.
+## Дополнительная настройка
+
+- Чтобы диспетчер работал, а временем всё равно управлял тест, используйте
+  `@ImportAutoConfiguration(ProcessEngineTestConfiguration.class)` вместо `@ProcessEngineTest`.
+- Чтобы начать со своего начального времени, объявите в тестовой конфигурации бин `MutableClock` с именем
+  `processEngineClock` и `@Bean(defaultCandidate = false)`.
+- Без Spring постройте движок с `MutableClock` (`ProcessEngineBuilder.withClock`) и создайте эмулятор через
+  `new ProcessEngineEmulator(engine)`.

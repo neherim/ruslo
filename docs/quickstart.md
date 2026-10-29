@@ -140,9 +140,8 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
 }
 ```
 
-`SpringProcessDefinition.bean(...)` gets the Spring beans when the definition is registered.
-You can also implement `ProcessDefinition` and pass handlers through constructor injection.
-Handlers are called by many processes concurrently: make them stateless and keep order data in `ProcessContext`.
+`SpringProcessDefinition.bean(...)` takes the handlers from the Spring context. Handlers are shared by all
+processes: keep them stateless and keep order data in `ProcessContext`.
 
 ## 5. Start a process and send a message
 
@@ -190,11 +189,8 @@ public class OrderService {
 
 `createOrder` returns the `processId` right after the process is saved; steps run asynchronously.
 Once the process is in `WAITING_FOR_PAYMENT`, call `confirmPayment(processId, "txn-42")` or `cancelOrder`.
-A message the process is not waiting for (the await has not started yet or the process has completed) is not stored:
-`sendMessage` throws `MessageNotExpectedException` with the current process state, and the sender decides whether to
-retry later or ignore it. The exception is thrown after the engine's transaction, so catching it does not roll back
-the application transaction. Inside `@Transactional`, starting a process and sending a message are atomic with the
-application data. Details: [guarantees](guarantees.md#messages).
+A message the process is not waiting for now is rejected with `MessageNotExpectedException`, see
+[guarantees](guarantees.md#messages).
 
 The current state is available through `processEngine.processes().byId(processId).singleDetails()`.
 

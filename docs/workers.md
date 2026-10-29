@@ -7,11 +7,9 @@ A worker is a step execution pool with its own mode and `max-concurrency` limit.
 
 - `DEFAULT` is always transactional: all message and timer handlers run on it.
 - A named worker can be `non_transactional`, for steps with long external calls.
-- Terminal states do not use a worker.
 
-How the modes differ in guarantees: [guarantees.md](guarantees.md#worker-modes). In short: keep await handlers and
-steps that work with the database on `DEFAULT`; move long external I/O to a separate step on a non-transactional
-worker and make it idempotent.
+Keep steps that work with the database on `DEFAULT`. Move long external I/O to a separate step on a
+non-transactional worker and make it idempotent. How the modes differ: [guarantees.md](guarantees.md#worker-modes).
 
 ## Example: a separate worker for I/O
 
@@ -51,6 +49,6 @@ builder
         .build();
 ```
 
-For slow external systems that must not take each other's slots, create separate workers with their own
-`max-concurrency`. `build()` checks that all referenced workers are registered.
+Give slow external systems separate workers, so that they do not take each other's slots.
+`build()` checks that all referenced workers are registered.
 Full example: the `externalcall` recipe in [`ruslo-examples/cookbook`](../ruslo-examples/cookbook).

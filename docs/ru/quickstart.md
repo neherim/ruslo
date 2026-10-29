@@ -140,9 +140,8 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
 }
 ```
 
-`SpringProcessDefinition.bean(...)` получает созданные Spring-бины при регистрации definition.
-Можно также реализовать `ProcessDefinition` и передать обработчики через constructor injection.
-Обработчики вызываются многими процессами конкурентно: делайте их stateless, а данные заказа храните в `ProcessContext`.
+`SpringProcessDefinition.bean(...)` берёт обработчики из Spring-контекста. Обработчики общие для всех процессов:
+делайте их без состояния, а данные заказа храните в `ProcessContext`.
 
 ## 5. Запустите процесс и отправьте сообщение
 
@@ -190,11 +189,8 @@ public class OrderService {
 
 `createOrder` возвращает `processId` сразу после сохранения процесса; шаги выполняются асинхронно.
 После входа в `WAITING_FOR_PAYMENT` вызовите `confirmPayment(processId, "txn-42")` или `cancelOrder`.
-Сообщение, которое процесс сейчас не ждёт (ожидание ещё не началось или процесс уже завершён), не сохраняется:
-`sendMessage` бросает `MessageNotExpectedException` с текущим состоянием процесса, и отправитель решает,
-повторить сообщение позже или проигнорировать. Исключение бросается после выхода из транзакции движка, поэтому
-перехваченное оно не откатывает транзакцию приложения. Внутри `@Transactional` запуск процесса и отправка сообщения атомарны
-с данными приложения. Подробнее — в [гарантиях](guarantees.md#сообщения).
+Сообщение, которое процесс сейчас не ждёт, отклоняется с `MessageNotExpectedException`, см.
+[гарантии](guarantees.md#сообщения).
 
 Текущее состояние доступно через `processEngine.processes().byId(processId).singleDetails()`.
 
