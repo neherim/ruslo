@@ -137,23 +137,39 @@ class AwaitAfterAtTimersTest extends BaseTest {
     }
 
     @Test
-    void handlerSeesFiredTimerCancelledAndSettingItAgainMakesSchedule() {
+    void handlerSeesFiredMomentAndSettingTimerAgainMakesSchedule() {
         engine(await -> await.message(SIGNAL, (context, message) -> {}, State.MSG_DONE)
             .at(DUE, context -> {
-                log.add("timer " + context.getTimer(DUE).isPresent());
-                if (log.size() < 2) context.setTimer(DUE, context.now().plus(Duration.ofDays(1)));
+                var fired = context.getTimer(DUE).orElseThrow();
+                log.add(fired.toString());
+                if (log.size() < 2) context.setTimer(DUE, fired.plus(Duration.ofDays(1)));
             }, State.WAIT));
         var id = start(instant("12:00:00"));
-        at("12:00:00");
+        at("12:30:00");
         assertEquals(Optional.of(instant("12:00:00").plus(Duration.ofDays(1))), run(id).nextRunAt());
         clock.setTime(instant("12:00:00").plus(Duration.ofDays(1)));
         var details = run(id);
-        assertEquals(List.of("timer false", "timer false"), log);
+        assertEquals(List.of("2026-09-24T12:00:00Z", "2026-09-25T12:00:00Z"), log);
         assertEquals(Optional.empty(), details.nextRunAt());
         assertEquals(Map.of(), details.timers());
         assertEquals("WAIT", run(id).state().name());
         engine.sendMessage(id, SIGNAL, "cancel");
         assertEquals("MSG_DONE", run(id).state().name());
+    }
+
+    @Test
+    void handlerSettingFiredMomentAgainDoesNotFireAgain() {
+        engine(await -> await.message(SIGNAL, (context, message) -> {}, State.MSG_DONE)
+            .at(DUE, context -> {
+                log.add("at");
+                context.setTimer(DUE, context.getTimer(DUE).orElseThrow());
+            }, State.WAIT));
+        var id = start(instant("12:00:00"));
+        at("12:00:00");
+        var details = emulator(engine).runUntilStop(id);
+        assertEquals(Map.of(), details.timers());
+        assertEquals(Optional.empty(), details.nextRunAt());
+        assertEquals(List.of("at"), log);
     }
 
     @Test

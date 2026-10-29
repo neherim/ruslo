@@ -38,8 +38,6 @@ class SubscriptionTest {
             emulator.setTime(chargeAt);
             var active = emulator.runUntilStop(processId);
             assertEquals(SubscriptionDefinition.State.ACTIVE.id(), active.state());
-            assertEquals(chargeDates.get(i + 1),
-                    active.variables().get(SubscriptionDefinition.PAID_UNTIL).orElseThrow());
             assertEquals(chargeDates.get(i + 1), active.timers().get(SubscriptionDefinition.NEXT_CHARGE.name()));
         }
         var cancelled = emulator.sendMessageAndRunUntilStop(processId, SubscriptionDefinition.CANCEL, "Too expensive");
@@ -55,7 +53,7 @@ class SubscriptionTest {
         var active = emulator.runUntilStop(processId);
 
         var nextCharge = Instant.parse("2026-05-31T09:00:00Z");
-        assertEquals(nextCharge, active.variables().get(SubscriptionDefinition.PAID_UNTIL).orElseThrow());
+        assertEquals(nextCharge, active.timers().get(SubscriptionDefinition.NEXT_CHARGE.name()));
         assertEquals(nextCharge, active.nextRunAt().orElseThrow());
     }
 
@@ -71,13 +69,11 @@ class SubscriptionTest {
 
     private UUID startSubscription(String cardToken) {
         emulator.setTime(SIGN_UP);
-        var paidUntil = SubscriptionDefinition.nextChargeAt(SIGN_UP, SIGN_UP);
         var processId = processEngine.newProcess(SubscriptionDefinition.TYPE)
             .businessKey("subscription-" + UUID.randomUUID())
             .variable(SubscriptionDefinition.CARD_TOKEN, cardToken)
             .variable(SubscriptionDefinition.SUBSCRIBED_AT, SIGN_UP)
-            .variable(SubscriptionDefinition.PAID_UNTIL, paidUntil)
-            .timer(SubscriptionDefinition.NEXT_CHARGE, paidUntil)
+            .timer(SubscriptionDefinition.NEXT_CHARGE, SubscriptionDefinition.nextChargeAt(SIGN_UP, SIGN_UP))
             .start();
         emulator.runUntilStop(processId);
         return processId;

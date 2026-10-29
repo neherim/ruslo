@@ -29,18 +29,19 @@ is handled. On a tie the order is: message, `every`, `after`, `at`; messages wit
 The moment the dispatcher reached the process does not affect the choice.
 
 **Taking the event.** The engine takes the selected event before calling its handler: it removes the message, moves
-`every` to the first grid point after the current time, turns `after` off until the process comes into the await from another state and
-cancels the `at` timer. If the handler leaves the await, the new state does not need any of it; if it keeps waiting,
+`every` to the first grid point after the current time and turns `after` off until the process comes into the
+await from another state. The `at` timer stays set while its handler runs and is cancelled after it, unless the
+handler changed it. If the handler leaves the await, the new state does not need any of it; if it keeps waiting,
 the await goes on with the next events. If the handler fails, the transaction is rolled back together with taking
-the event: the message is back in the queue, the timer is set again, and the retry selects the same event.
+the event: the message is back in the queue, the timer is as before, and the retry selects the same event.
 
 **Timer moments.** The `at` moment is taken from the process
 timer the current await declares: `setTimer` and `cancelTimer` (in a handler, a step, or `setProcessTimer` /
 `cancelProcessTimer` in the admin API) move it at once, without entering the await again. Entering an await does not
 change process timers.
 
-Since the `at` timer is cancelled before the handler, a handler that sets the timer again sets the next moment; one
-that does not leaves `at` off.
+The `at` handler reads the fired moment with `getTimer`. A handler that moves the timer sets the next moment; one
+that leaves it unchanged, or sets the same moment again, leaves `at` off.
 
 A moment in the past or equal to now is an event that is already due, selected by the usual rules: the process
 entered the await after the deadline, a message moved the deadline into the past, or dates were missed during

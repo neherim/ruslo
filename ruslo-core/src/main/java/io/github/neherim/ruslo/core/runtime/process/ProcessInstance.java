@@ -190,7 +190,8 @@ public final class ProcessInstance {
     /**
      * Takes the selected await event before its handler runs, without moving the next run: removes the first queued
      * message, moves {@code every} to the first grid point after now (missed points are skipped), turns {@code after}
-     * off while the process stays in the await, cancels the {@code at} timer, so the handler may set it again.
+     * off while the process stays in the await. The {@code at} timer is kept for its handler and cancelled after it
+     * by the caller, unless the handler changed it.
      * <p>
      * Leaving the await resets all of this anyway; a handler failure discards it, since the process is then neither
      * stored nor committed.
@@ -204,7 +205,9 @@ public final class ProcessInstance {
                 everyDueAt = everyDueAt.plus(interval.multipliedBy(missed + 1));
             }
             case AFTER -> afterDueAt = null;
-            case AT -> timers.cancel(awaitState().at().timer().name());
+            case AT -> {
+                // kept for its handler, see the method Javadoc
+            }
         }
     }
 

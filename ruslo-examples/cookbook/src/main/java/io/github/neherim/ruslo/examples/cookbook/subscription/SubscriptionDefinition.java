@@ -29,12 +29,12 @@ import java.time.ZoneOffset;
  * <ul>
  *   <li>The process starts right in await {@link State#ACTIVE}: there is no step, the first period is already paid.
  *       The process business key is the subscription id.</li>
- *   <li>The caller passes the sign-up date in variable {@link #SUBSCRIBED_AT} and the end of the paid period,
- *       computed by {@link #nextChargeAt}, in {@link #PAID_UNTIL}, and sets process timer {@link #NEXT_CHARGE} to
- *       the same moment. {@code at(NEXT_CHARGE, ...)} in {@link State#ACTIVE} charges the fee then.</li>
- *   <li>The fired timer is cancelled before the handler runs. A successful charge moves {@link #PAID_UNTIL} to the
- *       next date, sets the timer to it again and targets the await itself: "wait for the next date". So the charges
- *       make a schedule. A bank decline leads to {@link State#SUSPENDED}.</li>
+ *   <li>The caller passes the sign-up date in variable {@link #SUBSCRIBED_AT} and sets process timer
+ *       {@link #NEXT_CHARGE} to the end of the paid period, computed by {@link #nextChargeAt}.
+ *       {@code at(NEXT_CHARGE, ...)} in {@link State#ACTIVE} charges the fee then.</li>
+ *   <li>The timer stays set while its handler runs, so the handler reads the charge date from it. A successful
+ *       charge sets the timer to the next date and targets the await itself: "wait for the next date". So the
+ *       charges make a schedule. A bank decline leads to {@link State#SUSPENDED}.</li>
  *   <li>Message {@link #CANCEL} is declared in the same await, next to {@code at}: whichever event comes first is
  *       handled. A cancelled subscription is not charged again.</li>
  *   <li>Billing failures are retried through {@code onError}. A retried charge must not charge the period twice:
@@ -43,11 +43,9 @@ import java.time.ZoneOffset;
  * <p>
  * Pitfalls:
  * <ul>
- *   <li>The schedule continues only while the handler sets the timer again. A handler that does not set it does not
- *       fail: the subscription keeps waiting for {@link #CANCEL}. Use {@code at} for calendar dates; {@code every} is
- *       an interval, "every 30 days", not "on the 5th of every month".</li>
- *   <li>The handler does not get the moment the timer fired at, so the paid period is kept in a variable: it is
- *       business data, and the next date is counted from it.</li>
+ *   <li>The schedule continues only while the handler moves the timer. A timer the handler left unchanged is
+ *       cancelled after it, without an error: the subscription keeps waiting for {@link #CANCEL}. Use {@code at}
+ *       for calendar dates; {@code every} is an interval, "every 30 days", not "on the 5th of every month".</li>
  *   <li>The next date is counted from the sign-up date, not from the previous charge date: otherwise the day drifts
  *       after a short month (31 January, 28 February, 28 March). It is not counted from the time of handling either:
  *       a late or retried charge does not shift the schedule, and after downtime every missed month is charged at
@@ -62,7 +60,6 @@ import java.time.ZoneOffset;
 public class SubscriptionDefinition implements ProcessDefinition {
     public static final ProcessType TYPE = ProcessType.of("SUBSCRIPTION");
     public static final VariableType<Instant> SUBSCRIBED_AT = VariableType.of("subscribedAt", Instant.class);
-    public static final VariableType<Instant> PAID_UNTIL = VariableType.of("paidUntil", Instant.class);
     public static final TimerType NEXT_CHARGE = TimerType.of("nextCharge");
     public static final VariableType<String> CARD_TOKEN = VariableType.of("cardToken", String.class);
     public static final VariableType<String> CANCELLATION_REASON = VariableType.of("cancellationReason", String.class);
@@ -102,15 +99,15 @@ public class SubscriptionDefinition implements ProcessDefinition {
         }
     }
 
-    /** Stands for a charge in billing; a successful charge extends the paid period and sets the next charge. */
+    /** Stands for a charge in billing; a successful charge sets the timer to the next charge date. */
     private static Billing charge(ProcessContext context) {
+        var chargeAt = context.getTimer(NEXT_CHARGE).orElseThrow();
         var cardToken = context.getVariable(CARD_TOKEN);
         var paid = !DECLINED_CARD.equals(cardToken);
-        log.info("Subscription {} charged to {}: paid={}", context.businessKey().orElseThrow(), cardToken, paid);
+        log.info("Subscription {} charged for {} to {}: paid={}", context.businessKey().orElseThrow(), chargeAt,
+                cardToken, paid);
         if (!paid) return Billing.DECLINED;
-        var paidUntil = nextChargeAt(context.getVariable(SUBSCRIBED_AT), context.getVariable(PAID_UNTIL));
-        context.setVariable(PAID_UNTIL, paidUntil);
-        context.setTimer(NEXT_CHARGE, paidUntil);
+        context.setTimer(NEXT_CHARGE, nextChargeAt(context.getVariable(SUBSCRIBED_AT), chargeAt));
         return Billing.PAID;
     }
 

@@ -13,9 +13,10 @@ package io.github.neherim.ruslo.core.api.definition;
  * <li>State transitions do not touch timers: the timer lives until it fires or is
  * {@link ProcessContext#cancelTimer cancelled}, also after the process leaves the await by another event, and fires
  * in the next await that declares it. If it is no longer needed, the handler that leaves the await cancels it.</li>
- * <li>A fired timer is cancelled before its handler runs, so the handler may set it again to make a schedule; if the
- * handler fails, the transaction is rolled back and the retry sees the timer again. The handler does not get the
- * fired moment: keep it in a variable if it is business data.</li>
+ * <li>A fired timer stays set while its handler runs: {@link ProcessContext#getTimer} returns the fired moment, and
+ * the handler may move the timer to make a schedule. A timer the handler left unchanged, or set to the same moment,
+ * is cancelled after it, so it does not fire again. If the handler fails, the transaction is rolled back and the
+ * retry sees the timer as before.</li>
  * </ul>
  *
  * @param name timer name
