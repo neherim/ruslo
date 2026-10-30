@@ -21,7 +21,7 @@ import java.time.Duration;
  *       taken only to save the result. It can also be declared as a {@code WorkerSpec} bean.</li>
  *   <li>{@code max-concurrency} limits concurrent steps of the worker on a node: it protects the provider from
  *       overload, and a slow provider does not occupy {@code DEFAULT} slots.</li>
- *   <li>Step {@link ChargeCardStep} is assigned to the worker with {@code options.worker(IO_WORKER)}; other steps
+ *   <li>Step {@link ChargeCardStep} is assigned to the worker by the second argument of {@code step(...)}; other steps
  *       and all await handlers stay on {@code DEFAULT}.</li>
  *   <li>The step passes the provider an idempotency key, the process id. It is the same in every retry of the
  *       step, and the provider answers a repeated request with the charge already made.</li>
@@ -63,10 +63,9 @@ public class CardPaymentDefinition implements ProcessDefinition {
             .type(TYPE)
             .onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(5), Duration.ofMinutes(5)))
             .initialState(State.CHARGING)
-            .step(State.CHARGING, chargeCardStep, routes -> routes
+            .step(State.CHARGING, IO_WORKER, chargeCardStep, routes -> routes
                 .on(ChargeCardStep.Result.APPROVED, State.PAID)
-                .on(ChargeCardStep.Result.DECLINED, State.DECLINED),
-                    options -> options.worker(IO_WORKER))
+                .on(ChargeCardStep.Result.DECLINED, State.DECLINED))
             .terminal(State.PAID)
             .terminal(State.DECLINED)
             .build();

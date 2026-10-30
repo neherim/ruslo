@@ -84,45 +84,45 @@ public class ProcessSpecBuilder {
             this.draft = draft;
         }
 
-        /** Declares a step that moves to {@code next} on success. */
+        /**
+         * Declares a step that moves to {@code next} on success. The step runs on the process worker, see
+         * {@link TypedBuilder#defaultWorker(WorkerId)}.
+         */
         public StatesBuilder step(ProcessState state, ProcessStep step, ProcessState next) {
-            return step(state, step, next, options -> {});
+            return step(state, draft.defaultWorker, step, next);
         }
 
-        /** Declares a step that moves to {@code next} on success, with options. */
-        public StatesBuilder step(
-                ProcessState state,
-                ProcessStep step,
-                ProcessState next,
-                Consumer<StepOptions> options
-        ) {
+        /** Declares a step that runs on {@code worker} and moves to {@code next} on success. */
+        public StatesBuilder step(ProcessState state, WorkerId worker, ProcessStep step, ProcessState next) {
             requireNonNull(step, "Process step cannot be null");
-            draft.addStep(state, context -> {
+            draft.addStep(state, worker, context -> {
                 step.execute(context);
                 return null;
-            }, new Target(Draft.id(next)), options(options));
+            }, new Target(Draft.id(next)));
             return this;
         }
 
-        /** Declares a step whose outcome selects the target in {@code routes}. */
+        /**
+         * Declares a step whose outcome selects the target in {@code routes}. The step runs on the process worker,
+         * see {@link TypedBuilder#defaultWorker(WorkerId)}.
+         */
         public <O extends Enum<O>> StatesBuilder step(
                 ProcessState state,
                 BranchingStep<O> step,
                 Consumer<Routes<O>> routes
         ) {
-            return step(state, step, routes, options -> {});
+            return step(state, draft.defaultWorker, step, routes);
         }
 
-        /** Declares a step whose outcome selects the target in {@code routes}, with options. */
+        /** Declares a step that runs on {@code worker}; its outcome selects the target in {@code routes}. */
         public <O extends Enum<O>> StatesBuilder step(
                 ProcessState state,
+                WorkerId worker,
                 BranchingStep<O> step,
-                Consumer<Routes<O>> routes,
-                Consumer<StepOptions> options
+                Consumer<Routes<O>> routes
         ) {
             requireNonNull(step, "Process step cannot be null");
-            draft.addStep(state, step::execute, draft.routes(routes, "step " + Draft.id(state).name()),
-                    options(options));
+            draft.addStep(state, worker, step::execute, draft.routes(routes, "step " + Draft.id(state).name()));
             return this;
         }
 
@@ -148,27 +148,6 @@ public class ProcessSpecBuilder {
          */
         public ProcessSpec build() {
             return draft.build();
-        }
-
-        private StepOptions options(Consumer<StepOptions> definition) {
-            var result = new StepOptions(draft.defaultWorker);
-            requireNonNull(definition, "Step options cannot be null").accept(result);
-            return result;
-        }
-    }
-
-    /** Step options. */
-    public static class StepOptions {
-        private WorkerId worker;
-
-        private StepOptions(WorkerId worker) {
-            this.worker = worker;
-        }
-
-        /** Runs the step on this worker instead of the default one. */
-        public StepOptions worker(WorkerId worker) {
-            this.worker = requireNonNull(worker, "Worker id cannot be null");
-            return this;
         }
     }
 
@@ -448,11 +427,12 @@ public class ProcessSpecBuilder {
 
         private void addStep(
                 ProcessState state,
+                WorkerId worker,
                 Function<ProcessContext, Enum<?>> step,
-                Exit exit,
-                StepOptions options
+                Exit exit
         ) {
-            add(state, new StepState(id(state), step, options.worker, exit));
+            requireNonNull(worker, "Worker id cannot be null");
+            add(state, new StepState(id(state), step, worker, exit));
         }
 
         private <O extends Enum<O>> ProcessSpec.Routes routes(Consumer<Routes<O>> definition, String where) {

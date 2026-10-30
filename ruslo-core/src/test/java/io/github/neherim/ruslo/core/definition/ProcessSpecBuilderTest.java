@@ -27,7 +27,7 @@ class ProcessSpecBuilderTest {
             .defaultWorker(new WorkerId("DEFAULT_WORKER"))
             .initialState(State.START)
             .step(State.START, STEP, State.WAIT)
-            .step(State.OTHER, STEP, State.DONE, options -> options.worker(new WorkerId("OWN_WORKER")))
+            .step(State.OTHER, new WorkerId("OWN_WORKER"), STEP, State.DONE)
             .await(State.WAIT, await -> await.message(MESSAGE, ON_MESSAGE, State.WAIT)
                 .every(Duration.ofSeconds(1), ON_TIMER, State.WAIT)
                 .after(Duration.ofSeconds(2), State.DONE))

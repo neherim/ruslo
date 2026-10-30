@@ -218,8 +218,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         ProcessDefinition definition = builder -> builder.type(type)
             .initialState(TransitionState.INIT)
             .step(TransitionState.INIT, context -> {}, TransitionState.NEXT)
-            .step(TransitionState.NEXT, context -> {}, TransitionState.DONE,
-                    options -> options.worker(nextWorker))
+            .step(TransitionState.NEXT, nextWorker, context -> {}, TransitionState.DONE)
             .terminal(TransitionState.DONE)
             .build();
         var fixture = WorkerTestFixture.with(database, definition);

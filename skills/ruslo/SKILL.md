@@ -212,7 +212,7 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
 - `DEFAULT` worker is transactional: step logic and engine persistence share one transaction, so the step's
   own DB writes on the same `DataSource` happen exactly once. All message and timer handlers run here.
 - For long external I/O, put the call in a **separate step** on a named `non_transactional` worker
-  (`step(state, handler, next, o -> o.worker(IO_WORKER))`) and make the call idempotent, e.g. pass
+  (`step(state, IO_WORKER, handler, next)`) and make the call idempotent, e.g. pass
   `context.processId()` as the provider's idempotency key. Do not write to the application DB there:
   it is not atomic with the transition.
 - Register workers in `application.yml`:
