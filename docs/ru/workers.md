@@ -3,7 +3,7 @@
 [English](../workers.md) | Русский
 
 Worker — пул исполнения шагов со своим режимом и лимитом `max-concurrency`. Шаг использует worker процесса
-(`defaultWorker(...)`, по умолчанию `DEFAULT`) или worker, заданный для шага: `step(..., options -> options.worker(W))`.
+(`defaultWorker(...)`, по умолчанию `DEFAULT`) или worker, переданный шагу сразу после состояния: `step(state, W, handler, ...)`.
 
 - `DEFAULT` всегда транзакционный: на нём исполняются все обработчики сообщений и таймеров.
 - Именованный worker может быть `non_transactional` — для шагов с долгими внешними вызовами.
@@ -43,8 +43,7 @@ builder
         .type("DOCUMENT_EXPORT")
         .initialState(ExportState.QUEUED)
         .step(ExportState.QUEUED, validateDocumentStep, ExportState.EXPORTING)
-        .step(ExportState.EXPORTING, exportDocumentStep, ExportState.COMPLETED,
-                options -> options.worker(IO_WORKER))
+        .step(ExportState.EXPORTING, IO_WORKER, exportDocumentStep, ExportState.COMPLETED)
         .terminal(ExportState.COMPLETED)
         .build();
 ```

@@ -3,7 +3,7 @@
 English | [Русский](ru/workers.md)
 
 A worker is a step execution pool with its own mode and `max-concurrency` limit. A step uses the process worker
-(`defaultWorker(...)`, `DEFAULT` by default) or the worker set for the step: `step(..., options -> options.worker(W))`.
+(`defaultWorker(...)`, `DEFAULT` by default) or the worker passed to the step right after its state: `step(state, W, handler, ...)`.
 
 - `DEFAULT` is always transactional: all message and timer handlers run on it.
 - A named worker can be `non_transactional`, for steps with long external calls.
@@ -43,8 +43,7 @@ builder
         .type("DOCUMENT_EXPORT")
         .initialState(ExportState.QUEUED)
         .step(ExportState.QUEUED, validateDocumentStep, ExportState.EXPORTING)
-        .step(ExportState.EXPORTING, exportDocumentStep, ExportState.COMPLETED,
-                options -> options.worker(IO_WORKER))
+        .step(ExportState.EXPORTING, IO_WORKER, exportDocumentStep, ExportState.COMPLETED)
         .terminal(ExportState.COMPLETED)
         .build();
 ```

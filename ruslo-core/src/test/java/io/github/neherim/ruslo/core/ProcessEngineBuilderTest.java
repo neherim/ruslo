@@ -129,8 +129,7 @@ class ProcessEngineBuilderTest extends BaseTest {
         ProcessDefinition definition = builder -> builder
             .type(ProcessType.of("UNKNOWN_WORKER"))
             .initialState(TestState.INIT)
-            .step(TestState.INIT, context -> {}, TestState.DONE,
-                    options -> options.worker(new WorkerId("missing")))
+            .step(TestState.INIT, new WorkerId("missing"), context -> {}, TestState.DONE)
             .terminal(TestState.DONE)
             .build();
 
