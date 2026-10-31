@@ -7,7 +7,7 @@
 
 English | [Русский](README.ru.md)
 
-An embedded engine for long-running business processes in Java and Spring Boot. You describe a process as a state
+An embedded engine for long-running business processes in Java. You describe a process as a state
 machine in a Java DSL, and the engine runs it right inside your application, keeping its state in the database you
 already have. No separate cluster, broker or BPMN.
 

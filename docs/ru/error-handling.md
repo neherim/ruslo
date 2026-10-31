@@ -1,7 +1,7 @@
 # Обработка ошибок
 
 Исключение из шага, обработчика сообщения или таймера означает технический сбой или ошибку программирования.
-Ожидаемую бизнес-ситуацию (отклонённая карта, отказ по заявке) выражайте результатом ветвящегося обработчика.
+Ожидаемую бизнес-ситуацию (отклонённая карта, отказ по заявке) выражайте результатом ветвящегося обработчика `BranchingStep`.
 
 Исключение откатывает транзакцию обработчика: состояние, переменные и обрабатывавшееся событие остаются как были.
 Затем движок вызывает `ProcessErrorHandler` процесса в отдельной транзакции, и его результат решает, что будет дальше.
@@ -9,24 +9,31 @@
 ## Политика ошибок
 
 ```java
-.onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(1), Duration.ofMinutes(5)))
-.onGiveUp(CANCELLING)
-.initialState(CREATED)
-// ...
-.step(CANCELLING, cancelOrderStep, CANCELLED)
-.terminal(CANCELLED)
+@Override
+public ProcessSpec define(ProcessSpecBuilder builder) {
+    return builder
+            .type(TYPE)
+            // Повторяем упавший шаг 5 раз с экспонициальной задержкой
+            .onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(1), Duration.ofMinutes(5)))
+            // Если упавший шаг так и не был исполнен после 5 попыток, то переводим процесс в состояние CANCELLED
+            .onGiveUp(CANCELLED)
+            .initialState(CREATED)
+            // ...
+            .terminal(CANCELLED)
+            .build();
+}
 ```
 
 Оба вызова необязательны: `onError` задаёт обработчик (по умолчанию `noRetry()`), `onGiveUp` — состояние, в которое
 процесс переходит, когда обработчик сдаётся.
 
-Обработчик возвращает один из трёх результатов:
+Обработчик должен имплементировать `ProcessErrorHandler`, его метод `handle` должен возвращать один из трёх результатов:
 
-| Результат | Что происходит |
-|---|---|
-| `ErrorResult.retryAfter(delay)` | Шаг или ожидание выполняется снова через `delay` |
-| `ErrorResult.giveUp()` | Процесс переходит в состояние `onGiveUp`; без `onGiveUp` останавливается в `FAILED` |
-| `ErrorResult.fail()` | Процесс останавливается в `FAILED` в текущем состоянии, объявлен `onGiveUp` или нет |
+| Результат | Что происходит                                                                                                |
+|---|---------------------------------------------------------------------------------------------------------------|
+| `ErrorResult.retryAfter(delay)` | обработчик выполняется снова через `delay`                                                                    |
+| `ErrorResult.giveUp()` | Процесс переходит в состояние `onGiveUp`. Если в процессе не указан `onGiveUp`, то останавливается в `FAILED` |
+| `ErrorResult.fail()` | Процесс останавливается в статусе `FAILED` в текущем состоянии                   |
 
 Встроенные обработчики:
 
@@ -36,29 +43,28 @@
 | `ProcessErrorHandler.fixed(maxRetries, delay)` | До `maxRetries` повторов с фиксированной задержкой, затем `giveUp()` |
 | `ProcessErrorHandler.exponential(maxRetries, initialDelay, maxDelay)` | То же с удваивающейся задержкой |
 
-Свой обработчик получает `ProcessContext` и `ProcessError` с исключением (`cause`) и числом предыдущих неудачных
-попыток в текущем состоянии (`attempt`, `0` для первой ошибки):
+Пример реализации своего обработчика ошибок:
 
 ```java
-(context, error) -> {
-    if (error.cause() instanceof PermanentlyUnavailableException) return ErrorResult.giveUp();
-    if (error.cause() instanceof DataCorruptionException) return ErrorResult.fail();
-    if (error.attempt() < 3) return ErrorResult.retryAfter(Duration.ofSeconds(10));
-    return ErrorResult.giveUp();
+public class CustomProcessErrorHandler implements ProcessErrorHandler {
+    public ErrorResult handle(ProcessContext context, ProcessError error) {
+        if (error.cause() instanceof PermanentlyUnavailableException) return ErrorResult.giveUp();
+        if (error.cause() instanceof DataCorruptionException) return ErrorResult.fail();
+        if (error.attempt() < 3) return ErrorResult.retryAfter(Duration.ofSeconds(10));
+        return ErrorResult.giveUp();
+    }
 }
 ```
 
 ## Состояние отказа
 
-`giveUp()` — обычный переход в состояние `onGiveUp`, например в шаг компенсации. Чтобы передать причину, обработчик
-ошибок записывает переменную в `ProcessContext`, а состояние отказа её читает.
-
+`giveUp()` — обычный переход в состояние объявленное в `onGiveUp`, например в шаг компенсации. Чтобы передать причину
+ошибки - можно записать ее в переменную `ProcessContext`.
 Ошибка в самом состоянии `onGiveUp` останавливает процесс в `FAILED`, чтобы падающая компенсация не зациклилась.
-Косвенные циклы (`CANCELLING → X`, ошибка в `X` → `CANCELLING`) движок не обнаруживает.
 
 ## Повторы в ожидании
 
-Повтор приостанавливает всё ожидание: до повтора новые сообщения и наступившие таймеры не обрабатываются. Если у
+Повтор приостанавливает всё ожидание (`await`): до повтора новые сообщения и наступившие таймеры не обрабатываются. Если у
 ожидания жёсткий срок, ограничьте повторы или перехватите ошибку в обработчике. Подробнее —
 [execution.md](execution.md#повтор-приостанавливает-ожидание).
 
