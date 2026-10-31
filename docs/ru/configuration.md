@@ -1,7 +1,5 @@
 # Конфигурация
 
-[English](../configuration.md) | Русский
-
 Движок настраивается через `ProcessEngineBuilder`. В Spring Boot его строит starter, а каждая настройка — свойство
 `ruslo.*`: [spring.md](spring.md).
 
@@ -24,7 +22,7 @@ engine.start();
 Регистрируйте definitions до `start()`: процесс незарегистрированного типа не может выполняться. Если шагам нужен
 сам движок, сначала постройте его, а definition зарегистрируйте через `engine.registerDefinition(...)`.
 
-Рабочий пример — [`ruslo-examples/standalone-core`](../../ruslo-examples/standalone-core).
+Рабочий пример — [`ruslo-examples/standalone-core`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/standalone-core).
 
 ## Настройки
 
@@ -45,7 +43,7 @@ engine.start();
 | `withJsonMapper(ObjectMapper)` | нет | | Свой `ObjectMapper` для переменных и сообщений |
 | `withMetrics(ProcessEngineMetrics)` | нет | no-op | В Spring Micrometer подключается автоматически: [metrics.md](metrics.md) |
 
-Свойства Admin UI (`ruslo.admin-ui.*`) описаны в его [README модуля](../../ruslo-admin-ui/README.md).
+Свойства Admin UI (`ruslo.admin-ui.*`) описаны в его [README модуля](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md).
 
 ## Схема базы данных
 

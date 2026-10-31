@@ -47,3 +47,6 @@ jacoco.exec
 
 # Implementation plans are local working drafts
 /plans/
+
+# MkDocs output
+/site/

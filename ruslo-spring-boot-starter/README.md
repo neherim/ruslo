@@ -20,7 +20,7 @@ The library is not yet published to a public Maven repository, so install the ar
 
 The auto-configuration is activated when the application has a `DataSource` and a `PlatformTransactionManager`.
 Without any settings the starter runs one transactional worker `DEFAULT` (`max-concurrency: 10`), creates the
-engine tables and starts the dispatcher. All `ruslo.*` properties are described in [docs/configuration.md](../docs/configuration.md).
+engine tables and starts the dispatcher. All `ruslo.*` properties are described in [docs/en/configuration.md](../docs/en/configuration.md).
 
 ## What the starter does
 

@@ -1,9 +1,7 @@
 # Quickstart
 
-English | [Русский](ru/quickstart.md)
-
 This tutorial builds an order process: create the order → wait for payment → deliver → complete.
-The full runnable code is in the [quickstart module](../ruslo-examples/quickstart).
+The full runnable code is in the [quickstart module](https://github.com/neherim/ruslo/tree/main/ruslo-examples/quickstart).
 All Java snippets below are taken from its sources; imports are omitted.
 You need Java 21, Spring Boot 4 and a JDBC DataSource.
 

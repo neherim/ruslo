@@ -1,9 +1,7 @@
 # Быстрый старт
 
-[English](../quickstart.md) | Русский
-
 В этом туториале создадим процесс заказа: создать заказ → дождаться оплаты → доставить → завершить.
-Полный исполняемый код находится в [модуле quickstart](../../ruslo-examples/quickstart).
+Полный исполняемый код находится в [модуле quickstart](https://github.com/neherim/ruslo/tree/main/ruslo-examples/quickstart).
 Все Java-сниппеты ниже взяты из его исходников; импорты опущены.
 Нужны Java 21, Spring Boot 4 и JDBC DataSource.
 

@@ -1,7 +1,5 @@
 # Error handling
 
-English | [Русский](ru/error-handling.md)
-
 An exception from a step, message handler or timer handler means a technical failure or a programming error. Express
 an expected business situation (a declined card, a rejected application) as an outcome of a branching handler.
 

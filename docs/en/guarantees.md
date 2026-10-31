@@ -1,7 +1,5 @@
 # Guarantees
 
-English | [Русский](ru/guarantees.md)
-
 What you can rely on when using the engine. The exact rules are in [execution.md](execution.md).
 
 ## Key points

@@ -1,7 +1,5 @@
 # Configuration
 
-English | [Русский](ru/configuration.md)
-
 The engine is configured with `ProcessEngineBuilder`. In Spring Boot the starter builds it and every setting is a
 `ruslo.*` property: [spring.md](spring.md).
 
@@ -25,7 +23,7 @@ engine.start();
 Register definitions before `start()`: a process of an unregistered type cannot run. If steps need the engine
 itself, build it first and register the definition with `engine.registerDefinition(...)`.
 
-A working example: [`ruslo-examples/standalone-core`](../ruslo-examples/standalone-core).
+A working example: [`ruslo-examples/standalone-core`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/standalone-core).
 
 ## Settings
 
@@ -46,7 +44,7 @@ A working example: [`ruslo-examples/standalone-core`](../ruslo-examples/standalo
 | `withJsonMapper(ObjectMapper)` | none | | A custom `ObjectMapper` for variables and messages |
 | `withMetrics(ProcessEngineMetrics)` | none | no-op | In Spring, Micrometer is wired automatically: [metrics.md](metrics.md) |
 
-The Admin UI properties (`ruslo.admin-ui.*`) are described in its [module README](../ruslo-admin-ui/README.md).
+The Admin UI properties (`ruslo.admin-ui.*`) are described in its [module README](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md).
 
 ## Database schema
 

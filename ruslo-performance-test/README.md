@@ -2,7 +2,7 @@
 
 Two scenarios measure the overhead of creating processes through the public API and of executing
 processes of five empty steps on PostgreSQL. Messages, timers and business logic are not part
-of the load. PostgreSQL correctness tests live in core: see [testing](../docs/testing.md).
+of the load. PostgreSQL correctness tests live in core: see [testing](../docs/en/testing.md).
 
 Benchmarks run only with the `perf-tests` profile. There are no pass/fail timing thresholds:
 the result is checked for correctness, the performance is recorded for comparison.

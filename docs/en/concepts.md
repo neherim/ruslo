@@ -1,7 +1,5 @@
 # Process model
 
-English | [Русский](ru/concepts.md)
-
 A process definition (`ProcessDefinition`) is a set of transitions between states (`ProcessState`) of three kinds:
 
 - a **step** (`step`) runs code and always moves on;
@@ -153,7 +151,7 @@ static Run buildReport(ProcessContext context) {
 ```
 
 Count the next moment from the fired one, not from `context.now()`: a late run then does not shift the schedule.
-Full examples: the `deadline` and `subscription` recipes in [`ruslo-examples/cookbook`](../ruslo-examples/cookbook).
+Full examples: the `deadline` and `subscription` recipes in [`ruslo-examples/cookbook`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/cookbook).
 
 If several events are due at once, the earliest one is handled; the exact order is in
 [execution.md](execution.md#await-event-selection).

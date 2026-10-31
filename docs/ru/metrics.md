@@ -1,7 +1,5 @@
 # Метрики
 
-[English](../metrics.md) | Русский
-
 Spring Boot starter регистрирует метрики Micrometer при наличии `MeterRegistry`. При запуске без Spring можно передать реализацию `ProcessEngineMetrics` в builder.
 
 ## Процессы и шаги

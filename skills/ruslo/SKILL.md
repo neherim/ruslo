@@ -356,7 +356,7 @@ delays, await without exit, unregistered workers) and its message names the prob
 ## Online documentation (optional)
 
 Use it only when this page is not enough and network access is available. These files are in the Ruslo GitHub
-repository, not in the user's project. Docs: `https://raw.githubusercontent.com/neherim/ruslo/main/docs/<file>`.
+repository, not in the user's project. Docs: `https://raw.githubusercontent.com/neherim/ruslo/main/docs/en/<file>`.
 
 | Need | Doc file | Cookbook recipe |
 |---|---|---|

@@ -17,4 +17,12 @@ Code is formatted by the Eclipse formatter (`eclipse-formatter.xml`) through Spo
 IntelliJ IDEA way (other, `javax`/`java`, static). Run `./mvnw spotless:apply` before committing. The formatter keeps
 line breaks you make and only wraps lines longer than 120 characters.
 
+The documentation in `docs/` is published to [GitHub Pages](https://neherim.github.io/ruslo/) with MkDocs
+([workflow](.github/workflows/docs.yml)); a pull request fails on a broken link. Preview the site locally (Python 3):
+
+```bash
+pip install -r docs/requirements.txt
+mkdocs serve                                                  # http://localhost:8000
+```
+
 Modules, architecture and code rules are described in [AGENTS.md](AGENTS.md).

@@ -1,10 +1,8 @@
 # Admin UI
 
-English | [Русский](ru/admin-ui.md)
-
 A web UI for viewing processes and manual intervention. It is disabled by default; enable it with
 `ruslo.admin-ui.enabled=true`. Installation, settings and protection with Spring Security are in the
-[module README](../ruslo-admin-ui/README.md).
+[module README](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md).
 
 ## Pages
 
@@ -34,4 +32,4 @@ Every action is written to the application log with the user name.
 ## Process diagram
 
 The diagram is built from the definition: states are labeled with `ProcessState.description()` (the state name by default), edges with the
-outcome, the message name or the timer. The legend is in the [module README](../ruslo-admin-ui/README.md#process-diagram).
+outcome, the message name or the timer. The legend is in the [module README](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md#process-diagram).

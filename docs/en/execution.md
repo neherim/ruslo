@@ -1,7 +1,5 @@
 # Execution rules
 
-English | [Русский](ru/execution.md)
-
 The exact rules behind [guarantees.md](guarantees.md): transaction boundaries, the order of await events and
 concurrent access. You do not need this page to write ordinary processes; read it when timing between events
 matters.

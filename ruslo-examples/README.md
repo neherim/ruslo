@@ -6,9 +6,9 @@
 
 | Module | What it shows | Related documentation |
 |---|---|---|
-| [`quickstart`](quickstart) | Tutorial code: a minimal Spring Boot application with an order process | [`docs/quickstart.md`](../docs/quickstart.md), [`docs/concepts.md`](../docs/concepts.md) |
-| [`cookbook`](cookbook) | Recipes for common tasks, one package per recipe. Runnable demo: Admin UI and Actuator metrics on the processes of all recipes | [`cookbook/README.md`](cookbook/README.md), [`docs/admin-ui.md`](../docs/admin-ui.md), [`docs/metrics.md`](../docs/metrics.md) |
-| [`standalone-core`](standalone-core) | Use without Spring: `ruslo-core`, `PlainJdbcDatabase`, manual engine and worker configuration | [`docs/configuration.md`](../docs/configuration.md) |
+| [`quickstart`](quickstart) | Tutorial code: a minimal Spring Boot application with an order process | [`docs/en/quickstart.md`](../docs/en/quickstart.md), [`docs/en/concepts.md`](../docs/en/concepts.md) |
+| [`cookbook`](cookbook) | Recipes for common tasks, one package per recipe. Runnable demo: Admin UI and Actuator metrics on the processes of all recipes | [`cookbook/README.md`](cookbook/README.md), [`docs/en/admin-ui.md`](../docs/en/admin-ui.md), [`docs/en/metrics.md`](../docs/en/metrics.md) |
+| [`standalone-core`](standalone-core) | Use without Spring: `ruslo-core`, `PlainJdbcDatabase`, manual engine and worker configuration | [`docs/en/configuration.md`](../docs/en/configuration.md) |
 
 ## Commands
 
