@@ -31,7 +31,8 @@ Javadoc is a technical contract, not prose. Write the minimum the caller needs.
 |---|---|
 | States, handlers, awaits, timers, `ProcessContext`, definition evolution | `docs/concepts.md` |
 | Transactions, at-least-once, worker modes, message acceptance, timer accuracy | `docs/guarantees.md` |
-| Event order in an await, retry pause, Spring transactions, `sendMessageSync`, concurrency | `docs/execution.md` |
+| Event order in an await, retry pause, `sendMessageSync`, concurrency | `docs/execution.md` |
+| Starter, `SpringProcessDefinition`, application transactions in Spring | `docs/spring.md` |
 | Error policy, give-up state, `FAILED` | `docs/error-handling.md` |
 | Properties and builder methods | `docs/configuration.md` |
 | Emulator and `TestProcessContext` | `docs/testing.md` |
@@ -171,7 +172,7 @@ Spring property values map to these modes as:
 - Handlers report a result, the definition declares the target (`ProcessStep` returns nothing, `BranchingStep<O>` returns an outcome).
 - A transition to the same state is not a state change: the queue, `every`, `after` and history are kept, the error is cleared; a step runs again, an await keeps waiting. The rule lives in `ProcessInstance.enterState`, the single path for every transition.
 - Raw types and casts on handlers are forbidden in production code, tests and examples.
-- User-facing rules and compiler-error hints: `docs/concepts.md`.
+- User-facing rules: `docs/concepts.md`.
 
 ## Testing
 

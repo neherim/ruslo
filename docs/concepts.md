@@ -2,14 +2,13 @@
 
 English | [Русский](ru/concepts.md)
 
-A process is a set of explicit states of three kinds:
+A process definition (`ProcessDefinition`) is a set of transitions between states (`ProcessState`) of three kinds:
 
 - a **step** (`step`) runs code and always moves on;
 - an **await** (`await`) waits for a message or a timer;
 - a **terminal** state completes the process.
 
-The main rule: **a handler reports a result, the definition declares the target.** A handler never names the next
-state, so the whole transition graph is visible in one place.
+The whole transition graph is visible in one place.
 
 ```java
 public class ApprovalDefinition implements ProcessDefinition {
@@ -34,13 +33,13 @@ UUID processId = processEngine.newProcess(ApprovalDefinition.TYPE).start();
 ```
 
 The process type (`ProcessType`) identifies the definition: it is used to start processes, search and test them.
-Declare it, the message types and the variable types as constants and refer to them everywhere.
 
 ## Steps
 
-A linear step implements `ProcessStep` (`void execute(context)`); its target is the third argument of `step`.
+Steps (`step`) come in two kinds. A linear step implements `ProcessStep`.
+After `ProcessStep.execute()` returns, the engine moves the process to the next state.
 
-A branching step implements `BranchingStep<O>` and returns a constant of enum `O`; the definition maps each
+A branching step implements `BranchingStep<O>` and returns a constant of enum `O`; the engine maps each
 constant to a state:
 
 ```java
@@ -51,24 +50,21 @@ enum Validation { VALID, REJECTED }
     .on(Validation.REJECTED, CANCELLED))
 ```
 
-The compiler checks that the routes use the step's enum, and `build()` checks that every constant is routed.
-
-A step whose target is itself runs again: a loop over batches, each batch committed in its own transition
-(the `batch` recipe).
+The compiler checks that the routes use the step's enum; at runtime `build()` checks that every constant is routed.
 
 ## Awaits
 
-An await declares the events it waits for:
+An await (`await`) declares the events it waits for:
 
-| Event | Fires | Handler |
-|---|---|---|
-| `message(type, handler, target)` | when a message of `type` arrives | required |
-| `every(interval, handler, target)` | repeatedly, every `interval` | required |
-| `after(delay[, handler], target)` | once, `delay` after entering the await | optional |
-| `at(timer[, handler], target)` | at the moment of the process timer `timer` | optional |
+| Event | Fires |
+|---|---|
+| `message(type, handler, target)` | when a message of `type` arrives |
+| `every(interval, handler, target)` | repeatedly, every `interval` |
+| `after(delay[, handler], target)` | once, `delay` after entering the await |
+| `at(timer[, handler], target)` | at the moment of the process timer `timer` |
 
-`target` is a state or, for a branching handler, `routes -> routes.on(...)`. An await declares each timer kind at
-most once, and at least one of its events leads to another state.
+`target` is the target state of the process or the mapping of the handler's outcome to process states
+(`routes -> routes.on(...)`). An await declares each timer kind at most once.
 
 ```java
 .await(WAITING_FOR_PAYMENT, await -> await
@@ -80,20 +76,17 @@ most once, and at least one of its events leads to another state.
 ### Staying in an await
 
 An event whose target is the await itself keeps the process waiting: the handled message is removed, other queued
-messages and the timers are kept. Use it for reminders, polling an external system and intermediate messages
-(`message(STATUS_UPDATE, saveStatus, WAITING_FOR_DELIVERY)`).
+messages and the timers are kept.
 
 A transition to another state closes the await, and **its unhandled messages are removed**. To start an await over,
 with an empty queue and new timers, go through a step that leads back to it:
 
 ```java
 .await(ACTIVE, await -> await
-    .message(ACTIVITY, Session::onActivity, RECORDING_ACTIVITY)   // every activity restarts the timeout
+    .message(ACTIVITY, Session::onActivity, RECORDING_ACTIVITY)   // an ACTIVITY message restarts the timeout
     .after(Duration.ofMinutes(30), EXPIRED))
 .step(RECORDING_ACTIVITY, Session::recordActivity, ACTIVE)
 ```
-
-The same rule applies to steps and to manual moves: a transition to the current state is not a state change.
 
 ### Await timers: `every` and `after`
 
@@ -102,13 +95,13 @@ The same rule applies to steps and to manual moves: a transition to the current 
 - `after(delay)` fires once, `delay` after entering.
 - `every(period)` fires on a fixed grid from entering: `firstAfter + k * period` (`firstAfter` defaults to
   `period`). A late check does not shift the grid, and missed points are not run in a batch. To move the first
-  check, pass an `Interval` instead of a `Duration`; to run it right on entering:
+  check, pass an `Interval` instead of a `Duration`. For example, to run `every` right on entering:
   `every(Interval.of(period).firstAfter(Duration.ZERO), handler, target)`.
 
 ### Process timers: `at`
 
-`at(T)` waits for a process timer: a named moment (`TimerType`) that your code sets. Use it for a deadline that
-moves (extension by a message, a due date from the order) or a schedule by dates.
+`at(T)` waits for a named process timer (`TimerType`). User code controls the timer: it can set, move or cancel
+it:
 
 ```java
 static final TimerType PAYMENT_DUE = TimerType.of("paymentDue");
@@ -122,16 +115,28 @@ static void extend(ProcessContext context, IncomingMessage<Instant> message) {  
 }
 ```
 
-- The timer is set by `context.setTimer`, at start by `newProcess(...).timer(...)` or by an operator, and cancelled
-  by `context.cancelTimer`. A change takes effect at once, without entering the await again.
-- `at` fires when the process is in its await and the timer is due; a moment in the past fires right away.
-- Transitions do not touch process timers. A timer lives until it fires or is cancelled, so one deadline can cover
-  several awaits. If a timer is no longer needed after the process leaves the await by another event, cancel it in
-  that handler.
-- While the `at` handler runs, the timer keeps the fired moment. A handler that moves the timer makes a schedule;
-  a timer left unchanged is cancelled after the handler.
+A process timer consists of a name and a fire moment. The name is given by `TimerType`:
+`TimerType.of("paymentDue")`.
 
-A schedule by dates:
+1. **A timer belongs to the process.** A process can have several timers with different names. A timer with one
+   name is either not set or set to one fire moment; `setTimer` on a set timer replaces its fire moment.
+2. **Code and operators set and cancel the timer.** At process start with `ProcessEngine.newProcess(...).timer(...)`,
+   in handlers with `ProcessContext.setTimer` and `ProcessContext.cancelTimer`, manually in the Admin UI. A change
+   takes effect at once, without entering the await again. The engine never sets a timer; it only cancels a fired
+   timer (rule 5).
+3. **A timer fires only in an await with `at`.** A timer fires when the process is in an await with `at` and the
+   fire moment is not later than the engine time (`ProcessContext.now()`). If the fire moment has already passed when
+   the process enters such an await, the timer fires at once. A timer that is not set does not fire.
+4. **Transitions do not change the timer.** A timer stays set until it fires or is cancelled. This holds also when
+   the process leaves an await with `at` by another event of that await (`message`, `after`, `every`): the timer then
+   fires in the next await with `at` for the same name.
+5. **A fired timer is cancelled after the `at` handler.** While the `at` handler runs, the timer stays set and
+   `getTimer` returns its fire moment. After the handler the engine cancels the timer unless the handler set a new
+   fire moment; the same moment does not count as new. If the handler set a new moment, the timer stays set to it.
+   If the handler fails, its changes are rolled back and the retry sees the timer unchanged. For an `at` without a
+   handler the timer is cancelled when it fires.
+
+Moving the timer in the handler makes a schedule:
 
 ```java
 .await(SCHEDULED, await -> await
@@ -181,21 +186,11 @@ so change these classes compatibly. A custom `ObjectMapper` is set with `Process
 
 ## Status and errors
 
-A process is `ACTIVE`, `FAILED` or `COMPLETED` (it reached a terminal state).
+A process can be `ACTIVE`, `FAILED` or `COMPLETED`.
 
-A handler exception is a technical error: its changes are rolled back and the error policy decides what happens
-next. Express expected business situations as outcomes of a branching handler. See
+A handler exception is a technical error: by default the database transaction is rolled back and the error policy decides what
+happens next. Express expected business situations as outcomes of a branching handler. See
 [error-handling.md](error-handling.md).
-
-## Handlers
-
-A definition is built once, and its handlers are called by many processes concurrently. Keep them stateless and
-keep per-process data in `ProcessContext`.
-
-In Spring, extend `SpringProcessDefinition` and take handlers with `bean(Type.class)`, or inject them through the
-constructor. Without Spring, create the instances yourself and pass the definition to `ProcessEngineBuilder`.
-
-`ProcessState.description()` sets the label of a state on the Admin UI diagram; it defaults to `name()`.
 
 ## Definition evolution
 
@@ -205,27 +200,4 @@ of the current application:
 - a handler change affects running processes too;
 - a process in a removed or renamed state cannot run: it is retried every 60 seconds with an error in `lastError`.
 
-Keep old states while processes are in them. If a state was removed anyway, move the affected processes:
-
-```java
-processEngine.processes().byTypeName("ORDER").byStateName("OLD_STATE").list()
-        .forEach(p -> processEngineAdmin.moveProcessToState(p.id(), OrderState.NEW_STATE));
-```
-
-## Compiler errors
-
-The handler type is tied to the form of the declaration, so most mistakes show up at compile time. The message
-text depends on the `javac` and IDE version; go by the symptom.
-
-| Mistake | Symptom | Fix |
-|---|---|---|
-| A linear step returns an outcome | `no suitable method found for step(...)`: `bad return type in lambda expression` | Declare routes or return nothing |
-| A branching step has a single target | `... cannot be converted to ProcessStep` | Replace the target with `routes -> routes.on(...)` |
-| A linear step has routes | `... cannot be converted to BranchingStep<O>` | Replace the routes with the target state |
-| Routes use another enum | `Stock cannot be converted to Validation` | Use the constants of the enum the step returns |
-| The same for an await event | the same symptoms with `message(...)`, `every(...)` | The same fixes |
-
-Do not use raw types or casts on handlers: they turn these compile errors into runtime errors.
-
-`build()` checks the rest: duplicate states and events, undeclared targets, incomplete routes, non-positive delays,
-an await without an exit and unregistered workers.
+Keep old states while processes are in them. If a state was removed anyway, move the affected processes.

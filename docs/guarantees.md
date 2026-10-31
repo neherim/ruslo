@@ -34,7 +34,7 @@ transactional `DEFAULT` worker. Assigning workers: [workers.md](workers.md).
   await has not started yet, has ended, or the process has completed) it throws `MessageNotExpectedException` with
   the current process state and stores nothing. **Early messages are not buffered**: the sender retries later or
   ignores the rejection. Catching it does not roll back the caller's transaction
-  ([execution.md](execution.md#application-transactions-in-spring)).
+  ([spring.md](spring.md#application-transactions)).
 - A message type that no await of the process declares is a caller error: `IllegalArgumentException`.
 - A process in `FAILED` accepts messages of its await; they are handled after `resumeFailedProcess`.
 - Success means the message is stored, **not** that its handler will run: if another event moves the process out of

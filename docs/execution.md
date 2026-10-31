@@ -73,19 +73,6 @@ If a node has not renewed its registration for longer than `ruslo.dispatcher.ins
 processes. The timeout is measured by database time, so node clock divergence does not affect it. The results of
 steps that the lost node had started are discarded.
 
-## Application transactions in Spring
-
-Engine operations join the active application transaction (`PROPAGATION_REQUIRED`). So `newProcess(...).start()` and
-`sendMessage()` inside `@Transactional` are atomic with the application changes on the same `DataSource` and
-transaction manager: on rollback neither is saved. Process steps run after commit, each in its own transaction.
-
-An engine error (a database error, `ProcessNotFoundException`, an undeclared message type) is thrown inside the
-transaction and, as usual in Spring, marks it rollback-only even if caught.
-
-An expected rejection is thrown after the engine leaves its transaction: `MessageNotExpectedException` from
-`sendMessage` and `sendMessageSync`, `ProcessStatusException` from `resumeFailedProcess`. A caught rejection does not
-prevent the application transaction from committing; an uncaught one rolls it back like any exception.
-
 ## Synchronous message handling
 
 `processEngine.sendMessageSync(processId, type, payload)` runs the message handler in the calling thread and

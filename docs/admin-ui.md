@@ -10,7 +10,8 @@ A web UI for viewing processes and manual intervention. It is disabled by defaul
 
 - **Dashboard** (`/ruslo`): the number of `FAILED`, overdue and active processes, overall and per type, and the
   engine nodes with a running dispatcher. A process is overdue if it is active and its next run passed more than a
-  minute ago: no node is picking it up. A counter opens the matching process list.
+  minute ago: no node is picking it up. A counter opens the matching process list. A process type is shown with
+  the description set by `ProcessSpecBuilder.description(...)`.
 - **Process list** (`/ruslo/processes`): search with filters and starting a new process.
 - **Process page**: status, state, variables, process timers, last error, state history and a diagram of the
   definition with the path taken. The page refreshes while the process is running.
@@ -32,5 +33,5 @@ Every action is written to the application log with the user name.
 
 ## Process diagram
 
-The diagram is built from the definition: states are labeled with `ProcessState.description()`, edges with the
+The diagram is built from the definition: states are labeled with `ProcessState.description()` (the state name by default), edges with the
 outcome, the message name or the timer. The legend is in the [module README](../ruslo-admin-ui/README.md#process-diagram).

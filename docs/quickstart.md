@@ -140,8 +140,8 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
 }
 ```
 
-`SpringProcessDefinition.bean(...)` takes the handlers from the Spring context. Handlers are shared by all
-processes: keep them stateless and keep order data in `ProcessContext`.
+`SpringProcessDefinition.bean(...)` takes the handlers from the Spring context ([spring.md](spring.md)). Handlers
+are shared by all processes: keep them stateless and keep order data in `ProcessContext`.
 
 ## 5. Start a process and send a message
 
@@ -263,4 +263,4 @@ From the repository root, run:
 ```
 
 Next: [process model](concepts.md), [guarantees](guarantees.md),
-[error handling](error-handling.md), [testing](testing.md).
+[error handling](error-handling.md), [Spring Boot](spring.md), [testing](testing.md).

@@ -363,10 +363,11 @@ repository, not in the user's project. Docs: `https://raw.githubusercontent.com/
 | Branching, awaits, timers | `concepts.md` | `branching`, `deadline`, `polling`, `approval`, `subscription` |
 | Errors, retries, compensation | `error-handling.md` | `retries`, `failandresume` |
 | Delivery guarantees, messages | `guarantees.md` | `webhook`, `externalcall` |
-| Transactions, event ordering | `execution.md` | `transactionalstart`, `cancellation`, `batch` |
+| Event ordering, `sendMessageSync` | `execution.md` | `cancellation`, `batch` |
 | Workers | `workers.md` | `externalcall` |
 | Testing | `testing.md` | `branching` (`CheckApplicationStepTest`) |
-| Spring properties | `configuration.md` | |
+| Spring starter, application transactions | `spring.md` | `transactionalstart` |
+| Settings, `ruslo.*` properties | `configuration.md` | |
 
 Recipes: the list with the class to start from is in
 `https://raw.githubusercontent.com/neherim/ruslo/main/ruslo-examples/cookbook/README.md`. A recipe's code is in

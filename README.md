@@ -115,7 +115,7 @@ Additional modules:
 
 | Artifact | Purpose |
 |---|---|
-| `ruslo-core` | Engine without Spring: [configuration without Spring](docs/configuration.md#configuration-without-spring) |
+| `ruslo-core` | [Engine without Spring](docs/configuration.md#engine-without-spring) |
 | `ruslo-admin-ui` | Web UI: process search, diagram, manual intervention |
 | `ruslo-spring-boot-starter-test` | `@ProcessEngineTest` and the emulator for tests (scope `test`) |
 
@@ -146,7 +146,8 @@ database add 14–28%. Conditions and raw data:
 | [Error handling](docs/error-handling.md) | Delayed retries, give-up state |
 | [Workers](docs/workers.md) | Separate pools for steps with external I/O |
 | [Execution](docs/execution.md) | Exact rules of event selection and transaction boundaries |
-| [Configuration](docs/configuration.md) | All `ruslo.*` properties; usage without Spring |
+| [Spring Boot](docs/spring.md) | Starter, `SpringProcessDefinition`, application transactions |
+| [Configuration](docs/configuration.md) | Engine without Spring; all settings and `ruslo.*` properties |
 | [Testing](docs/testing.md) | `@ProcessEngineTest`, emulator, timers, step unit tests |
 | [Operations](docs/operations.md) | Production checklist, process search, cleanup of completed processes |
 | [Admin UI](docs/admin-ui.md) | Viewing and managing processes |

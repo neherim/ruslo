@@ -115,7 +115,7 @@ processEngine.sendMessage(processId, OrderProcess.PAYMENT_CONFIRMED, new Payment
 
 | Артефакт | Зачем |
 |---|---|
-| `ruslo-core` | Движок без Spring: [конфигурация без Spring](docs/ru/configuration.md#конфигурация-без-spring) |
+| `ruslo-core` | [Движок без Spring](docs/ru/configuration.md#движок-без-spring) |
 | `ruslo-admin-ui` | Web-интерфейс: поиск процессов, схема, ручное вмешательство|
 | `ruslo-spring-boot-starter-test` | `@ProcessEngineTest` и эмулятор для тестов (scope `test`) |
 
@@ -146,7 +146,8 @@ processEngine.sendMessage(processId, OrderProcess.PAYMENT_CONFIRMED, new Payment
 | [Обработка ошибок](docs/ru/error-handling.md) | Ретраи с задержкой, состояние отказа |
 | [Workers](docs/ru/workers.md) | Отдельные пулы для шагов с внешним I/O |
 | [Исполнение](docs/ru/execution.md) | Точные правила выбора событий и границ транзакций |
-| [Конфигурация](docs/ru/configuration.md) | Все свойства `ruslo.*`; использование без Spring |
+| [Spring Boot](docs/ru/spring.md) | Starter, `SpringProcessDefinition`, транзакции приложения |
+| [Конфигурация](docs/ru/configuration.md) | Движок без Spring; все настройки и свойства `ruslo.*` |
 | [Тестирование](docs/ru/testing.md) | `@ProcessEngineTest`, эмулятор, таймеры, юнит-тесты шагов |
 | [Эксплуатация](docs/ru/operations.md) | Production-чеклист, поиск процессов, очистка завершённых |
 | [Admin UI](docs/ru/admin-ui.md) | Просмотр и управление процессами |

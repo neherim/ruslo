@@ -140,8 +140,8 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
 }
 ```
 
-`SpringProcessDefinition.bean(...)` берёт обработчики из Spring-контекста. Обработчики общие для всех процессов:
-делайте их без состояния, а данные заказа храните в `ProcessContext`.
+`SpringProcessDefinition.bean(...)` берёт обработчики из Spring-контекста ([spring.md](spring.md)). Обработчики
+общие для всех процессов: делайте их без состояния, а данные заказа храните в `ProcessContext`.
 
 ## 5. Запустите процесс и отправьте сообщение
 
@@ -263,4 +263,4 @@ class QuickstartOrderTest {
 ```
 
 Дальше: [модель процесса](concepts.md), [гарантии](guarantees.md),
-[обработка ошибок](error-handling.md), [тестирование](testing.md).
+[обработка ошибок](error-handling.md), [Spring Boot](spring.md), [тестирование](testing.md).
