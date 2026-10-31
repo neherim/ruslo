@@ -201,3 +201,6 @@ of the current application:
 - a process in a removed or renamed state cannot run: it is retried every 60 seconds with an error in `lastError`.
 
 Keep old states while processes are in them. If a state was removed anyway, move the affected processes.
+
+Next: [guarantees](guarantees.md), [error handling](error-handling.md), [Spring Boot](spring.md),
+[configuration](configuration.md), [testing](testing.md).

@@ -138,10 +138,15 @@ database add 14–28%. Conditions and raw data:
 
 ## Documentation
 
+Start here:
+
+1. [Quickstart](docs/quickstart.md): a working order process, from dependencies to a test.
+2. [Process model](docs/concepts.md): steps, awaits, branching, timers, variables, definition evolution.
+
+Reference:
+
 | Section | Contents |
 |---|---|
-| [Quickstart](docs/quickstart.md) | A working order process, from dependencies to a test |
-| [Process model](docs/concepts.md) | Steps, awaits, branching, timers, variables, definition evolution |
 | [Guarantees](docs/guarantees.md) | What survives a failure, message delivery, timer accuracy |
 | [Error handling](docs/error-handling.md) | Delayed retries, give-up state |
 | [Workers](docs/workers.md) | Separate pools for steps with external I/O |

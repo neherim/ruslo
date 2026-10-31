@@ -202,3 +202,6 @@ static Run buildReport(ProcessContext context) {
   в `lastError`.
 
 Сохраняйте старые состояния, пока в них есть процессы. Если состояние всё же удалено, переведите затронутые процессы.
+
+Дальше: [гарантии](guarantees.md), [обработка ошибок](error-handling.md), [Spring Boot](spring.md),
+[конфигурация](configuration.md), [тестирование](testing.md).
