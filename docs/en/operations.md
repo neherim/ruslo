@@ -1,7 +1,5 @@
 # Operations
 
-English | [Русский](ru/operations.md)
-
 ## Before production
 
 - **Database.** Use PostgreSQL in production; H2 is for tests and local runs.
@@ -11,7 +9,7 @@ English | [Русский](ru/operations.md)
   connection while it runs. Size the pool and the workers' `max-concurrency` together.
 - **Monitoring.** Watch the `ruslo.worker.lag` metric and the number of `FAILED` processes, see [metrics](metrics.md).
 - **Admin UI.** It is not protected by itself: secure `/ruslo/**` with Spring Security, see the
-  [module README](../ruslo-admin-ui/README.md#spring-security).
+  [module README](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md#spring-security).
 - **Retention.** Plan the cleanup of completed processes, see [below](#retention-of-completed-processes).
 
 ## Process search

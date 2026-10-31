@@ -42,7 +42,7 @@ import java.time.Duration;
  *       and keep {@code every} with a long interval as insurance against a lost callback.</li>
  * </ul>
  * <p>
- * How late and missed checks are ordered against the deadline is described in {@code docs/execution.md}.
+ * How late and missed checks are ordered against the deadline is described in {@code docs/en/execution.md}.
  */
 @Component
 public class ReportGenerationDefinition implements ProcessDefinition {

@@ -42,7 +42,7 @@ import org.springframework.stereotype.Component;
  *       handler's transaction.</li>
  *   <li>A callback may arrive while step {@link State#SUBMITTING} is still running. On the transactional
  *       {@code DEFAULT} worker {@code sendMessage} waits for the step and finds the await
- *       ({@code docs/execution.md}). On a non-transactional worker it throws {@code MessageNotExpectedException},
+ *       ({@code docs/en/execution.md}). On a non-transactional worker it throws {@code MessageNotExpectedException},
  *       and the webhook must answer with an error so the service retries.</li>
  *   <li>The business key is not unique: {@code single()} throws {@code TooManyRowsException} if two processes of
  *       the type share it.</li>

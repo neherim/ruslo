@@ -1,7 +1,5 @@
 # Workers and routing
 
-English | [Русский](ru/workers.md)
-
 A worker is a step execution pool with its own mode and `max-concurrency` limit. A step uses the process worker
 (`defaultWorker(...)`, `DEFAULT` by default) or the worker passed to the step right after its state: `step(state, W, handler, ...)`.
 
@@ -50,4 +48,4 @@ builder
 
 Give slow external systems separate workers, so that they do not take each other's slots.
 `build()` checks that all referenced workers are registered.
-Full example: the `externalcall` recipe in [`ruslo-examples/cookbook`](../ruslo-examples/cookbook).
+Full example: the `externalcall` recipe in [`ruslo-examples/cookbook`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/cookbook).

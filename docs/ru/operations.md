@@ -1,7 +1,5 @@
 # Эксплуатация
 
-[English](../operations.md) | Русский
-
 ## Перед production
 
 - **База данных.** В production используйте PostgreSQL; H2 — для тестов и локального запуска.
@@ -11,7 +9,7 @@
   выполняется. Подбирайте размер пула и `max-concurrency` workers вместе.
 - **Мониторинг.** Следите за метрикой `ruslo.worker.lag` и числом процессов в `FAILED`, см. [метрики](metrics.md).
 - **Admin UI.** Сам по себе он не защищён: закройте `/ruslo/**` через Spring Security, см.
-  [README модуля](../../ruslo-admin-ui/README.md#spring-security).
+  [README модуля](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md#spring-security).
 - **Хранение.** Запланируйте очистку завершённых процессов, см. [ниже](#хранение-завершённых-процессов).
 
 ## Поиск процессов

@@ -53,7 +53,7 @@ import java.time.ZoneOffset;
  *   <li>Do not keep payment history in variables: all variables are stored as one JSON in the process row and are
  *       read on every event. The history lives in billing.</li>
  *   <li>Subscriptions live for years, while the definition changes with the application. Do not remove or rename
- *       states that hold live processes ({@code docs/concepts.md}, "Definition evolution").</li>
+ *       states that hold live processes ({@code docs/en/concepts.md}, "Definition evolution").</li>
  * </ul>
  */
 @Component

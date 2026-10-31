@@ -67,7 +67,7 @@ Third-party frontend dependencies are shipped locally in `assets/vendor/`, so th
 - `/ruslo/processes`: process list with filters, process start, link to the process page.
 - `/ruslo/processes/{id}`: process page with actions and the diagram.
 
-Page features are described in [docs/admin-ui.md](../docs/admin-ui.md).
+Page features are described in [docs/en/admin-ui.md](../docs/en/admin-ui.md).
 
 ## Process diagram
 

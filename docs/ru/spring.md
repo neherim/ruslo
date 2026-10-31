@@ -1,7 +1,5 @@
 # Spring Boot
 
-[English](../spring.md) | Русский
-
 `ruslo-spring-boot-starter` строит движок из `DataSource` и transaction manager приложения. Настройки `ruslo.*` ему
 не нужны: при запуске он создаёт таблицы движка, транзакционный worker `DEFAULT` и запускает диспетчер. Настройки на
 случай, когда значения по умолчанию не подходят, — в [configuration.md](configuration.md).

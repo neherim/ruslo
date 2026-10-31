@@ -1,0 +1,90 @@
+# Documentation site published to GitHub Pages by .github/workflows/docs.yml.
+# Local preview: pip install -r docs/requirements.txt && mkdocs serve
+site_name: Ruslo
+site_description: Embedded engine for long-running business processes in Java and Spring Boot
+site_url: https://neherim.github.io/ruslo/
+repo_url: https://github.com/neherim/ruslo
+repo_name: neherim/ruslo
+edit_uri: edit/main/docs/
+
+# Fails the build on broken links and pages missing from the navigation.
+strict: true
+validation:
+  links:
+    anchors: warn
+  omitted_files: warn
+
+exclude_docs: |
+  requirements.txt
+  performance/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+        - locale: ru
+          name: Русский
+          build: true
+          nav_translations:
+            Getting started: С чего начать
+            Reference: Справочник
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+      # GitHub-style anchors: keeps Cyrillic, so links between Russian pages match GitHub.
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+nav:
+  - index.md
+  - Getting started:
+      - quickstart.md
+      - concepts.md
+  - Reference:
+      - guarantees.md
+      - error-handling.md
+      - workers.md
+      - execution.md
+      - spring.md
+      - configuration.md
+      - testing.md
+      - operations.md
+      - admin-ui.md
+      - metrics.md

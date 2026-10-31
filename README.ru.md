@@ -138,6 +138,8 @@ processEngine.sendMessage(processId, OrderProcess.PAYMENT_CONFIRMED, new Payment
 
 ## Документация
 
+Документация также опубликована как сайт: [neherim.github.io/ruslo/ru](https://neherim.github.io/ruslo/ru/).
+
 С чего начать:
 
 1. [Быстрый старт](docs/ru/quickstart.md): рабочий процесс заказа от зависимостей до теста.

@@ -1,7 +1,5 @@
 # Модель процесса
 
-[English](../concepts.md) | Русский
-
 Описание процесса (`ProcessDefinition`) - это набор переходов между состояниями (`ProcessState`) трёх видов:
 
 - **шаг** (`step`) выполняет код и всегда переходит дальше;
@@ -154,7 +152,7 @@ static Run buildReport(ProcessContext context) {
 ```
 
 Считайте следующий момент от момента срабатывания, а не от `context.now()`: тогда опоздавший запуск не сдвигает
-расписание. Полные примеры — рецепты `deadline` и `subscription` в [`ruslo-examples/cookbook`](../../ruslo-examples/cookbook).
+расписание. Полные примеры — рецепты `deadline` и `subscription` в [`ruslo-examples/cookbook`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/cookbook).
 
 Если наступило сразу несколько событий, обрабатывается самое раннее; точный порядок — в
 [execution.md](execution.md#выбор-события-ожидания).

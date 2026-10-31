@@ -1,7 +1,5 @@
 # Testing
 
-English | [Русский](ru/testing.md)
-
 Add `ruslo-spring-boot-starter-test` (see the [quickstart](quickstart.md#6-test-the-process-with-the-emulator))
 and annotate the test with `@ProcessEngineTest`. The annotation:
 
@@ -72,7 +70,7 @@ assertEquals(SeatReservationDefinition.State.EXPIRED.id(), emulator.runUntilStop
 Handlers must take the time from `context.now()`: a handler that calls `Instant.now()` does not see the test time.
 The application's own `Clock` beans do not affect the engine.
 
-Full examples in [`ruslo-examples/cookbook`](../ruslo-examples/cookbook): the `deadline`, `subscription` and
+Full examples in [`ruslo-examples/cookbook`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/cookbook): the `deadline`, `subscription` and
 `retries` recipes.
 
 ## Unit tests of a handler: TestProcessContext

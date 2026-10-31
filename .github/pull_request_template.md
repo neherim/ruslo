@@ -6,5 +6,5 @@
 
 - [ ] `./mvnw verify` passes locally
 - [ ] Tests added or updated
-- [ ] Public API, configuration or schema changes are reflected in `docs/`, `docs/ru/`, README and `skills/ruslo/SKILL.md`
+- [ ] Public API, configuration or schema changes are reflected in `docs/en/`, `docs/ru/`, README and `skills/ruslo/SKILL.md`
 - [ ] Migrations added for every supported database (if the schema changed)

@@ -1,7 +1,5 @@
 # Workers и маршрутизация
 
-[English](../workers.md) | Русский
-
 Worker — пул исполнения шагов со своим режимом и лимитом `max-concurrency`. Шаг использует worker процесса
 (`defaultWorker(...)`, по умолчанию `DEFAULT`) или worker, переданный шагу сразу после состояния: `step(state, W, handler, ...)`.
 
@@ -50,4 +48,4 @@ builder
 
 Медленным внешним системам давайте отдельные workers, чтобы они не занимали слоты друг друга.
 `build()` проверяет, что все упомянутые workers зарегистрированы.
-Полный пример: рецепт `externalcall` в [`ruslo-examples/cookbook`](../../ruslo-examples/cookbook).
+Полный пример: рецепт `externalcall` в [`ruslo-examples/cookbook`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/cookbook).

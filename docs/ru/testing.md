@@ -1,7 +1,5 @@
 # Тестирование
 
-[English](../testing.md) | Русский
-
 Подключите `ruslo-spring-boot-starter-test` (см. [быстрый старт](quickstart.md#6-проверьте-процесс-эмулятором))
 и пометьте тест `@ProcessEngineTest`. Аннотация:
 
@@ -72,7 +70,7 @@ assertEquals(SeatReservationDefinition.State.EXPIRED.id(), emulator.runUntilStop
 Обработчики должны брать время из `context.now()`: обработчик, который вызывает `Instant.now()`, не видит время
 теста. Собственные бины `Clock` приложения на движок не влияют.
 
-Полные примеры в [`ruslo-examples/cookbook`](../../ruslo-examples/cookbook): рецепты `deadline`, `subscription` и
+Полные примеры в [`ruslo-examples/cookbook`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/cookbook): рецепты `deadline`, `subscription` и
 `retries`.
 
 ## Юнит-тесты обработчика: TestProcessContext

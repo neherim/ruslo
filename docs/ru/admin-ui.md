@@ -1,10 +1,8 @@
 # Admin UI
 
-[English](../admin-ui.md) | Русский
-
 Веб-интерфейс для просмотра процессов и ручного вмешательства. По умолчанию выключен; включается через
 `ruslo.admin-ui.enabled=true`. Подключение, настройки и защита через Spring Security — в
-[README модуля](../../ruslo-admin-ui/README.md).
+[README модуля](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md).
 
 ## Страницы
 
@@ -34,4 +32,4 @@
 ## Диаграмма процесса
 
 Диаграмма строится по definition: состояния подписаны `ProcessState.description()` (по умолчанию имя состояния), переходы — результатом, именем
-сообщения или таймером. Легенда — в [README модуля](../../ruslo-admin-ui/README.md#process-diagram).
+сообщения или таймером. Легенда — в [README модуля](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md#process-diagram).

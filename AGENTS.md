@@ -19,7 +19,7 @@ Javadoc is a technical contract, not prose. Write the minimum the caller needs.
 
 ### Documentation
 
-- English is the primary version: `README.md`, `docs/*.md`. The Russian translation lives next to it: `README.ru.md`, `docs/ru/*.md`.
+- English is the primary version: `README.md`, `docs/en/*.md`. The Russian translation lives next to it: `README.ru.md`, `docs/ru/*.md`.
 - Change the English version first, then update the Russian one in the same change so they say the same thing.
 - Documentation may explain in more detail than Javadoc, but stays technical: no filler, no marketing.
 - Documentation describes the model and the recommended usage. Exact edge cases of a method (argument checks,
@@ -29,17 +29,31 @@ Javadoc is a technical contract, not prose. Write the minimum the caller needs.
 
 | Topic | Home |
 |---|---|
-| States, handlers, awaits, timers, `ProcessContext`, definition evolution | `docs/concepts.md` |
-| Transactions, at-least-once, worker modes, message acceptance, timer accuracy | `docs/guarantees.md` |
-| Event order in an await, retry pause, `sendMessageSync`, concurrency | `docs/execution.md` |
-| Starter, `SpringProcessDefinition`, application transactions in Spring | `docs/spring.md` |
-| Error policy, give-up state, `FAILED` | `docs/error-handling.md` |
-| Properties and builder methods | `docs/configuration.md` |
-| Emulator and `TestProcessContext` | `docs/testing.md` |
-| Search, manual intervention, retention | `docs/operations.md` |
+| States, handlers, awaits, timers, `ProcessContext`, definition evolution | `docs/en/concepts.md` |
+| Transactions, at-least-once, worker modes, message acceptance, timer accuracy | `docs/en/guarantees.md` |
+| Event order in an await, retry pause, `sendMessageSync`, concurrency | `docs/en/execution.md` |
+| Starter, `SpringProcessDefinition`, application transactions in Spring | `docs/en/spring.md` |
+| Error policy, give-up state, `FAILED` | `docs/en/error-handling.md` |
+| Properties and builder methods | `docs/en/configuration.md` |
+| Emulator and `TestProcessContext` | `docs/en/testing.md` |
+| Search, manual intervention, retention | `docs/en/operations.md` |
 
-- `README.md` and `docs/quickstart.md` show only the main path and link to the home pages; Admin UI pages are
+- `README.md` and `docs/en/quickstart.md` show only the main path and link to the home pages; Admin UI pages are
   described by what the user can do, not by how the page works.
+
+#### Documentation site
+
+`docs/` is published to GitHub Pages (`https://neherim.github.io/ruslo/`) with MkDocs Material by
+`.github/workflows/docs.yml`; the configuration is `mkdocs.yml`.
+
+- `docs/en/` and `docs/ru/` hold the same file names; the site language switcher maps pages by name.
+  `docs/<lang>/index.md` is the site home page. Images shared by both languages are in `docs/images/`.
+- A new page goes to both language folders and to `nav` in `mkdocs.yml`; translate its section names in
+  `nav_translations`.
+- Links between pages are relative (`concepts.md#anchor`). Links to the rest of the repository (modules, examples)
+  are absolute GitHub URLs: the site contains only `docs/`.
+- The build is strict: a broken link or anchor fails CI. Preview locally:
+  `pip install -r docs/requirements.txt && mkdocs serve` (http://localhost:8000).
 
 ## Design Principles
 
@@ -172,7 +186,7 @@ Spring property values map to these modes as:
 - Handlers report a result, the definition declares the target (`ProcessStep` returns nothing, `BranchingStep<O>` returns an outcome).
 - A transition to the same state is not a state change: the queue, `every`, `after` and history are kept, the error is cleared; a step runs again, an await keeps waiting. The rule lives in `ProcessInstance.enterState`, the single path for every transition.
 - Raw types and casts on handlers are forbidden in production code, tests and examples.
-- User-facing rules: `docs/concepts.md`.
+- User-facing rules: `docs/en/concepts.md`.
 
 ## Testing
 

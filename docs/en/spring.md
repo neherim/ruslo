@@ -1,7 +1,5 @@
 # Spring Boot
 
-English | [Русский](ru/spring.md)
-
 `ruslo-spring-boot-starter` builds the engine from the application's `DataSource` and transaction manager. It needs
 no `ruslo.*` settings: on startup it creates the engine tables, a transactional `DEFAULT` worker and starts the
 dispatcher. The settings for when the defaults do not fit are in [configuration.md](configuration.md).
