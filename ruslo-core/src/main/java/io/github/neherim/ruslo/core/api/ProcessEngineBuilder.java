@@ -3,6 +3,7 @@ package io.github.neherim.ruslo.core.api;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
+import io.github.neherim.ruslo.core.database.DatabaseDialectResolver;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchScheduler;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
@@ -24,7 +25,6 @@ import io.github.neherim.ruslo.core.runtime.worker.WorkerFactory;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
 import io.github.neherim.ruslo.core.search.ProcessSearchService;
 import io.github.neherim.ruslo.core.spi.Database;
-import io.github.neherim.ruslo.core.spi.DatabaseDialectResolver;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.*;
 import tools.jackson.databind.ObjectMapper;
@@ -55,7 +55,6 @@ public class ProcessEngineBuilder {
     private Duration minProcessDispatchInterval = Duration.ofMillis(100);
     private Duration instanceHeartbeatInterval = DEFAULT_INSTANCE_HEARTBEAT_INTERVAL;
     private Duration instanceTimeout = DEFAULT_INSTANCE_TIMEOUT;
-    private DatabaseDialect databaseDialect;
     private ProcessEngineMetrics metrics = new ProcessEngineMetrics() {
     };
     private boolean saveProcessHistory = true;
@@ -141,12 +140,6 @@ public class ProcessEngineBuilder {
         return this;
     }
 
-    /** Sets the SQL dialect; by default {@link #build()} detects it from JDBC metadata. */
-    public ProcessEngineBuilder withDatabaseDialect(DatabaseDialect databaseDialect) {
-        this.databaseDialect = databaseDialect;
-        return this;
-    }
-
     /** Enables schema migration in {@link ProcessEngine#start()}; enabled by default. */
     public ProcessEngineBuilder withDatabaseMigrationEnabled(boolean databaseMigrationEnabled) {
         this.databaseMigrationEnabled = databaseMigrationEnabled;
@@ -206,9 +199,7 @@ public class ProcessEngineBuilder {
             throw new IllegalArgumentException("Instance timeout must be at least four times heartbeat interval");
         }
         var effectiveMetrics = FailSafeProcessEngineMetrics.wrap(metrics);
-        var effectiveDatabaseDialect = databaseDialect != null
-                ? databaseDialect
-                : DatabaseDialectResolver.resolve(database.getDataSource());
+        var databaseDialect = DatabaseDialectResolver.resolve(database.getDataSource());
         if (!workerSpecs.containsKey(WorkerId.DEFAULT)
                 || workerSpecs.get(WorkerId.DEFAULT).executionMode() != WorkerSpec.ExecutionMode.TRANSACTIONAL) {
             throw new IllegalArgumentException("Transactional DEFAULT worker is required");
@@ -216,7 +207,7 @@ public class ProcessEngineBuilder {
         var registeredWorkerIds = java.util.Set.copyOf(workerSpecs.keySet());
         var processDefinitionRegistry = new ProcessDefinitionRegistry(registeredWorkerIds::contains);
         processDefinitionRegistry.registerAll(processDefinitions);
-        var managementService = new ManagementService(database, effectiveDatabaseDialect);
+        var managementService = new ManagementService(database, databaseDialect);
         var processInstanceFactory = new ProcessInstanceFactory(clock, objectMapper, processDefinitionRegistry);
         var processInstanceDao = new ProcessInstanceDao(database, clock, processInstanceFactory,
                 saveProcessHistory, effectiveMetrics);
@@ -225,7 +216,7 @@ public class ProcessEngineBuilder {
         var stepExecutor = new StepExecutor(processMdc, effectiveMetrics, clock);
         var stepErrorHandler = new StepErrorHandler(clock, database, processInstanceDao, processMdc,
                 effectiveMetrics);
-        var leaseDao = new LeaseDao(database, effectiveDatabaseDialect);
+        var leaseDao = new LeaseDao(database, databaseDialect);
         var leaseReleaser = new LeaseReleaser(leaseDao, effectiveMetrics);
         var dispatchSignal = new ProcessDispatchSignal();
         var workerFactory = new WorkerFactory(database, processInstanceDao, stepExecutor, stepErrorHandler,

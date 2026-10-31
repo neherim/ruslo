@@ -12,7 +12,6 @@ Unknown `ruslo.*` properties fail the startup, so a typo is not silently ignored
 
 | Property | Default | Description |
 |---|---|---|
-| `ruslo.database-dialect` | detected from JDBC metadata | SQL dialect: `postgresql` or `h2` |
 | `ruslo.database-migration.enabled` | `true` | Create and update the engine tables on start |
 | `ruslo.history.enabled` | `true` | Store the history of state changes in `xs_process_state_hist` |
 | `ruslo.dispatcher.enabled` | `true` | Run processes in the background on this node |
@@ -75,7 +74,6 @@ A working example: [`ruslo-examples/standalone-core`](../ruslo-examples/standalo
 
 | `ProcessEngineBuilder` method | Spring property |
 |---|---|
-| `withDatabaseDialect(DatabaseDialect)` | `ruslo.database-dialect` |
 | `withDatabaseMigrationEnabled(boolean)` | `ruslo.database-migration.enabled` |
 | `withHistoryEnabled(boolean)` | `ruslo.history.enabled` |
 | `withDispatcherEnabled(boolean)` | `ruslo.dispatcher.enabled` |

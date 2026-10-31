@@ -169,19 +169,12 @@ class ProcessEngineBuilderTest extends BaseTest {
     }
 
     @Test
-    void builderShouldResolveDialectImmediatelyUnlessItIsConfigured() {
-        var autoDetected = new CountingDatabase(database.getDataSource());
-        new ProcessEngineBuilder(autoDetected)
+    void builderShouldResolveDialectOnce() {
+        var countingDatabase = new CountingDatabase(database.getDataSource());
+        new ProcessEngineBuilder(countingDatabase)
             .withDispatcherEnabled(false)
             .build();
-        assertEquals(1, autoDetected.dataSourceAccesses);
-
-        var explicitlyConfigured = new CountingDatabase(database.getDataSource());
-        new ProcessEngineBuilder(explicitlyConfigured)
-            .withDatabaseDialect(TestDatabases.dialect())
-            .withDispatcherEnabled(false)
-            .build();
-        assertEquals(0, explicitlyConfigured.dataSourceAccesses);
+        assertEquals(1, countingDatabase.dataSourceAccesses);
     }
 
     private ProcessDefinition definition(ProcessType type) {

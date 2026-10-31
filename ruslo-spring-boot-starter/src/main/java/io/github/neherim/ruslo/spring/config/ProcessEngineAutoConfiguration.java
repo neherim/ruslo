@@ -96,8 +96,7 @@ public class ProcessEngineAutoConfiguration {
                 .withProcessIdMdcKey(props.getLogging().getMdc().getProcessIdKey())
                 .withProcessTypeMdcKey(props.getLogging().getMdc().getProcessTypeKey())
                 .withHistoryEnabled(props.getHistory().isEnabled())
-                .withMetrics(metrics)
-                .withDatabaseDialect(props.getDatabaseDialect());
+                .withMetrics(metrics);
             effectiveWorkerSpecs.forEach(builder::registerWorker);
             return builder.build();
         }

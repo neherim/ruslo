@@ -1,6 +1,6 @@
 package io.github.neherim.ruslo.core;
 
-import io.github.neherim.ruslo.core.api.DatabaseDialect;
+import io.github.neherim.ruslo.core.database.DatabaseDialect;
 import org.h2.jdbcx.JdbcDataSource;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.postgresql.PostgreSQLContainer;

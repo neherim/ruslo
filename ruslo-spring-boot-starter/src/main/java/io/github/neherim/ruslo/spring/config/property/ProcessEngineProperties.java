@@ -1,6 +1,5 @@
 package io.github.neherim.ruslo.spring.config.property;
 
-import io.github.neherim.ruslo.core.api.DatabaseDialect;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -11,7 +10,6 @@ import java.util.Map;
 
 @ConfigurationProperties(prefix = "ruslo", ignoreUnknownFields = false)
 public class ProcessEngineProperties {
-    private DatabaseDialect databaseDialect;
     private DatabaseMigrationProperties databaseMigration = new DatabaseMigrationProperties();
     private DispatcherProperties dispatcher = new DispatcherProperties();
     private LoggingProperties logging = new LoggingProperties();
@@ -29,14 +27,6 @@ public class ProcessEngineProperties {
 
     public DispatcherProperties getDispatcher() {
         return dispatcher;
-    }
-
-    public DatabaseDialect getDatabaseDialect() {
-        return databaseDialect;
-    }
-
-    public void setDatabaseDialect(DatabaseDialect databaseDialect) {
-        this.databaseDialect = databaseDialect;
     }
 
     public void setDispatcher(DispatcherProperties dispatcher) {

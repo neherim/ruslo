@@ -233,7 +233,6 @@ All properties are under `ruslo`:
 
 | Property | Default | Meaning |
 |---|---|---|
-| `database-dialect` | detected from JDBC | `postgresql` or `h2` |
 | `database-migration.enabled` | `true` | Create/upgrade `xs_*` tables on start. Disable when Flyway/Liquibase owns the schema and apply `db/migration/<database>/V*.sql` from the `ruslo-core` jar |
 | `history.enabled` | `true` | Store state changes in `xs_process_state_hist` |
 | `dispatcher.enabled` | `true` | Run processes in the background on this node |

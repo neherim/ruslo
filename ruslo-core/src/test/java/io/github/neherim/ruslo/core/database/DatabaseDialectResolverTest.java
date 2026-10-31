@@ -1,7 +1,5 @@
-package io.github.neherim.ruslo.core.internal.database;
+package io.github.neherim.ruslo.core.database;
 
-import io.github.neherim.ruslo.core.api.DatabaseDialect;
-import io.github.neherim.ruslo.core.spi.DatabaseDialectResolver;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 

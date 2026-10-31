@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.core.management;
 
-import io.github.neherim.ruslo.core.api.DatabaseDialect;
 import io.github.neherim.ruslo.core.api.exception.DatabaseMigrationException;
-import io.github.neherim.ruslo.core.spi.DatabaseDialectResolver;
+import io.github.neherim.ruslo.core.database.DatabaseDialect;
+import io.github.neherim.ruslo.core.database.DatabaseDialectResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

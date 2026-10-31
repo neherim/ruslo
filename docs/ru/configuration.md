@@ -12,7 +12,6 @@ Spring Boot starter не требует настроек `ruslo.*`: достат
 
 | Свойство | По умолчанию | Описание |
 |---|---|---|
-| `ruslo.database-dialect` | определяется по метаданным JDBC | SQL-диалект: `postgresql` или `h2` |
 | `ruslo.database-migration.enabled` | `true` | Создавать и обновлять таблицы движка при запуске |
 | `ruslo.history.enabled` | `true` | Хранить историю смены состояний в `xs_process_state_hist` |
 | `ruslo.dispatcher.enabled` | `true` | Выполнять процессы в фоне на этом узле |
@@ -75,7 +74,6 @@ engine.start();
 
 | Метод `ProcessEngineBuilder` | Spring-свойство |
 |---|---|
-| `withDatabaseDialect(DatabaseDialect)` | `ruslo.database-dialect` |
 | `withDatabaseMigrationEnabled(boolean)` | `ruslo.database-migration.enabled` |
 | `withHistoryEnabled(boolean)` | `ruslo.history.enabled` |
 | `withDispatcherEnabled(boolean)` | `ruslo.dispatcher.enabled` |

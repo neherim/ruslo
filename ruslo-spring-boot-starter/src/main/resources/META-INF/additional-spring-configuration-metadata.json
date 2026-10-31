@@ -37,11 +37,6 @@
       "defaultValue": false
     },
     {
-      "name": "ruslo.database-dialect",
-      "type": "io.github.neherim.ruslo.core.api.DatabaseDialect",
-      "description": "SQL dialect of the database; detected from JDBC metadata if not set"
-    },
-    {
       "name": "ruslo.history.enabled",
       "type": "java.lang.Boolean",
       "description": "Whether to store process state transitions in the xs_process_state_hist table",
@@ -120,19 +115,6 @@
     }
   ],
   "hints": [
-    {
-      "name": "ruslo.database-dialect",
-      "values": [
-        {
-          "value": "postgresql",
-          "description": "PostgreSQL"
-        },
-        {
-          "value": "h2",
-          "description": "H2"
-        }
-      ]
-    },
     {
       "name": "ruslo.workers.*.execution-mode",
       "values": [

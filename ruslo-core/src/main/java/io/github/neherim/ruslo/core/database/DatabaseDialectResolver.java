@@ -1,6 +1,4 @@
-package io.github.neherim.ruslo.core.spi;
-
-import io.github.neherim.ruslo.core.api.DatabaseDialect;
+package io.github.neherim.ruslo.core.database;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;

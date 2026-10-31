@@ -1,6 +1,5 @@
 package io.github.neherim.ruslo.spring.config;
 
-import io.github.neherim.ruslo.core.api.DatabaseDialect;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
@@ -51,15 +50,6 @@ class ProcessEngineAutoConfigurationTest {
             assertThat(context).hasSingleBean(ProcessEngineInitializer.class);
             assertThat(context.getBean(ProcessEngineInitializer.class)).isInstanceOf(SmartLifecycle.class);
         });
-    }
-
-    @Test
-    void databaseDialectPropertyShouldBeBound() {
-        this.contextRunner.with(database())
-            .withUserConfiguration(EmptyConfiguration.class)
-            .withPropertyValues("ruslo.database-dialect=h2")
-            .run(context -> assertThat(context.getBean(ProcessEngineProperties.class).getDatabaseDialect())
-                .isEqualTo(DatabaseDialect.H2));
     }
 
     @Test
