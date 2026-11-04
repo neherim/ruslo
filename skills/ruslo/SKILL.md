@@ -314,10 +314,8 @@ class OrderProcessTest {
   Results are `ProcessInstanceDetails`: check `state()`, `status()`, `lastError()`,
   `variables().get(TYPE)` (`Optional`), `timers().get(DUE.name())`.
 - Assert the state as `assertEquals(State.X, details.state())`, expected value first: the failure shows the
-  actual state; `assertTrue(...is(...))` hides it. The engine returns the declared enum constants (views, context,
-  exceptions); a state the current definition does not declare comes back as `ProcessState.of(name)`.
-  `details.toString()` summarizes status, `lastError`, recent history, variables and timers: pass `details::toString`
-  as the message, and read it when `runUntilState` throws.
+  actual state. `details.toString()` summarizes status, `lastError`, recent history, variables and timers: pass
+  `details::toString` as the message, and read it when `runUntilState` throws.
 - Control time **only** through the emulator; the application's own `Clock` beans do not affect engine timers.
   For an `at` deadline: `emulator.setTime(start)`, start and run the process (its step sets the timer from
   `context.now()`), then `setTime(deadline)`.
