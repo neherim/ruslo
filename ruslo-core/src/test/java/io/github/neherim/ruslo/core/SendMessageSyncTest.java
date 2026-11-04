@@ -96,11 +96,15 @@ class SendMessageSyncTest extends BaseTest {
                 () -> engine.sendMessageSync(id, SIGNAL, "again"));
         assertEquals(ProcessState.of("NEXT"), unexpected.getCurrentState());
         assertEquals(ProcessStatus.ACTIVE, unexpected.getStatus());
+        assertEquals("Message SIGNAL is not expected for ACTIVE process " + id
+                + " in state NEXT: the state awaits no messages", unexpected.getMessage());
         emulator(engine).runUntilStop(id);
         var completed = assertThrows(MessageNotExpectedException.class,
                 () -> engine.sendMessageSync(id, SIGNAL, "late"));
         assertEquals(ProcessState.of("DONE"), completed.getCurrentState());
         assertEquals(ProcessStatus.COMPLETED, completed.getStatus());
+        assertEquals("Message SIGNAL is not expected for COMPLETED process " + id
+                + " in state DONE: the process is completed", completed.getMessage());
         assertEquals(List.of("m", "next"), log);
     }
 

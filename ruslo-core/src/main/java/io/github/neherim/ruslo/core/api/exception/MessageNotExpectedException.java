@@ -9,7 +9,7 @@ import java.util.UUID;
 /**
  * The process does not accept the message now: the current state does not await this message, the process is
  * completed, or, for a synchronous send, the process is {@code FAILED}. {@link #getStatus()} tells these cases
- * apart.
+ * apart; the exception message states the reason.
  */
 public class MessageNotExpectedException extends ProcessEngineException {
     private final UUID processId;
@@ -19,17 +19,21 @@ public class MessageNotExpectedException extends ProcessEngineException {
     private final Set<String> expectedMessageNames;
 
     /**
+     * Creates the exception.
+     *
      * @param expectedMessageNames messages the current state awaits
+     * @param reason               why the message is rejected, ends the exception message
      */
     public MessageNotExpectedException(
             UUID processId,
             String messageName,
             ProcessStatus status,
             ProcessStateId currentState,
-            Set<String> expectedMessageNames
+            Set<String> expectedMessageNames,
+            String reason
     ) {
         super("Message " + messageName + " is not expected for " + status + " process " + processId
-                + " in state " + currentState.name() + "; awaited: " + expectedMessageNames);
+                + " in state " + currentState.name() + ": " + reason);
         this.processId = processId;
         this.messageName = messageName;
         this.status = status;
@@ -53,7 +57,10 @@ public class MessageNotExpectedException extends ProcessEngineException {
         return currentState;
     }
 
-    /** Returns the messages the current state awaits; a {@code FAILED} process does not handle them synchronously. */
+    /**
+     * Returns the messages the current state awaits. For a {@code FAILED} process rejected by a synchronous send,
+     * the list may contain the rejected message: it is awaited, but cannot be handled synchronously.
+     */
     public Set<String> getExpectedMessageNames() {
         return expectedMessageNames;
     }

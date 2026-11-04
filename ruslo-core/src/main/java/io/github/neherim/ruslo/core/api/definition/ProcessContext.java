@@ -81,6 +81,7 @@ public interface ProcessContext {
      */
     int attempt();
 
+    /** Returns the business key given at process start, empty if none was given. */
     Optional<String> businessKey();
 
     /**

@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -159,8 +160,10 @@ public class ProcessRuntimeService {
             doInTransactionOrReject(() -> {
                 var process = findProcessWithLock(processId);
                 var event = expectedMessageEvent(process, type);
-                if (event.isEmpty() || process.getStatus() == ProcessStatus.FAILED) {
-                    return messageNotExpected(process, type.name());
+                if (event.isEmpty()) return messageNotExpected(process, type.name());
+                if (process.getStatus() == ProcessStatus.FAILED) {
+                    return messageNotExpected(process, type.name(), "a FAILED process cannot handle a message "
+                            + "synchronously; resume it or queue the message with sendMessage");
                 }
                 stepExecutor.executeMessage(process, event.get(), message);
                 processInstanceDao.update(process);
@@ -322,8 +325,22 @@ public class ProcessRuntimeService {
     }
 
     private static MessageNotExpectedException messageNotExpected(ProcessInstance process, String messageName) {
+        var awaited = process.getProcessSpec().getApplicableMessageTypeNames(process.getState());
+        String reason;
+        if (process.isCompleted()) reason = "the process is completed";
+        else if (awaited.isEmpty()) reason = "the state awaits no messages";
+        else
+            reason = "the state awaits only " + new TreeSet<>(awaited);
+        return messageNotExpected(process, messageName, reason);
+    }
+
+    private static MessageNotExpectedException messageNotExpected(
+            ProcessInstance process,
+            String messageName,
+            String reason
+    ) {
         return new MessageNotExpectedException(process.getId(), messageName, process.getStatus(), process.getState(),
-                process.getProcessSpec().getApplicableMessageTypeNames(process.getState()));
+                process.getProcessSpec().getApplicableMessageTypeNames(process.getState()), reason);
     }
 
     /**

@@ -24,6 +24,8 @@ package io.github.neherim.ruslo.core.api.definition;
 public record TimerType(String name) {
 
     /**
+     * Creates a timer type.
+     *
      * @throws IllegalArgumentException if the name is blank
      */
     public TimerType {

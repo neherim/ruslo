@@ -5,6 +5,7 @@ import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
+import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.view.ProcessQuery;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
@@ -29,6 +30,8 @@ import java.util.UUID;
  * transaction back. A rejection caused by concurrent process state ({@link MessageNotExpectedException},
  * {@link ProcessStatusException}) is thrown after the engine's transaction completes, so catching it does not
  * mark the caller's transaction rollback-only.
+ * <p>
+ * Operations that take a process id throw {@link ProcessNotFoundException} if no such process exists.
  */
 public class ProcessEngine implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(ProcessEngine.class);
@@ -177,7 +180,7 @@ public class ProcessEngine implements AutoCloseable {
     }
 
     /**
-     * Queues the message for the current await and wakes the dispatcher after commit. A {@code FAILED}
+     * Queues the message for the current await; the dispatcher handles it after commit. A {@code FAILED}
      * process also accepts it; the message is handled after {@link #resumeFailedProcess(UUID)}.
      * <p>
      * Returning means the message is stored, not that it will be handled: an admin transition may close
@@ -193,8 +196,8 @@ public class ProcessEngine implements AutoCloseable {
     }
 
     /**
-     * Runs the message handler in the calling thread, in the caller's transaction or a new one; the process
-     * row stays locked until that transaction ends. Subsequent steps run on the dispatcher after commit.
+     * Runs the message handler in the calling thread, in the caller's transaction or a new one; other operations
+     * on the process wait until that transaction ends. Subsequent steps run on the dispatcher after commit.
      * <p>
      * The message bypasses the queue: earlier messages and due {@code every}, {@code after} and {@code at} events
      * are ignored, and a transition to another state drops the queued messages unhandled. If the handler keeps the

@@ -4,6 +4,9 @@ import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
+import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
+import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
+import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
 import io.github.neherim.ruslo.core.api.view.ApplicationInstanceInfo;
 import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo;
 import io.github.neherim.ruslo.core.api.view.ProcessTypeCounts;
@@ -20,6 +23,8 @@ import java.util.UUID;
 
 /**
  * Operator and diagnostic operations. Unlike {@link ProcessEngine}, they throw on unexpected process state.
+ * <p>
+ * Operations that take a process id throw {@link ProcessNotFoundException} if no such process exists.
  */
 public final class ProcessEngineAdmin {
     private final WorkerRegistry workerRegistry;
@@ -35,10 +40,12 @@ public final class ProcessEngineAdmin {
         this.applicationInstanceLifecycle = processEngine.applicationInstanceLifecycle();
     }
 
+    /** Returns the registered workers, the {@code DEFAULT} worker included. */
     public Set<WorkerSpec> listWorkerSpecifications() {
         return workerRegistry.getAllWorkerSpecs();
     }
 
+    /** Returns the registered process definitions, in no particular order. */
     public List<ProcessSpecInfo> listProcessSpecifications() {
         return processDefinitionRegistry.getProcessDefinitions();
     }
@@ -72,6 +79,9 @@ public final class ProcessEngineAdmin {
      * queue; entering a terminal state completes the process. A move to the current state is not a state change
      * (see {@link io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder}): the queue and timers are kept, and
      * the step or the due await event runs again.
+     *
+     * @throws ProcessStatusException           if the process is completed
+     * @throws UnsupportedProcessStateException if the process definition does not declare {@code state}
      */
     public void moveProcessToState(UUID processId, ProcessState state) {
         processRuntimeService.moveToState(processId, state);
@@ -86,12 +96,16 @@ public final class ProcessEngineAdmin {
         processRuntimeService.sendAdminMessage(processId, messageTypeName, jsonCompatiblePayload);
     }
 
+    /**
+     * Sets a process variable, as {@link io.github.neherim.ruslo.core.api.definition.ProcessContext#setVariable}
+     * does in a handler. The status is not checked: a variable of a completed process can be changed too.
+     */
     public <T> void setProcessVariable(UUID processId, VariableType<T> type, T value) {
         processRuntimeService.setVariable(processId, type, value);
     }
 
     /**
-     * Removes a process variable.
+     * Removes a process variable. The status is not checked, as in {@link #setProcessVariable}.
      *
      * @return {@code true} if the variable was set
      */
@@ -101,9 +115,10 @@ public final class ProcessEngineAdmin {
 
     /**
      * Sets a process timer, as {@link io.github.neherim.ruslo.core.api.definition.ProcessContext#setTimer} does in a
-     * handler; a moment of {@code now} fires the waiting {@code at} at once. The status is not checked: a timer of a
-     * completed process has no effect, and a {@code FAILED} process or one in a retry backoff is not woken earlier;
-     * after resume the timer counts.
+     * handler. A past or current moment fires the {@code at} of the current await at once.
+     * <p>
+     * The status is not checked. A timer of a completed process never fires. A {@code FAILED} process, or one
+     * waiting for a retry, is not woken earlier: the timer counts after resume or once the retry pause ends.
      *
      * @throws IllegalArgumentException if no {@code at} of the process uses the timer
      */
@@ -112,8 +127,8 @@ public final class ProcessEngineAdmin {
     }
 
     /**
-     * Cancels a process timer. Unlike {@link #setProcessTimer}, the timer need not be declared: this also removes
-     * a timer left by a previous version of the definition, via {@link TimerType#of(String)}.
+     * Cancels a process timer. Unlike {@link #setProcessTimer}, the timer need not be declared by the current
+     * definition, so a timer left by a previous version of the definition can be cancelled by name.
      *
      * @return {@code true} if the timer was set
      */

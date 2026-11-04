@@ -10,6 +10,8 @@ public class ProcessStatusException extends ProcessEngineException {
     private final ProcessStatus status;
 
     /**
+     * Creates the exception.
+     *
      * @param reason why the operation does not apply in this status
      */
     public ProcessStatusException(UUID processId, ProcessStatus status, String reason) {
