@@ -29,7 +29,7 @@ public final class ProcessInstance {
     private final ProcessSpec spec;
     private final Clock clock;
     private final List<ProcessStateHist> pendingHistory = new ArrayList<>();
-    private ProcessState state;
+    private ProcessStateId state;
     private ProcessStatus status;
     private int attempt;
     private String lastError;
@@ -78,7 +78,7 @@ public final class ProcessInstance {
             UUID id,
             String businessKey,
             ProcessSpec spec,
-            ProcessState state,
+            ProcessStateId state,
             ProcessStatus status,
             ProcessVariables variables,
             ProcessTimers timers,
@@ -116,9 +116,9 @@ public final class ProcessInstance {
         if (status == ProcessStatus.COMPLETED) {
             throw new ProcessStatusException(id, status, "a completed process cannot change state");
         }
-        var behavior = spec.getStateSpec(target);
-        var declared = behavior.state();
-        if (state != null && state.is(declared)) {
+        var targetId = ProcessState.of(target.name());
+        var behavior = spec.getStateSpec(targetId);
+        if (state != null && state.is(targetId)) {
             status = ProcessStatus.ACTIVE;
             resetAttemptsAndError();
             if (behavior instanceof StepState) nextRunAt = now;
@@ -127,8 +127,8 @@ public final class ProcessInstance {
             return;
         }
         messages.clear();
-        state = declared;
-        pendingHistory.add(new ProcessStateHist(declared, now));
+        state = targetId;
+        pendingHistory.add(new ProcessStateHist(targetId, now));
         resetAttemptsAndError();
         everyDueAt = null;
         afterDueAt = null;
@@ -334,11 +334,11 @@ public final class ProcessInstance {
         return correlationId;
     }
 
-    public ProcessType getType() {
+    public ProcessTypeId getType() {
         return spec.getType();
     }
 
-    public ProcessState getState() {
+    public ProcessStateId getState() {
         return state;
     }
 

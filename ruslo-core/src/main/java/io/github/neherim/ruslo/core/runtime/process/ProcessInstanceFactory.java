@@ -1,5 +1,6 @@
 package io.github.neherim.ruslo.core.runtime.process;
 
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
@@ -47,8 +48,8 @@ public class ProcessInstanceFactory {
     ) {
 
         var processType = ProcessType.of(processTypeName);
+        var state = ProcessState.of(processState);
         var spec = processDefinitionRegistry.getProcessSpec(processType);
-        var state = spec.declaredState(processState);
 
         var variables = ProcessVariables.fromString(objectMapper, variablesStr);
         var timers = ProcessTimers.fromString(objectMapper, timersStr);

@@ -16,26 +16,32 @@ import java.util.stream.Collectors;
  * Validated states and handlers of a process type. Created only by {@link ProcessSpecBuilder}.
  */
 public class ProcessSpec {
-    private final ProcessType type;
+    private final ProcessTypeId type;
+    private final ProcessType declaredType;
     private final String description;
-    private final ProcessState initialState;
+    private final ProcessStateId initialState;
     private final Map<String, StateSpec> stateSpecs;
+    private final Map<String, ProcessState> declaredStates;
     private final ProcessErrorHandler processErrorHandler;
-    private final ProcessState giveUpState;
+    private final ProcessStateId giveUpState;
     private final Set<String> timerNames;
 
     ProcessSpec(
-            ProcessType type,
+            ProcessTypeId type,
+            ProcessType declaredType,
             String description,
-            ProcessState initialState,
+            ProcessStateId initialState,
             Map<String, StateSpec> stateSpecs,
+            Map<String, ProcessState> declaredStates,
             ProcessErrorHandler processErrorHandler,
-            ProcessState giveUpState
+            ProcessStateId giveUpState
     ) {
         this.type = type;
+        this.declaredType = declaredType;
         this.description = description;
         this.initialState = initialState;
         this.stateSpecs = Map.copyOf(stateSpecs);
+        this.declaredStates = Map.copyOf(declaredStates);
         this.processErrorHandler = processErrorHandler;
         this.giveUpState = giveUpState;
         this.timerNames = stateSpecs.values()
@@ -45,14 +51,19 @@ public class ProcessSpec {
             .collect(Collectors.toUnmodifiableSet());
     }
 
-    public ProcessType getType() {
+    public ProcessTypeId getType() {
         return type;
+    }
+
+    /** Returns the type object passed to {@link ProcessSpecBuilder#type(ProcessType)}. */
+    public ProcessType declaredType() {
+        return declaredType;
     }
 
     /** Returns the declared state object, or {@link ProcessState#of(String)} if the process does not declare it. */
     public ProcessState declaredState(String name) {
-        var spec = stateSpecs.get(name);
-        return spec != null ? spec.state() : ProcessState.of(name);
+        var state = declaredStates.get(name);
+        return state != null ? state : ProcessState.of(name);
     }
 
     public Optional<String> getDescription() {
@@ -61,10 +72,11 @@ public class ProcessSpec {
 
     /** Returns the state description given in its declaration. */
     public String getStateDescription(ProcessState state) {
-        return getStateSpec(state).state().description();
+        getStateSpec(state);
+        return declaredStates.get(state.name()).description();
     }
 
-    public ProcessState getInitialState() {
+    public ProcessStateId getInitialState() {
         return initialState;
     }
 
@@ -135,7 +147,7 @@ public class ProcessSpec {
     }
 
     /** Returns the state entered on {@link ErrorResult#giveUp()}. */
-    public Optional<ProcessState> getGiveUpState() {
+    public Optional<ProcessStateId> getGiveUpState() {
         return Optional.ofNullable(giveUpState);
     }
 
@@ -145,17 +157,17 @@ public class ProcessSpec {
 
     /** Engine model of a state. */
     public sealed interface StateSpec permits StepState, AwaitState, TerminalState {
-        ProcessState state();
+        ProcessStateId state();
     }
 
     /** Step state. {@code step} returns the outcome of a branching step, {@code null} otherwise. */
-    public record StepState(ProcessState state, Function<ProcessContext, Enum<?>> step, WorkerId worker, Exit exit)
+    public record StepState(ProcessStateId state, Function<ProcessContext, Enum<?>> step, WorkerId worker, Exit exit)
             implements StateSpec {
     }
 
     /** Await state and its events; {@code every}, {@code after} and {@code at} are nullable. */
     public record AwaitState(
-            ProcessState state,
+            ProcessStateId state,
             List<MessageEvent<?>> messages,
             EveryEvent every,
             AfterEvent after,
@@ -166,7 +178,7 @@ public class ProcessSpec {
         }
     }
 
-    public record TerminalState(ProcessState state) implements StateSpec {
+    public record TerminalState(ProcessStateId state) implements StateSpec {
     }
 
     /**
@@ -218,11 +230,11 @@ public class ProcessSpec {
     }
 
     /** Fixed target. */
-    public record Target(ProcessState state) implements Exit {
+    public record Target(ProcessStateId state) implements Exit {
     }
 
     /** Target chosen by outcome. */
-    public record Routes(Map<Enum<?>, ProcessState> routes) implements Exit {
+    public record Routes(Map<Enum<?>, ProcessStateId> routes) implements Exit {
         public Routes {
             routes = Map.copyOf(routes);
         }

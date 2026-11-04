@@ -2,7 +2,7 @@ package io.github.neherim.ruslo.core.runtime.worker;
 
 import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessError;
-import io.github.neherim.ruslo.core.api.definition.ProcessState;
+import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseLostException;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
@@ -82,7 +82,7 @@ public class StepErrorHandler {
      * @return {@code true} if the process is ready to continue immediately, e.g. {@code giveUp} or a zero-delay
      *         retry leads to a step
      */
-    public boolean handleAdministrativeError(Throwable cause, UUID processId, ProcessState state) {
+    public boolean handleAdministrativeError(Throwable cause, UUID processId, ProcessStateId state) {
         log.error("Administrative step execution failed for process {}", processId, cause);
         try {
             return database.doInTransactionWithResult(() -> {

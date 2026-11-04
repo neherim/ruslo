@@ -115,7 +115,7 @@ public class StepExecutor {
     }
 
     /** Executes the timer handler and returns its target. */
-    private static ProcessState executeTimer(
+    private static ProcessStateId executeTimer(
             ProcessInstance process,
             DefaultProcessContext context,
             Function<ProcessContext, Enum<?>> handler,
@@ -130,7 +130,7 @@ public class StepExecutor {
      * Executes the {@code at} handler and returns its target. The timer stays set while the handler runs, so the
      * handler reads the fired moment; a timer the handler left unchanged is cancelled, so it does not fire again.
      */
-    private static ProcessState executeAt(ProcessInstance process, DefaultProcessContext context, AtEvent at) {
+    private static ProcessStateId executeAt(ProcessInstance process, DefaultProcessContext context, AtEvent at) {
         var fired = process.getTimer(at.timer());
         var target = executeTimer(process, context, at.handler(), at.exit(), "at");
         if (process.getTimer(at.timer()).equals(fired)) process.cancelTimer(at.timer());
@@ -138,7 +138,7 @@ public class StepExecutor {
     }
 
     /** Executes the queued message and returns the handler's target. */
-    private ProcessState executeQueuedMessage(
+    private ProcessStateId executeQueuedMessage(
             ProcessInstance process,
             DefaultProcessContext context,
             PendingMessage pending
@@ -151,7 +151,7 @@ public class StepExecutor {
     }
 
     /** Converts the stored message to the handler type {@code T} from the definition and executes it. */
-    private <T> ProcessState convertAndExecute(
+    private <T> ProcessStateId convertAndExecute(
             ProcessInstance process,
             DefaultProcessContext context,
             MessageEvent<T> event,
@@ -161,7 +161,7 @@ public class StepExecutor {
     }
 
     /** Executes the message handler and returns its target. */
-    private <T> ProcessState executeMessage(
+    private <T> ProcessStateId executeMessage(
             ProcessInstance process,
             DefaultProcessContext context,
             MessageEvent<T> event,
@@ -175,7 +175,7 @@ public class StepExecutor {
      * Resolves the target of a linear ({@code outcome == null}) or branching handler.
      * {@code null} from a branching handler is a user code failure: {@link HandlerException}.
      */
-    private static ProcessState target(Exit exit, Enum<?> outcome, ProcessInstance process, String handler) {
+    private static ProcessStateId target(Exit exit, Enum<?> outcome, ProcessInstance process, String handler) {
         return switch (exit) {
             case Target target -> target.state();
             case Routes routes -> {
@@ -189,11 +189,11 @@ public class StepExecutor {
         };
     }
 
-    private void recordStepExecuted(ProcessInstance process, ProcessState executedState, long started) {
+    private void recordStepExecuted(ProcessInstance process, ProcessStateId executedState, long started) {
         metrics.recordStepExecuted(process.getType(), executedState, Duration.ofNanos(System.nanoTime() - started));
     }
 
-    private void recordStepFailed(ProcessInstance process, ProcessState executedState, long started) {
+    private void recordStepFailed(ProcessInstance process, ProcessStateId executedState, long started) {
         metrics.recordStepFailed(process.getType(), executedState, Duration.ofNanos(System.nanoTime() - started));
     }
 

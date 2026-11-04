@@ -184,7 +184,7 @@ public class ProcessRuntimeService {
      * @throws ProcessStatusException if the process is completed or {@code FAILED}
      */
     public boolean forceExecuteOneStep(UUID processId) {
-        var executedState = new AtomicReference<ProcessState>();
+        var executedState = new AtomicReference<ProcessStateId>();
         try {
             return database.doInTransactionWithResult(() -> {
                 var process = findProcessWithLock(processId);
@@ -328,7 +328,8 @@ public class ProcessRuntimeService {
             String messageName,
             String reason
     ) {
-        return new MessageNotExpectedException(process.getId(), messageName, process.getStatus(), process.getState(),
+        var state = process.getProcessSpec().declaredState(process.getState().name());
+        return new MessageNotExpectedException(process.getId(), messageName, process.getStatus(), state,
                 process.getProcessSpec().getApplicableMessageTypeNames(process.getState()), reason);
     }
 
