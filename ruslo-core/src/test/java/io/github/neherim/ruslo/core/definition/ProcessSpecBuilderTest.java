@@ -49,24 +49,23 @@ class ProcessSpecBuilderTest {
     }
 
     @Test
-    void rejectsReferenceToAnotherObjectWithTheDeclaredName() {
-        assertRejected("is not the object passed to its declaration", () -> new ProcessSpecBuilder().type(TYPE)
-            .initialState(State.START)
-            .step(State.START, STEP, ProcessState.of("DONE"))
-            .terminal(State.DONE)
-            .build());
-        assertRejected("is not the object passed to its declaration", () -> new ProcessSpecBuilder().type(TYPE)
-            .initialState(ProcessState.of("START"))
-            .step(State.START, STEP, State.DONE)
-            .terminal(State.DONE)
-            .build());
+    void resolvesReferencesByNameToDeclaredStates() {
         var spec = new ProcessSpecBuilder().type(TYPE)
+            .onGiveUp(ProcessState.of("DONE"))
             .initialState(ProcessState.of("START"))
-            .step(ProcessState.of("START"), STEP, ProcessState.of("DONE"))
-            .terminal(ProcessState.of("DONE"))
+            .step(State.START, STEP, ProcessState.of("WAIT"))
+            .await(State.WAIT, await -> await.message(MESSAGE, (context, message) -> Outcome.A, routes -> routes
+                .on(Outcome.A, ProcessState.of("DONE"))
+                .on(Outcome.B, ProcessState.of("WAIT"))))
+            .terminal(State.DONE)
             .build();
-        assertEquals(ProcessState.of("DONE"),
-                ((Target) ((StepState) spec.getStateSpec(State.START)).exit()).state());
+
+        assertSame(State.START, spec.getInitialState());
+        assertSame(State.DONE, spec.getGiveUpState().orElseThrow());
+        assertSame(State.WAIT, ((Target) ((StepState) spec.getStateSpec(State.START)).exit()).state());
+        var routes = (ProcessSpec.Routes) spec.getMessageEvent(MESSAGE, State.WAIT).orElseThrow().exit();
+        assertSame(State.DONE, routes.routes().get(Outcome.A));
+        assertSame(State.WAIT, routes.routes().get(Outcome.B));
     }
 
     @Test

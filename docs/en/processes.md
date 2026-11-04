@@ -47,8 +47,7 @@ constants work: `details.state() == State.DONE`. A state the current definition 
 `ProcessState.of(name)` and `ProcessType.of(name)`.
 
 `build()` validates the definition and throws `IllegalArgumentException` if it is inconsistent: for example, an
-outcome constant has no route, a step refers to an unregistered worker, or a transition refers to a state by an
-object other than the one it is declared with.
+outcome constant has no route or a step refers to an unregistered worker.
 
 In Spring Boot a definition is a bean registered on startup: [spring.md](spring.md#definitions).
 

@@ -68,7 +68,7 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
 ```
 
 - States are an enum implementing `ProcessState`; names are persisted. Override `description()` for a
-  human-readable label in the Admin UI. Transitions must refer to the same constants the states are declared with.
+  human-readable label in the Admin UI.
 - Declare `ProcessType`, `MessageType<T>` and `VariableType<T>` as constants and reuse them everywhere
   (start, search, tests).
 - Without Spring, implement `ProcessDefinition` and pass handler instances explicitly; register it with
