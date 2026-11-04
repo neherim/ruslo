@@ -49,6 +49,26 @@ class ProcessSpecBuilderTest {
     }
 
     @Test
+    void resolvesReferencesByNameToDeclaredStates() {
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .onGiveUp(ProcessState.of("DONE"))
+            .initialState(ProcessState.of("START"))
+            .step(State.START, STEP, ProcessState.of("WAIT"))
+            .await(State.WAIT, await -> await.message(MESSAGE, (context, message) -> Outcome.A, routes -> routes
+                .on(Outcome.A, ProcessState.of("DONE"))
+                .on(Outcome.B, ProcessState.of("WAIT"))))
+            .terminal(State.DONE)
+            .build();
+
+        assertSame(State.START, spec.getInitialState());
+        assertSame(State.DONE, spec.getGiveUpState().orElseThrow());
+        assertSame(State.WAIT, ((Target) ((StepState) spec.getStateSpec(State.START)).exit()).state());
+        var routes = (ProcessSpec.Routes) spec.getMessageEvent(MESSAGE, State.WAIT).orElseThrow().exit();
+        assertSame(State.DONE, routes.routes().get(Outcome.A));
+        assertSame(State.WAIT, routes.routes().get(Outcome.B));
+    }
+
+    @Test
     void combinesAllTimersAndAllowsSelfTargetWithHandler() {
         var spec = new ProcessSpecBuilder().type(TYPE)
             .initialState(State.WAIT)
@@ -61,7 +81,7 @@ class ProcessSpecBuilderTest {
             .build();
         var await = (AwaitState) spec.getStateSpec(State.WAIT);
         assertEquals(Duration.ofHours(1), await.after().delay());
-        assertEquals(new Target(State.WAIT.id()), await.after().exit());
+        assertEquals(new Target(State.WAIT), await.after().exit());
         assertEquals(DUE_DATE, await.at().timer());
         assertInstanceOf(ProcessSpec.Routes.class, await.at().exit());
     }
@@ -101,7 +121,7 @@ class ProcessSpecBuilderTest {
                 .on(Outcome.B, State.WAIT))
             .terminal(State.DONE)
             .build();
-        assertEquals(State.WAIT.id(), spec.getInitialState());
+        assertEquals(State.WAIT, spec.getInitialState());
     }
 
     @Test
@@ -238,7 +258,7 @@ class ProcessSpecBuilderTest {
             .step(State.START, STEP, State.DONE)
             .terminal(State.DONE)
             .build();
-        assertEquals(State.DONE.id(), spec.getGiveUpState().orElseThrow());
+        assertEquals(State.DONE, spec.getGiveUpState().orElseThrow());
     }
 
     @Test
@@ -275,8 +295,8 @@ class ProcessSpecBuilderTest {
         assertNull(callMessage(await.messages().getFirst(), MESSAGE, "x"));
         assertNull(await.every().handler().apply(null));
         assertEquals(List.of("linear", "branching", "message", "timer"), calls);
-        assertEquals(new Target(State.WAIT.id()), step.exit());
-        assertEquals(new Target(State.WAIT.id()), await.every().exit());
+        assertEquals(new Target(State.WAIT), step.exit());
+        assertEquals(new Target(State.WAIT), await.every().exit());
     }
 
     @Test

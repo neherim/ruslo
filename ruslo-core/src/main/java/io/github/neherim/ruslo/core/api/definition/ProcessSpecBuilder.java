@@ -68,13 +68,13 @@ public class ProcessSpecBuilder {
          * {@code giveUp()} stops the process in {@code FAILED}.
          */
         public TypedBuilder onGiveUp(ProcessState state) {
-            draft.giveUpState = Draft.id(state);
+            draft.giveUpState = Draft.required(state);
             return this;
         }
 
         /** Sets the initial state (a step or an await) and starts declaring states. */
         public StatesBuilder initialState(ProcessState state) {
-            draft.initial = Draft.id(state);
+            draft.initial = Draft.required(state);
             return new StatesBuilder(draft);
         }
     }
@@ -101,7 +101,7 @@ public class ProcessSpecBuilder {
             draft.addStep(state, worker, context -> {
                 step.execute(context);
                 return null;
-            }, new Target(Draft.id(next)));
+            }, new Target(Draft.required(next)));
             return this;
         }
 
@@ -125,22 +125,21 @@ public class ProcessSpecBuilder {
                 Consumer<Routes<O>> routes
         ) {
             requireNonNull(step, "Process step cannot be null");
-            draft.addStep(state, worker, step::execute, draft.routes(routes, "step " + Draft.id(state).name()));
+            draft.addStep(state, worker, step::execute, draft.routes(routes, "step " + Draft.required(state).name()));
             return this;
         }
 
         /** Declares an await and its events. */
         public StatesBuilder await(ProcessState state, Consumer<AwaitBuilder> definition) {
-            var id = Draft.id(state);
-            var events = new AwaitBuilder(id, draft);
+            var events = new AwaitBuilder(Draft.required(state), draft);
             requireNonNull(definition, "Await definition cannot be null").accept(events);
-            draft.add(state, new AwaitState(id, events.messages, events.every, events.after, events.at));
+            draft.add(new AwaitState(state, events.messages, events.every, events.after, events.at));
             return this;
         }
 
         /** Declares a terminal state. */
         public StatesBuilder terminal(ProcessState state) {
-            draft.add(state, new TerminalState(Draft.id(state)));
+            draft.add(new TerminalState(Draft.required(state)));
             return this;
         }
 
@@ -161,7 +160,7 @@ public class ProcessSpecBuilder {
      */
     public static class Routes<O extends Enum<O>> {
         private final String where;
-        private final Map<Enum<?>, ProcessStateId> routes = new LinkedHashMap<>();
+        private final Map<Enum<?>, ProcessState> routes = new LinkedHashMap<>();
 
         private Routes(String where) {
             this.where = where;
@@ -175,7 +174,7 @@ public class ProcessSpecBuilder {
                 throw new IllegalArgumentException("Outcome " + outcome + " in " + where
                         + " is a process state: the target state is the second argument of on(...)");
             }
-            if (routes.putIfAbsent(outcome, target.id()) != null) {
+            if (routes.putIfAbsent(outcome, target) != null) {
                 throw new IllegalArgumentException("Duplicate outcome " + outcome + " in " + where);
             }
             return this;
@@ -185,14 +184,14 @@ public class ProcessSpecBuilder {
     /** Events of one await. */
     public static class AwaitBuilder {
         private static final Function<ProcessContext, Enum<?>> NO_HANDLER = context -> null;
-        private final ProcessStateId state;
+        private final ProcessState state;
         private final Draft draft;
         private final List<MessageEvent<?>> messages = new ArrayList<>();
         private EveryEvent every;
         private AfterEvent after;
         private AtEvent at;
 
-        private AwaitBuilder(ProcessStateId state, Draft draft) {
+        private AwaitBuilder(ProcessState state, Draft draft) {
             this.state = state;
             this.draft = draft;
         }
@@ -206,7 +205,7 @@ public class ProcessSpecBuilder {
             return addMessage(type, (context, message) -> {
                 handler.handle(context, message);
                 return null;
-            }, new Target(Draft.id(next)));
+            }, new Target(Draft.required(next)));
         }
 
         /**
@@ -255,7 +254,7 @@ public class ProcessSpecBuilder {
             return addEvery(interval, context -> {
                 handler.handle(context);
                 return null;
-            }, new Target(Draft.id(next)));
+            }, new Target(Draft.required(next)));
         }
 
         /** Same as {@link #every(Interval, BranchingTimerHandler, Consumer)} with {@link Interval#of(Duration)}. */
@@ -308,7 +307,7 @@ public class ProcessSpecBuilder {
             return addAfter(delay, context -> {
                 handler.handle(context);
                 return null;
-            }, new Target(Draft.id(next)));
+            }, new Target(Draft.required(next)));
         }
 
         /**
@@ -350,7 +349,7 @@ public class ProcessSpecBuilder {
             return addAt(timer, context -> {
                 handler.handle(context);
                 return null;
-            }, new Target(Draft.id(next)));
+            }, new Target(Draft.required(next)));
         }
 
         /**
@@ -374,7 +373,7 @@ public class ProcessSpecBuilder {
         }
 
         private Target withoutHandler(ProcessState next, String event) {
-            var target = Draft.id(next);
+            var target = Draft.required(next);
             if (state.is(target)) {
                 throw new IllegalArgumentException(where(event) + " without a handler cannot target its own await "
                         + "state: it would do nothing");
@@ -399,36 +398,32 @@ public class ProcessSpecBuilder {
     }
 
     private static final class Draft {
-        private final ProcessType declaredType;
-        private final ProcessTypeId type;
+        private final ProcessType type;
         private final Map<String, StateSpec> states = new LinkedHashMap<>();
-        private final Map<String, ProcessState> declaredStates = new HashMap<>();
         private String description;
         private WorkerId defaultWorker = WorkerId.DEFAULT;
         private ProcessErrorHandler errorHandler = ProcessErrorHandler.noRetry();
-        private ProcessStateId giveUpState;
-        private ProcessStateId initial;
+        private ProcessState giveUpState;
+        private ProcessState initial;
 
-        private Draft(ProcessType declaredType) {
-            this.declaredType = declaredType;
-            this.type = declaredType.id();
+        private Draft(ProcessType type) {
+            this.type = type;
         }
 
-        private static ProcessStateId id(ProcessState state) {
-            return requireNonNull(state, "Process state cannot be null").id();
+        private static ProcessState required(ProcessState state) {
+            return requireNonNull(state, "Process state cannot be null");
         }
 
-        private void add(ProcessState state, StateSpec spec) {
+        private void add(StateSpec spec) {
             var name = spec.state().name();
             if (states.putIfAbsent(name, spec) != null) {
                 throw new IllegalArgumentException("State " + name + " is already defined in process " + type.name());
             }
-            var stateDescription = state.description();
+            var stateDescription = spec.state().description();
             if (stateDescription == null || stateDescription.isBlank()) {
                 throw new IllegalArgumentException("Description of state " + name + " of process " + type.name()
                         + " cannot be blank");
             }
-            declaredStates.put(name, state);
         }
 
         private void addStep(
@@ -438,7 +433,7 @@ public class ProcessSpecBuilder {
                 Exit exit
         ) {
             requireNonNull(worker, "Worker id cannot be null");
-            add(state, new StepState(id(state), step, worker, exit));
+            add(new StepState(required(state), step, worker, exit));
         }
 
         private <O extends Enum<O>> ProcessSpec.Routes routes(Consumer<Routes<O>> definition, String where) {
@@ -467,8 +462,50 @@ public class ProcessSpecBuilder {
                 }
             }
             if (giveUpState != null) checkDeclared(giveUpState, "onGiveUp state");
-            return new ProcessSpec(type, declaredType, description, initial, states, declaredStates, errorHandler,
-                    giveUpState);
+            var resolved = new LinkedHashMap<String, StateSpec>();
+            states.forEach((name, spec) -> resolved.put(name, resolve(spec)));
+            return new ProcessSpec(type, description, declared(initial), resolved, errorHandler,
+                    giveUpState == null ? null : declared(giveUpState));
+        }
+
+        /** Replaces references to states with the objects from their declarations. */
+        private StateSpec resolve(StateSpec spec) {
+            return switch (spec) {
+                case StepState step -> new StepState(step.state(), step.step(), step.worker(), resolve(step.exit()));
+                case AwaitState await -> new AwaitState(await.state(),
+                        await.messages().stream().<MessageEvent<?>>map(this::resolve).toList(),
+                        await.every() == null
+                                ? null
+                                : new EveryEvent(await.every().interval(), await.every().handler(),
+                                        resolve(await.every().exit())),
+                        await.after() == null
+                                ? null
+                                : new AfterEvent(await.after().delay(), await.after().handler(),
+                                        resolve(await.after().exit())),
+                        await.at() == null
+                                ? null
+                                : new AtEvent(await.at().timer(), await.at().handler(), resolve(await.at().exit())));
+                case TerminalState terminal -> terminal;
+            };
+        }
+
+        private <T> MessageEvent<T> resolve(MessageEvent<T> message) {
+            return new MessageEvent<>(message.type(), message.handler(), resolve(message.exit()));
+        }
+
+        private Exit resolve(Exit exit) {
+            return switch (exit) {
+                case Target target -> new Target(declared(target.state()));
+                case ProcessSpec.Routes routes -> {
+                    var resolved = new LinkedHashMap<Enum<?>, ProcessState>();
+                    routes.routes().forEach((outcome, target) -> resolved.put(outcome, declared(target)));
+                    yield new ProcessSpec.Routes(resolved);
+                }
+            };
+        }
+
+        private ProcessState declared(ProcessState state) {
+            return states.get(state.name()).state();
         }
 
         private void checkAwait(AwaitState await, Map<String, Class<?>> payloads) {
@@ -505,7 +542,7 @@ public class ProcessSpecBuilder {
             }
         }
 
-        private static boolean leaves(Exit exit, ProcessStateId state) {
+        private static boolean leaves(Exit exit, ProcessState state) {
             return switch (exit) {
                 case Target target -> !target.state().is(state);
                 case ProcessSpec.Routes routes -> routes.routes().values().stream().anyMatch(t -> !t.is(state));
@@ -526,7 +563,7 @@ public class ProcessSpecBuilder {
             }
         }
 
-        private void checkDeclared(ProcessStateId target, String where) {
+        private void checkDeclared(ProcessState target, String where) {
             if (!states.containsKey(target.name())) {
                 throw new IllegalArgumentException("Target state " + target.name() + " of " + where + " of process "
                         + type.name() + " is not declared");
