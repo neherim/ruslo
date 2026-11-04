@@ -328,8 +328,8 @@ public class ProcessRuntimeService {
             String messageName,
             String reason
     ) {
-        var state = process.getProcessSpec().declaredState(process.getState().name());
-        return new MessageNotExpectedException(process.getId(), messageName, process.getStatus(), state,
+        return new MessageNotExpectedException(process.getId(), messageName, process.getStatus(),
+                process.getDeclaredState(),
                 process.getProcessSpec().getApplicableMessageTypeNames(process.getState()), reason);
     }
 
