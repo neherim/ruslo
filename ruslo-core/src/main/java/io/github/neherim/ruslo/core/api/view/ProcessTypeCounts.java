@@ -1,6 +1,6 @@
 package io.github.neherim.ruslo.core.api.view;
 
-import io.github.neherim.ruslo.core.api.definition.ProcessTypeId;
+import io.github.neherim.ruslo.core.api.definition.ProcessType;
 
 /**
  * Incomplete processes of one type.
@@ -8,5 +8,5 @@ import io.github.neherim.ruslo.core.api.definition.ProcessTypeId;
  * @param overdue {@code ACTIVE} processes with {@code nextRunAt} at or before the given moment; included in
  *                {@code active}
  */
-public record ProcessTypeCounts(ProcessTypeId type, long active, long failed, long overdue) {
+public record ProcessTypeCounts(ProcessType type, long active, long failed, long overdue) {
 }

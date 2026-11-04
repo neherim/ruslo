@@ -40,6 +40,9 @@ initial state (`initialState`) is a step or an await. Before the list of states,
 the whole process: the default worker (`defaultWorker`, see [workers.md](workers.md)) and the error policy
 (`onError`, `onGiveUp`, see [error-handling.md](error-handling.md)).
 
+The engine returns the declared states and types, so compare them with the constants:
+`details.state() == State.DONE`. A state the definition no longer declares is returned as `ProcessState.of(name)`.
+
 `build()` validates the definition and throws `IllegalArgumentException` if it is inconsistent: for example, an
 outcome constant has no route or a step refers to an unregistered worker.
 

@@ -37,12 +37,12 @@ class SubscriptionTest {
             assertEquals(chargeAt, emulator.runUntilStop(processId).nextRunAt().orElseThrow());
             emulator.setTime(chargeAt);
             var active = emulator.runUntilStop(processId);
-            assertEquals(SubscriptionDefinition.State.ACTIVE.id(), active.state());
+            assertEquals(SubscriptionDefinition.State.ACTIVE, active.state());
             assertEquals(chargeDates.get(i + 1), active.timers().get(SubscriptionDefinition.NEXT_CHARGE.name()));
         }
         var cancelled = emulator.sendMessageAndRunUntilStop(processId, SubscriptionDefinition.CANCEL, "Too expensive");
 
-        assertEquals(SubscriptionDefinition.State.CANCELLED.id(), cancelled.state());
+        assertEquals(SubscriptionDefinition.State.CANCELLED, cancelled.state());
     }
 
     @Test
@@ -64,7 +64,7 @@ class SubscriptionTest {
 
         var suspended = emulator.runUntilStop(processId);
 
-        assertEquals(SubscriptionDefinition.State.SUSPENDED.id(), suspended.state());
+        assertEquals(SubscriptionDefinition.State.SUSPENDED, suspended.state());
     }
 
     private UUID startSubscription(String cardToken) {

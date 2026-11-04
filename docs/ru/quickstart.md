@@ -237,12 +237,12 @@ class QuickstartOrderTest {
 
         // Запускаем обработку сообщения, пока не остановимся на ожидании
         var waiting = emulator.runUntilStop(processId);
-        assertEquals(OrderState.WAITING_FOR_PAYMENT.id(), waiting.state());
+        assertEquals(OrderState.WAITING_FOR_PAYMENT, waiting.state());
 
         orderService.confirmPayment(processId, "txn-42");
 
         var completed = emulator.runUntilStop(processId);
-        assertEquals(OrderState.COMPLETED.id(), completed.state());
+        assertEquals(OrderState.COMPLETED, completed.state());
     }
 
     @Test
@@ -253,7 +253,7 @@ class QuickstartOrderTest {
         orderService.cancelOrder(processId, "customer request");
 
         var cancelled = emulator.runUntilStop(processId);
-        assertEquals(OrderState.CANCELLED.id(), cancelled.state());
+        assertEquals(OrderState.CANCELLED, cancelled.state());
         assertEquals("customer request",
                 cancelled.variables().get(Constants.CANCELLATION_REASON).orElseThrow());
     }

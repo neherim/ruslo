@@ -7,7 +7,6 @@ import io.github.neherim.ruslo.core.api.exception.ProcessEngineException;
 import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
-import io.github.neherim.ruslo.core.api.view.ProcessTypeCounts;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
@@ -25,7 +24,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -273,15 +271,6 @@ public class ProcessRuntimeService {
         return processInstanceDao.countIncompleteProcesses();
     }
 
-    /**
-     * Counts incomplete processes per type.
-     *
-     * @param overdueAt an {@code ACTIVE} process with {@code nextRunAt} at or before this moment counts as overdue
-     */
-    public List<ProcessTypeCounts> countIncompleteProcessesByType(Instant overdueAt) {
-        return processInstanceDao.countIncompleteByType(overdueAt);
-    }
-
     private UUID startProcess(
             ProcessType type,
             @Nullable String businessKey,
@@ -339,7 +328,8 @@ public class ProcessRuntimeService {
             String messageName,
             String reason
     ) {
-        return new MessageNotExpectedException(process.getId(), messageName, process.getStatus(), process.getState(),
+        return new MessageNotExpectedException(process.getId(), messageName, process.getStatus(),
+                process.getDeclaredState(),
                 process.getProcessSpec().getApplicableMessageTypeNames(process.getState()), reason);
     }
 

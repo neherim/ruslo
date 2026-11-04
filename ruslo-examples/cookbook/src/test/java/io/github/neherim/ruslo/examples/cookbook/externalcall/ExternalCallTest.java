@@ -30,14 +30,14 @@ class ExternalCallTest {
     void paysApprovedCharge() {
         var paid = emulator.runUntilStop(startPayment(new BigDecimal("50.00")));
 
-        assertEquals(CardPaymentDefinition.State.PAID.id(), paid.state());
+        assertEquals(CardPaymentDefinition.State.PAID, paid.state());
     }
 
     @Test
     void declinedChargeIsAnOutcomeNotAnError() {
         var declined = emulator.runUntilStop(startPayment(new BigDecimal("5000.00")));
 
-        assertEquals(CardPaymentDefinition.State.DECLINED.id(), declined.state());
+        assertEquals(CardPaymentDefinition.State.DECLINED, declined.state());
     }
 
     private UUID startPayment(BigDecimal amount) {

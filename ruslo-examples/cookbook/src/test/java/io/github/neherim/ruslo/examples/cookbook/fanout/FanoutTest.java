@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -29,17 +28,16 @@ class FanoutTest {
     void completesWhenAllPartsReported() {
         var parentId = startImport(3);
         var waiting = emulator.runUntilStop(parentId);
-        assertEquals(FileImportDefinition.State.WAITING_FOR_PARTS.id(), waiting.state());
+        assertEquals(FileImportDefinition.State.WAITING_FOR_PARTS, waiting.state());
 
         var parts = partsOf(waiting);
         assertEquals(3, parts.size());
-        parts.forEach(part -> assertTrue(emulator.runUntilStop(part.id())
-            .state()
-            .is(FileImportPartDefinition.State.IMPORTED)));
+        parts.forEach(part -> assertEquals(FileImportPartDefinition.State.IMPORTED,
+                emulator.runUntilStop(part.id()).state()));
 
         var completed = emulator.runUntilStop(parentId);
 
-        assertEquals(FileImportDefinition.State.COMPLETED.id(), completed.state());
+        assertEquals(FileImportDefinition.State.COMPLETED, completed.state());
     }
 
     private UUID startImport(int partCount) {

@@ -81,7 +81,8 @@ class ProcessRuntimeServiceTest extends BaseTest {
 
         runtime.moveToState(processId, SimpleProcessDefinition.State.FINISH);
 
-        var searchService = new ProcessSearchService(database, JsonUtils.DEFAULT_OBJECT_MAPPER);
+        var searchService = new ProcessSearchService(database, JsonUtils.DEFAULT_OBJECT_MAPPER,
+                new ProcessDefinitionRegistry(List.of(new SimpleProcessDefinition())));
         var states = searchService
             .processes()
             .byId(processId)

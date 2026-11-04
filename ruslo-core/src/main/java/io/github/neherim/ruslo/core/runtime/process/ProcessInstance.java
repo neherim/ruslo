@@ -342,6 +342,16 @@ public final class ProcessInstance {
         return state;
     }
 
+    /** Returns the current state as declared in the definition, for the public API. */
+    public ProcessState getDeclaredState() {
+        return spec.declaredState(state.name());
+    }
+
+    /** Returns the type as declared in the definition, for the public API. */
+    public ProcessType getDeclaredType() {
+        return spec.declaredType();
+    }
+
     public ProcessStatus getStatus() {
         return status;
     }

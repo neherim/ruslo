@@ -42,14 +42,14 @@ class StandaloneCoreExampleTest {
         var processId = example.startApproval("invoice-42", 500);
 
         var waiting = emulator.runUntilStop(processId);
-        assertEquals(ApprovalState.WAITING_FOR_APPROVAL.id(), waiting.state());
+        assertEquals(ApprovalState.WAITING_FOR_APPROVAL, waiting.state());
         assertEquals("manager",
                 waiting.variables().get(Constants.APPROVER_ROLE).orElseThrow());
 
         example.approve(processId, "manager-1");
 
         var approved = emulator.runUntilStop(processId);
-        assertEquals(ApprovalState.APPROVED.id(), approved.state());
+        assertEquals(ApprovalState.APPROVED, approved.state());
         assertEquals(ProcessStatus.COMPLETED, approved.status());
         assertEquals("manager-1",
                 approved.variables().get(Constants.APPROVED_BY).orElseThrow());
@@ -60,14 +60,14 @@ class StandaloneCoreExampleTest {
         var processId = example.startApproval("contract-7", 50_000);
 
         var waiting = emulator.runUntilStop(processId);
-        assertEquals(ApprovalState.WAITING_FOR_APPROVAL.id(), waiting.state());
+        assertEquals(ApprovalState.WAITING_FOR_APPROVAL, waiting.state());
         assertEquals("cfo",
                 waiting.variables().get(Constants.APPROVER_ROLE).orElseThrow());
 
         example.reject(processId, "Budget exceeded");
 
         var rejected = emulator.runUntilStop(processId);
-        assertEquals(ApprovalState.REJECTED.id(), rejected.state());
+        assertEquals(ApprovalState.REJECTED, rejected.state());
         assertEquals("Budget exceeded",
                 rejected.variables().get(Constants.REJECTION_REASON).orElseThrow());
     }

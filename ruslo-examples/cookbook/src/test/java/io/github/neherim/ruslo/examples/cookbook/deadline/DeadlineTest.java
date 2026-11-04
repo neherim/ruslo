@@ -38,7 +38,7 @@ class DeadlineTest {
         var confirmed = emulator.sendMessageAndRunUntilStop(
                 processId, SeatReservationDefinition.PAYMENT_RECEIVED, PAYMENT_ID);
 
-        assertEquals(SeatReservationDefinition.State.CONFIRMED.id(), confirmed.state());
+        assertEquals(SeatReservationDefinition.State.CONFIRMED, confirmed.state());
         assertEquals(PAYMENT_ID,
                 confirmed.variables().get(SeatReservationDefinition.PAYMENT_ID).orElseThrow());
     }
@@ -47,18 +47,18 @@ class DeadlineTest {
     void releasesSeatWhenPaymentIsLate() {
         var processId = startReservation();
         var waiting = emulator.runUntilStop(processId);
-        assertEquals(SeatReservationDefinition.State.WAITING_FOR_PAYMENT.id(), waiting.state());
+        assertEquals(SeatReservationDefinition.State.WAITING_FOR_PAYMENT, waiting.state());
         assertEquals(DUE, waiting.timers().get(SeatReservationDefinition.PAYMENT_DUE.name()));
 
         // Before the deadline the process waits, after it the seat is released
         emulator.setTime(DUE.minusSeconds(1));
-        assertEquals(SeatReservationDefinition.State.WAITING_FOR_PAYMENT.id(),
+        assertEquals(SeatReservationDefinition.State.WAITING_FOR_PAYMENT,
                 emulator.runUntilStop(processId).state());
         emulator.setTime(DUE);
         var expired = emulator.runUntilStop(processId);
 
         assertEquals(ProcessStatus.COMPLETED, expired.status());
-        assertEquals(SeatReservationDefinition.State.EXPIRED.id(), expired.state());
+        assertEquals(SeatReservationDefinition.State.EXPIRED, expired.state());
 
         // The process does not accept a late payment: the sender handles it
         assertThrows(MessageNotExpectedException.class,
@@ -73,11 +73,11 @@ class DeadlineTest {
         var extended = DUE.plus(Duration.ofMinutes(10));
         emulator.sendMessageAndRunUntilStop(processId, SeatReservationDefinition.EXTEND_PAYMENT_DUE, extended);
         emulator.setTime(DUE);
-        assertEquals(SeatReservationDefinition.State.WAITING_FOR_PAYMENT.id(),
+        assertEquals(SeatReservationDefinition.State.WAITING_FOR_PAYMENT,
                 emulator.runUntilStop(processId).state());
 
         emulator.setTime(extended);
-        assertEquals(SeatReservationDefinition.State.EXPIRED.id(), emulator.runUntilStop(processId).state());
+        assertEquals(SeatReservationDefinition.State.EXPIRED, emulator.runUntilStop(processId).state());
     }
 
     private UUID startReservation() {

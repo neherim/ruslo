@@ -223,6 +223,10 @@ public class ProcessEngine implements AutoCloseable {
         return processSearchService.processes();
     }
 
+    ProcessSearchService processSearchService() {
+        return processSearchService;
+    }
+
     WorkerRegistry workerRegistry() {
         return workerRegistry;
     }

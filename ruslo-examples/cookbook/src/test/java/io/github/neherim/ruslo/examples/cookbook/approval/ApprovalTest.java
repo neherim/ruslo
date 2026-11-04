@@ -29,7 +29,7 @@ class ApprovalTest {
         var approved = emulator.sendMessageAndRunUntilStop(processId, ExpenseApprovalDefinition.DECISION,
                 new Decision("alice", true));
 
-        assertEquals(ExpenseApprovalDefinition.State.APPROVED.id(), approved.state());
+        assertEquals(ExpenseApprovalDefinition.State.APPROVED, approved.state());
         assertEquals("alice", approved.variables().get(ExpenseApprovalDefinition.DECIDED_BY).orElseThrow());
     }
 
@@ -41,13 +41,13 @@ class ApprovalTest {
         emulator.fastForwardTime(ExpenseApprovalDefinition.DECISION_DEADLINE);
         var escalated = emulator.runUntilStop(processId);
 
-        assertEquals(ExpenseApprovalDefinition.State.WAITING_FOR_DECISION.id(), escalated.state());
+        assertEquals(ExpenseApprovalDefinition.State.WAITING_FOR_DECISION, escalated.state());
         assertEquals("bob", escalated.variables().get(ExpenseApprovalDefinition.APPROVER).orElseThrow());
 
         var rejected = emulator.sendMessageAndRunUntilStop(processId, ExpenseApprovalDefinition.DECISION,
                 new Decision("bob", false));
 
-        assertEquals(ExpenseApprovalDefinition.State.REJECTED.id(), rejected.state());
+        assertEquals(ExpenseApprovalDefinition.State.REJECTED, rejected.state());
     }
 
     @Test
@@ -58,7 +58,7 @@ class ApprovalTest {
         emulator.fastForwardTime(ExpenseApprovalDefinition.DECISION_DEADLINE);
         var expired = emulator.runUntilStop(processId);
 
-        assertEquals(ExpenseApprovalDefinition.State.EXPIRED.id(), expired.state());
+        assertEquals(ExpenseApprovalDefinition.State.EXPIRED, expired.state());
     }
 
     private UUID startApproval(String approver) {

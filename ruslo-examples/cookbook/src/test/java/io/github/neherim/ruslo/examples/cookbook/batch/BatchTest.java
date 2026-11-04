@@ -30,7 +30,7 @@ class BatchTest {
         assertEquals(200L, emulator.runOneStep(processId).variables().get(BonusAccrualDefinition.CURSOR).orElseThrow());
         var completed = emulator.runOneStep(processId);
 
-        assertEquals(BonusAccrualDefinition.State.COMPLETED.id(), completed.state());
+        assertEquals(BonusAccrualDefinition.State.COMPLETED, completed.state());
         assertEquals(250L, completed.variables().get(BonusAccrualDefinition.CURSOR).orElseThrow());
     }
 }

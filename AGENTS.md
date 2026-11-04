@@ -134,13 +134,14 @@ Engine operations join the caller's transaction, and in Spring any exception esc
 
 ### Javadoc
 
-Javadoc is a technical contract, not prose. Write the minimum the caller needs.
+Javadoc is a technical contract, not prose. Write the minimum the caller needs, by default one sentence.
 
 - The first sentence says what the element does, in third person: `Starts…`, `Returns…`.
 - Describe what the caller observes: result, exceptions, side effects, transaction and threading behavior. Do not retell the implementation.
 - Describe a rule shared by several methods once (class, exception or `package-info` Javadoc) and link to it with `{@link}`.
 - Write `@param` and `@return` only when they add something to the name and type. Keep `@throws` for every exception the caller may need to handle.
 - Do not repeat in the text what a `@throws` or `@param` tag already says.
+- Cut a sentence that restates a type or name, repeats a rule documented elsewhere, or explains internals.
 - Internal classes: explain why, not what the code does. A short class Javadoc is usually enough.
 
 ### Documentation

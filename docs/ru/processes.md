@@ -40,6 +40,9 @@ public class ApprovalDefinition implements ProcessDefinition {
 worker по умолчанию (`defaultWorker`, см. [workers.md](workers.md)) и политику ошибок (`onError`, `onGiveUp`, см.
 [error-handling.md](error-handling.md)).
 
+Движок возвращает объявленные состояния и типы, поэтому сравнивайте их с константами:
+`details.state() == State.DONE`. Состояние, которого больше нет в описании, возвращается как `ProcessState.of(name)`.
+
 `build()` проверяет описание и бросает `IllegalArgumentException`, если оно несогласованно: например, для константы
 результата не задан маршрут или шаг ссылается на незарегистрированный worker.
 

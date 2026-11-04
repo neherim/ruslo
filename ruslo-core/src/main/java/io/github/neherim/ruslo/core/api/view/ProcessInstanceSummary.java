@@ -1,7 +1,7 @@
 package io.github.neherim.ruslo.core.api.view;
 
-import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
-import io.github.neherim.ruslo.core.api.definition.ProcessTypeId;
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
+import io.github.neherim.ruslo.core.api.definition.ProcessType;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -15,8 +15,8 @@ import java.util.UUID;
  */
 public record ProcessInstanceSummary(
         UUID id,
-        ProcessTypeId type,
-        ProcessStateId state,
+        ProcessType type,
+        ProcessState state,
         ProcessStatus status,
         Instant createdAt,
         Optional<Instant> nextRunAt,

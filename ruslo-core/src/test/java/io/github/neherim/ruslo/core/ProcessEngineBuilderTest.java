@@ -81,7 +81,7 @@ class ProcessEngineBuilderTest extends BaseTest {
 
         var exception = assertThrows(IllegalArgumentException.class, builder::build);
 
-        assertEquals("Process definition with type ProcessTypeId[name=DUPLICATE] already registered",
+        assertEquals("Process definition with type DUPLICATE already registered",
                 exception.getMessage());
     }
 

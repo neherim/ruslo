@@ -58,7 +58,7 @@ class SendMessageSyncTest extends BaseTest {
         engine.sendMessageSync(id, SIGNAL, "m");
 
         var process = find(id);
-        assertEquals("NEXT", process.state().name());
+        assertEquals(State.NEXT, process.state());
         assertEquals(Optional.of("m"), process.variables().get(SIGNAL_PAYLOAD));
         assertEquals(List.of("m"), log);
     }
@@ -83,7 +83,7 @@ class SendMessageSyncTest extends BaseTest {
 
         engine.sendMessageSync(id, SIGNAL, "m");
 
-        assertEquals("NEXT", find(id).state().name());
+        assertEquals(State.NEXT, find(id).state());
         assertEquals(List.of("m"), log);
     }
 
@@ -94,14 +94,14 @@ class SendMessageSyncTest extends BaseTest {
 
         var unexpected = assertThrows(MessageNotExpectedException.class,
                 () -> engine.sendMessageSync(id, SIGNAL, "again"));
-        assertEquals(ProcessState.of("NEXT"), unexpected.getCurrentState());
+        assertEquals(State.NEXT, unexpected.getCurrentState());
         assertEquals(ProcessStatus.ACTIVE, unexpected.getStatus());
         assertEquals("Message SIGNAL is not expected for ACTIVE process " + id
                 + " in state NEXT: the state awaits no messages", unexpected.getMessage());
         emulator(engine).runUntilStop(id);
         var completed = assertThrows(MessageNotExpectedException.class,
                 () -> engine.sendMessageSync(id, SIGNAL, "late"));
-        assertEquals(ProcessState.of("DONE"), completed.getCurrentState());
+        assertEquals(State.DONE, completed.getCurrentState());
         assertEquals(ProcessStatus.COMPLETED, completed.getStatus());
         assertEquals("Message SIGNAL is not expected for COMPLETED process " + id
                 + " in state DONE: the process is completed", completed.getMessage());
@@ -149,7 +149,7 @@ class SendMessageSyncTest extends BaseTest {
 
         assertThrows(IllegalArgumentException.class, () -> database.doInTransaction(() -> {
             engine.sendMessageSync(id, SIGNAL, "m");
-            assertEquals("NEXT", find(id).state().name());
+            assertEquals(State.NEXT, find(id).state());
             throw new IllegalArgumentException("caller rollback");
         }));
 

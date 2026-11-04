@@ -2,7 +2,7 @@ package io.github.neherim.ruslo.examples.cookbook.cancellation;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
-import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.examples.cookbook.CookbookApplication;
 import io.github.neherim.ruslo.spring.test.ProcessEngineTest;
 import org.junit.jupiter.api.Test;
@@ -33,10 +33,10 @@ class CancellationTest {
 
         assertEquals(OrderCancellationService.Result.ACCEPTED, cancellation.cancel(orderId, "Changed my mind"));
         // Handled synchronously: the process is already in CANCELLING, the dispatcher runs the cancel step
-        assertTrue(stateOf(processId).is(OrderDeliveryDefinition.State.CANCELLING));
+        assertEquals(OrderDeliveryDefinition.State.CANCELLING, stateOf(processId));
         var cancelled = emulator.runUntilStop(processId);
 
-        assertEquals(OrderDeliveryDefinition.State.CANCELLED.id(), cancelled.state());
+        assertEquals(OrderDeliveryDefinition.State.CANCELLED, cancelled.state());
     }
 
     @Test
@@ -46,12 +46,12 @@ class CancellationTest {
         emulator.runUntilStop(processId);
         var packed = emulator.sendMessageAndRunUntilStop(
                 processId, OrderDeliveryDefinition.PAYMENT_RECEIVED, "payment-1");
-        assertEquals(OrderDeliveryDefinition.State.WAITING_FOR_COURIER.id(), packed.state());
+        assertEquals(OrderDeliveryDefinition.State.WAITING_FOR_COURIER, packed.state());
 
         assertEquals(OrderCancellationService.Result.ACCEPTED, cancellation.cancel(orderId, "Found it cheaper"));
         var cancelled = emulator.runUntilStop(processId);
 
-        assertEquals(OrderDeliveryDefinition.State.CANCELLED.id(), cancelled.state());
+        assertEquals(OrderDeliveryDefinition.State.CANCELLED, cancelled.state());
     }
 
     @Test
@@ -74,7 +74,7 @@ class CancellationTest {
         emulator.sendMessageAndRunUntilStop(processId, OrderDeliveryDefinition.PAYMENT_RECEIVED, "payment-1");
         var shipped = emulator.sendMessageAndRunUntilStop(
                 processId, OrderDeliveryDefinition.HANDED_TO_COURIER, "courier-7");
-        assertEquals(OrderDeliveryDefinition.State.SHIPPED.id(), shipped.state());
+        assertEquals(OrderDeliveryDefinition.State.SHIPPED, shipped.state());
 
         assertEquals(OrderCancellationService.Result.TOO_LATE, cancellation.cancel(orderId, "Changed my mind"));
     }
@@ -91,7 +91,7 @@ class CancellationTest {
         var cancelled = emulator.runUntilStop(processId);
 
         // The payment handler did not run: the cancel step refunds by order id, not by a process variable
-        assertEquals(OrderDeliveryDefinition.State.CANCELLED.id(), cancelled.state());
+        assertEquals(OrderDeliveryDefinition.State.CANCELLED, cancelled.state());
         assertTrue(cancelled.variables().get(OrderDeliveryDefinition.PAYMENT_ID).isEmpty());
     }
 
@@ -101,7 +101,7 @@ class CancellationTest {
             .start();
     }
 
-    private ProcessStateId stateOf(UUID processId) {
+    private ProcessState stateOf(UUID processId) {
         return processEngine.processes().byId(processId).single().orElseThrow().state();
     }
 

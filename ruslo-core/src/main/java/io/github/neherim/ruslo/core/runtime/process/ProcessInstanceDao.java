@@ -1,10 +1,8 @@
 package io.github.neherim.ruslo.core.runtime.process;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
-import io.github.neherim.ruslo.core.api.definition.ProcessTypeId;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
-import io.github.neherim.ruslo.core.api.view.ProcessTypeCounts;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseLostException;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
 import io.github.neherim.ruslo.core.spi.Database;
@@ -19,7 +17,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -65,17 +62,6 @@ public class ProcessInstanceDao {
 
     private static final String COUNT_UNCOMPLETED_PROCESSES_SQL = """
             select count(*) from xs_process_instance where status <> 'COMPLETED'
-            """;
-
-    private static final String COUNT_INCOMPLETE_BY_TYPE_SQL = """
-            select type,
-                   sum(case when status = 'ACTIVE' then 1 else 0 end) as active_count,
-                   sum(case when status = 'FAILED' then 1 else 0 end) as failed_count,
-                   sum(case when status = 'ACTIVE' and next_run_at <= ? then 1 else 0 end) as overdue_count
-            from xs_process_instance
-            where status <> 'COMPLETED'
-            group by type
-            order by type
             """;
 
     private static final String COUNT_BY_STATUS_SQL = """
@@ -255,19 +241,6 @@ public class ProcessInstanceDao {
     public long countIncompleteProcesses() {
         return database.queryForObject(COUNT_UNCOMPLETED_PROCESSES_SQL, rs -> rs.getLong(1))
             .orElse(0L);
-    }
-
-    /**
-     * Counts incomplete processes per type in one query, ordered by type name.
-     *
-     * @param overdueAt an {@code ACTIVE} process with {@code next_run_at <= overdueAt} counts as overdue
-     */
-    public List<ProcessTypeCounts> countIncompleteByType(Instant overdueAt) {
-        return database.queryForList(COUNT_INCOMPLETE_BY_TYPE_SQL, rs -> new ProcessTypeCounts(
-                new ProcessTypeId(rs.getString("type")),
-                rs.getLong("active_count"),
-                rs.getLong("failed_count"),
-                rs.getLong("overdue_count")), overdueAt);
     }
 
     /** Returns the number of processes in the status. */

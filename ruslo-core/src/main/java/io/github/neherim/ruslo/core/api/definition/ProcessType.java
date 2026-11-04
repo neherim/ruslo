@@ -4,7 +4,7 @@ package io.github.neherim.ruslo.core.api.definition;
  * Process type, usually implemented by an enum or created by {@link #of(String)}.
  * <p>
  * Types are identified by {@link #name()} only: objects with the same name are the same type regardless of
- * their Java type. Compare with {@link #is(ProcessType)} or {@link #is(String)}, not {@code ==} or {@code equals}.
+ * their Java type. The engine returns the declared object, or {@link #of(String)} if the type is not registered.
  */
 public interface ProcessType {
 

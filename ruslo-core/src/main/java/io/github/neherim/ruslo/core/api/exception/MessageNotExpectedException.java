@@ -1,6 +1,6 @@
 package io.github.neherim.ruslo.core.api.exception;
 
-import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 
 import java.util.Set;
@@ -15,7 +15,7 @@ public class MessageNotExpectedException extends ProcessEngineException {
     private final UUID processId;
     private final String messageName;
     private final ProcessStatus status;
-    private final ProcessStateId currentState;
+    private final ProcessState currentState;
     private final Set<String> expectedMessageNames;
 
     /**
@@ -28,7 +28,7 @@ public class MessageNotExpectedException extends ProcessEngineException {
             UUID processId,
             String messageName,
             ProcessStatus status,
-            ProcessStateId currentState,
+            ProcessState currentState,
             Set<String> expectedMessageNames,
             String reason
     ) {
@@ -53,7 +53,7 @@ public class MessageNotExpectedException extends ProcessEngineException {
         return status;
     }
 
-    public ProcessStateId getCurrentState() {
+    public ProcessState getCurrentState() {
         return currentState;
     }
 
