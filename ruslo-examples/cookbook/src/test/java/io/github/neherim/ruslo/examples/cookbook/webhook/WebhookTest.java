@@ -37,13 +37,13 @@ class WebhookTest {
 
         webhook.onCallback(new VerificationCallback(applicationId, "evt-1", Status.DOCUMENTS_REQUIRED));
         var waiting = emulator.runUntilStop(processId);
-        assertEquals(IdentityVerificationDefinition.State.WAITING_FOR_RESULT.id(), waiting.state());
+        assertEquals(IdentityVerificationDefinition.State.WAITING_FOR_RESULT, waiting.state());
 
         webhook.onCallback(new VerificationCallback(applicationId, "evt-2", Status.APPROVED));
         var verified = emulator.runUntilStop(processId);
 
         assertEquals(ProcessStatus.COMPLETED, verified.status());
-        assertEquals(IdentityVerificationDefinition.State.VERIFIED.id(), verified.state());
+        assertEquals(IdentityVerificationDefinition.State.VERIFIED, verified.state());
     }
 
     @Test
@@ -57,7 +57,7 @@ class WebhookTest {
         webhook.onCallback(documentsRequired);
         var waiting = emulator.runUntilStop(processId);
 
-        assertEquals(IdentityVerificationDefinition.State.WAITING_FOR_RESULT.id(), waiting.state());
+        assertEquals(IdentityVerificationDefinition.State.WAITING_FOR_RESULT, waiting.state());
         assertEquals(Optional.of(new HandledEvents(List.of("evt-1"))),
                 waiting.variables().get(IdentityVerificationDefinition.HANDLED_EVENTS));
     }
@@ -69,7 +69,7 @@ class WebhookTest {
         emulator.runUntilStop(processId);
         var declined = new VerificationCallback(applicationId, "evt-1", Status.DECLINED);
         webhook.onCallback(declined);
-        assertEquals(IdentityVerificationDefinition.State.REJECTED.id(), emulator.runUntilStop(processId).state());
+        assertEquals(IdentityVerificationDefinition.State.REJECTED, emulator.runUntilStop(processId).state());
 
         assertDoesNotThrow(() -> webhook.onCallback(declined));
     }

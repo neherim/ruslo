@@ -1,11 +1,11 @@
 package io.github.neherim.ruslo.core.search;
 
-import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails.StateHistoryEntry;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceSummary;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
+import io.github.neherim.ruslo.core.api.view.ProcessTypeCounts;
+import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.runtime.process.ProcessTimers;
 import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
 import io.github.neherim.ruslo.core.spi.Database;
@@ -15,6 +15,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.*;
 
 /** Searches and filters process instances. */
@@ -30,6 +31,17 @@ public class ProcessInstanceSearchDao {
             from xs_process_instance where 1=1
             """;
 
+    private static final String COUNT_INCOMPLETE_BY_TYPE_SQL = """
+            select type,
+                   sum(case when status = 'ACTIVE' then 1 else 0 end) as active_count,
+                   sum(case when status = 'FAILED' then 1 else 0 end) as failed_count,
+                   sum(case when status = 'ACTIVE' and next_run_at <= ? then 1 else 0 end) as overdue_count
+            from xs_process_instance
+            where status <> 'COMPLETED'
+            group by type
+            order by type
+            """;
+
     private static final String SELECT_STATE_HIST_SQL = """
             select state, changed_at from xs_process_state_hist
             where link_process_instance = ?
@@ -38,10 +50,30 @@ public class ProcessInstanceSearchDao {
 
     private final Database database;
     private final ObjectMapper objectMapper;
+    private final ProcessDefinitionRegistry processDefinitionRegistry;
 
-    public ProcessInstanceSearchDao(Database database, ObjectMapper objectMapper) {
+    /** @param processDefinitionRegistry resolves stored type and state names to the declared objects */
+    public ProcessInstanceSearchDao(
+            Database database,
+            ObjectMapper objectMapper,
+            ProcessDefinitionRegistry processDefinitionRegistry
+    ) {
         this.database = database;
         this.objectMapper = objectMapper;
+        this.processDefinitionRegistry = processDefinitionRegistry;
+    }
+
+    /**
+     * Counts incomplete processes per type in one query, ordered by type name.
+     *
+     * @param overdueAt an {@code ACTIVE} process with {@code next_run_at <= overdueAt} counts as overdue
+     */
+    public List<ProcessTypeCounts> countIncompleteByType(Instant overdueAt) {
+        return database.queryForList(COUNT_INCOMPLETE_BY_TYPE_SQL, rs -> new ProcessTypeCounts(
+                processDefinitionRegistry.declaredType(rs.getString("type")),
+                rs.getLong("active_count"),
+                rs.getLong("failed_count"),
+                rs.getLong("overdue_count")), overdueAt);
     }
 
     /**
@@ -141,9 +173,11 @@ public class ProcessInstanceSearchDao {
 
     private ProcessInstanceDetails mapDetailsRow(ResultSet rs) throws SQLException {
         var id = rs.getObject("id", UUID.class);
-        var type = ProcessType.of(rs.getString("type"));
-        var state = ProcessState.of(rs.getString("state"));
-        var stateHistory = database.queryForList(SELECT_STATE_HIST_SQL, this::mapStateHistoryRow, id);
+        var typeName = rs.getString("type");
+        var type = processDefinitionRegistry.declaredType(typeName);
+        var state = processDefinitionRegistry.declaredState(typeName, rs.getString("state"));
+        var stateHistory = database.queryForList(SELECT_STATE_HIST_SQL,
+                row -> mapStateHistoryRow(typeName, row), id);
         return new ProcessInstanceDetails(
                 id,
                 type,
@@ -161,16 +195,17 @@ public class ProcessInstanceSearchDao {
         );
     }
 
-    private StateHistoryEntry mapStateHistoryRow(ResultSet rs) throws SQLException {
+    private StateHistoryEntry mapStateHistoryRow(String typeName, ResultSet rs) throws SQLException {
         return new StateHistoryEntry(
-                ProcessState.of(rs.getString("state")),
+                processDefinitionRegistry.declaredState(typeName, rs.getString("state")),
                 rs.getTimestamp("changed_at").toInstant()
         );
     }
 
     private ProcessInstanceSummary mapSummaryRow(ResultSet rs) throws SQLException {
-        var type = ProcessType.of(rs.getString("type"));
-        var state = ProcessState.of(rs.getString("state"));
+        var typeName = rs.getString("type");
+        var type = processDefinitionRegistry.declaredType(typeName);
+        var state = processDefinitionRegistry.declaredState(typeName, rs.getString("state"));
         return new ProcessInstanceSummary(
                 rs.getObject("id", UUID.class),
                 type,

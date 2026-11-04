@@ -18,10 +18,11 @@
 | `sendMessageAndRunUntilStop(id, type, payload)` | `sendMessage`, затем `runUntilStop` |
 | `fastForwardTime(duration)`, `setTime(instant)` | Двигают часы движка |
 
-Методы возвращают `ProcessInstanceDetails`. Сравнивайте состояние по id, ожидаемое значение первым:
+Методы возвращают `ProcessInstanceDetails`. Его состояние — константа, объявленная в описании
+([processes.md](processes.md#описание-процесса)); сравнивайте с ней, ожидаемое значение первым:
 
 ```java
-assertEquals(OrderState.COMPLETED.id(), details.state(), details::toString);
+assertEquals(OrderState.COMPLETED, details.state(), details::toString);
 ```
 
 При несовпадении сообщение покажет фактическое состояние, а `details::toString` добавит статус, `lastError`,
@@ -50,7 +51,7 @@ class OrderServiceTest {
         emulator.fastForwardTime(Duration.ofHours(3));   // заказ из README ждёт after(2 hours)
 
         var cancelled = emulator.runUntilStop(processId);
-        assertEquals(OrderState.CANCELLED.id(), cancelled.state());
+        assertEquals(OrderState.CANCELLED, cancelled.state());
     }
 }
 ```

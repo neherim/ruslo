@@ -1,7 +1,7 @@
 package io.github.neherim.ruslo.core.api.view;
 
-import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
-import io.github.neherim.ruslo.core.api.definition.ProcessTypeId;
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
+import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 
 import java.time.Duration;
@@ -9,11 +9,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-/** Read-only view of a registered process definition. */
+/**
+ * Read-only view of a registered process definition. Type and states are the objects declared in
+ * {@link io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder}.
+ */
 public record ProcessSpecInfo(
-        ProcessTypeId type,
+        ProcessType type,
         Optional<String> description,
-        ProcessStateId initialState,
+        ProcessState initialState,
         Set<StateInfo> states
 ) {
     /**
@@ -23,7 +26,7 @@ public record ProcessSpecInfo(
      * @param atTimer     name of the process timer the {@code at} event waits for
      */
     public record StateInfo(
-            ProcessStateId state,
+            ProcessState state,
             String description,
             StateKind kind,
             Optional<WorkerId> workerId,
@@ -46,7 +49,7 @@ public record ProcessSpecInfo(
             TransitionTrigger trigger,
             Optional<String> messageType,
             Optional<String> outcome,
-            ProcessStateId target
+            ProcessState target
     ) {
     }
 

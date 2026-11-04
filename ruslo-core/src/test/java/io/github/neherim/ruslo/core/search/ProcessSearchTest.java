@@ -231,7 +231,7 @@ class ProcessSearchTest extends BaseTest {
 
         assertTrue(result.isPresent());
         assertEquals(processId, result.get().id());
-        assertEquals(INIT.id(), result.get().state());
+        assertEquals(INIT, result.get().state());
         assertEquals("test-key", result.get().businessKey().orElseThrow());
         assertFalse(result.get().stateHistory().isEmpty());
         assertEquals(processEngine.processes().byId(processId).single().orElseThrow().createdAt(),

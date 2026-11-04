@@ -52,7 +52,7 @@ public class ProcessDefinitionRegistry {
         var processType = processSpec.getType();
         var current = specs;
         if (current.containsKey(processType)) {
-            throw new IllegalArgumentException("Process definition with type " + processType
+            throw new IllegalArgumentException("Process definition with type " + processType.name()
                     + " already registered");
         }
         for (var state : processSpec.getAllStateSpecs()) {
@@ -84,6 +84,24 @@ public class ProcessDefinitionRegistry {
         return processDefinition;
     }
 
+    /**
+     * Returns the type object of the registered definition, or {@link ProcessType#of(String)} if the type is not
+     * registered.
+     */
+    public ProcessType declaredType(String name) {
+        var spec = specs.get(ProcessType.of(name));
+        return spec != null ? spec.declaredType() : ProcessType.of(name);
+    }
+
+    /**
+     * Returns the state object declared in the definition of the type, or {@link ProcessState#of(String)} if the
+     * type is not registered or does not declare the state.
+     */
+    public ProcessState declaredState(String type, String name) {
+        var spec = specs.get(ProcessType.of(type));
+        return spec != null ? spec.declaredState(name) : ProcessState.of(name);
+    }
+
     /** Returns metadata of the registered definitions. */
     public List<ProcessSpecInfo> getProcessDefinitions() {
         return specs.values().stream().map(this::mapToInfo).toList();
@@ -94,33 +112,36 @@ public class ProcessDefinitionRegistry {
             .stream()
             .map(s -> mapStateToInfo(spec, s))
             .collect(Collectors.toSet());
-        return new ProcessSpecInfo(spec.getType(), spec.getDescription(), spec.getInitialState(), states);
+        return new ProcessSpecInfo(spec.declaredType(), spec.getDescription(),
+                spec.declaredState(spec.getInitialState().name()), states);
     }
 
     private ProcessSpecInfo.StateInfo mapStateToInfo(ProcessSpec spec, ProcessSpec.StateSpec state) {
         var description = spec.getStateDescription(state.state());
+        var declared = spec.declaredState(state.state().name());
         return switch (state) {
-            case ProcessSpec.StepState step -> new ProcessSpecInfo.StateInfo(step.state(), description,
+            case ProcessSpec.StepState step -> new ProcessSpecInfo.StateInfo(declared, description,
                     ProcessSpecInfo.StateKind.STEP, Optional.of(step.worker()), Set.of(), Optional.empty(),
                     Optional.empty(), Optional.empty(),
-                    transitions(ProcessSpecInfo.TransitionTrigger.STEP, null, step.exit()));
+                    transitions(spec, ProcessSpecInfo.TransitionTrigger.STEP, null, step.exit()));
             case ProcessSpec.AwaitState await -> {
                 var transitions = new ArrayList<ProcessSpecInfo.TransitionInfo>();
                 await.messages()
-                    .forEach(message -> transitions.addAll(transitions(
+                    .forEach(message -> transitions.addAll(transitions(spec,
                             ProcessSpecInfo.TransitionTrigger.MESSAGE, message.type().name(), message.exit())));
                 if (await.every() != null) {
                     transitions
-                        .addAll(transitions(ProcessSpecInfo.TransitionTrigger.EVERY, null, await.every().exit()));
+                        .addAll(transitions(spec, ProcessSpecInfo.TransitionTrigger.EVERY, null, await.every().exit()));
                 }
                 if (await.after() != null) {
                     transitions
-                        .addAll(transitions(ProcessSpecInfo.TransitionTrigger.AFTER, null, await.after().exit()));
+                        .addAll(transitions(spec, ProcessSpecInfo.TransitionTrigger.AFTER, null, await.after().exit()));
                 }
                 if (await.at() != null) {
-                    transitions.addAll(transitions(ProcessSpecInfo.TransitionTrigger.AT, null, await.at().exit()));
+                    transitions
+                        .addAll(transitions(spec, ProcessSpecInfo.TransitionTrigger.AT, null, await.at().exit()));
                 }
-                yield new ProcessSpecInfo.StateInfo(await.state(), description, ProcessSpecInfo.StateKind.AWAIT,
+                yield new ProcessSpecInfo.StateInfo(declared, description, ProcessSpecInfo.StateKind.AWAIT,
                         Optional.of(WorkerId.DEFAULT),
                         await.messages().stream().map(e -> e.type().name()).collect(Collectors.toUnmodifiableSet()),
                         Optional.ofNullable(await.every()).map(every -> every.interval().period()),
@@ -128,26 +149,28 @@ public class ProcessDefinitionRegistry {
                         Optional.ofNullable(await.at()).map(at -> at.timer().name()),
                         List.copyOf(transitions));
             }
-            case ProcessSpec.TerminalState terminal -> new ProcessSpecInfo.StateInfo(terminal.state(), description,
+            case ProcessSpec.TerminalState ignored -> new ProcessSpecInfo.StateInfo(declared, description,
                     ProcessSpecInfo.StateKind.TERMINAL, Optional.empty(), Set.of(), Optional.empty(), Optional.empty(),
                     Optional.empty(), List.of());
         };
     }
 
     private static List<ProcessSpecInfo.TransitionInfo> transitions(
+            ProcessSpec spec,
             ProcessSpecInfo.TransitionTrigger trigger,
             String messageType,
             ProcessSpec.Exit exit
     ) {
         return switch (exit) {
             case ProcessSpec.Target target -> List.of(new ProcessSpecInfo.TransitionInfo(trigger,
-                    Optional.ofNullable(messageType), Optional.empty(), target.state()));
+                    Optional.ofNullable(messageType), Optional.empty(), spec.declaredState(target.state().name())));
             case ProcessSpec.Routes routes -> routes.routes()
                 .entrySet()
                 .stream()
                 .sorted(Comparator.comparingInt(route -> route.getKey().ordinal()))
                 .map(route -> new ProcessSpecInfo.TransitionInfo(trigger, Optional.ofNullable(messageType),
-                        Optional.of(route.getKey().name()), route.getValue()))
+                        Optional.of(route.getKey().name()),
+                        spec.declaredState(route.getValue().name())))
                 .toList();
         };
     }

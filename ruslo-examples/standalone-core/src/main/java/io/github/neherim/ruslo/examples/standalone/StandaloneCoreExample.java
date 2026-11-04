@@ -2,7 +2,7 @@ package io.github.neherim.ruslo.examples.standalone;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
-import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
 import org.h2.jdbcx.JdbcDataSource;
@@ -88,18 +88,18 @@ public class StandaloneCoreExample implements AutoCloseable {
         try (var example = StandaloneCoreExample.start(dataSource)) {
             var processId = example.startApproval("invoice-42", 500);
             // The process runs in the background; the message is accepted only once it reaches the await.
-            while (!example.stateOf(processId).is(ApprovalState.WAITING_FOR_APPROVAL)) {
+            while (example.stateOf(processId) != ApprovalState.WAITING_FOR_APPROVAL) {
                 Thread.sleep(50);
             }
             example.approve(processId, "manager-1");
-            while (example.stateOf(processId).is(ApprovalState.WAITING_FOR_APPROVAL)) {
+            while (example.stateOf(processId) == ApprovalState.WAITING_FOR_APPROVAL) {
                 Thread.sleep(50);
             }
             System.out.println("Process finished in state " + example.stateOf(processId).name());
         }
     }
 
-    private ProcessStateId stateOf(UUID processId) {
+    private ProcessState stateOf(UUID processId) {
         return engine.processes().byId(processId).singleDetails().orElseThrow().state();
     }
 }

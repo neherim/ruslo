@@ -74,8 +74,7 @@ class ProcessDefinitionRegistryTest {
             String outcome,
             State target
     ) {
-        return new TransitionInfo(trigger, Optional.ofNullable(messageType), Optional.ofNullable(outcome),
-                target.id());
+        return new TransitionInfo(trigger, Optional.ofNullable(messageType), Optional.ofNullable(outcome), target);
     }
 
     private enum Outcome {

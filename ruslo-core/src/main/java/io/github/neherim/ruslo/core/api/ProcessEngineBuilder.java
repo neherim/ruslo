@@ -211,7 +211,7 @@ public class ProcessEngineBuilder {
         var processInstanceFactory = new ProcessInstanceFactory(clock, objectMapper, processDefinitionRegistry);
         var processInstanceDao = new ProcessInstanceDao(database, clock, processInstanceFactory,
                 saveProcessHistory, effectiveMetrics);
-        var processSearchService = new ProcessSearchService(database, objectMapper);
+        var processSearchService = new ProcessSearchService(database, objectMapper, processDefinitionRegistry);
         var processMdc = new ProcessMdc(new MdcKeys(correlationIdMdcKey, processIdMdcKey, processTypeMdcKey));
         var stepExecutor = new StepExecutor(processMdc, effectiveMetrics, clock);
         var stepErrorHandler = new StepErrorHandler(clock, database, processInstanceDao, processMdc,

@@ -26,7 +26,7 @@ class RetriesTest {
     void sendsNotification() {
         var sent = emulator.runUntilStop(startNotification("ada@example.com"));
 
-        assertEquals(NotificationDefinition.State.SENT.id(), sent.state());
+        assertEquals(NotificationDefinition.State.SENT, sent.state());
     }
 
     @Test
@@ -36,12 +36,12 @@ class RetriesTest {
         // Each failed attempt schedules a retry: after 1, 2 and 4 seconds
         var process = emulator.runUntilStop(processId);
         for (var delay : new int[]{1, 2, 4}) {
-            assertEquals(NotificationDefinition.State.SENDING.id(), process.state());
+            assertEquals(NotificationDefinition.State.SENDING, process.state());
             emulator.fastForwardTime(Duration.ofSeconds(delay));
             process = emulator.runUntilStop(processId);
         }
 
-        assertEquals(NotificationDefinition.State.DELIVERY_FAILED.id(), process.state());
+        assertEquals(NotificationDefinition.State.DELIVERY_FAILED, process.state());
     }
 
     @Test
@@ -49,7 +49,7 @@ class RetriesTest {
         var failed = emulator.runUntilStop(startNotification("+1-555-0100"));
 
         // No retry was scheduled: the process went to the give-up state at once
-        assertEquals(NotificationDefinition.State.DELIVERY_FAILED.id(), failed.state());
+        assertEquals(NotificationDefinition.State.DELIVERY_FAILED, failed.state());
         assertEquals(0, failed.attempt());
     }
 

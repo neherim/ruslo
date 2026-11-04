@@ -27,14 +27,14 @@ class BranchingTest {
         var approved = emulator.runUntilStop(startApplication(500));
 
         assertEquals(ProcessStatus.COMPLETED, approved.status());
-        assertEquals(LoanApplicationDefinition.State.APPROVED.id(), approved.state());
+        assertEquals(LoanApplicationDefinition.State.APPROVED, approved.state());
     }
 
     @Test
     void rejectsAmountAboveLimit() {
         var rejected = emulator.runUntilStop(startApplication(250_000));
 
-        assertEquals(LoanApplicationDefinition.State.REJECTED.id(), rejected.state());
+        assertEquals(LoanApplicationDefinition.State.REJECTED, rejected.state());
         assertEquals("Amount exceeds 100000",
                 rejected.variables().get(LoanApplicationDefinition.REJECTION_REASON).orElseThrow());
     }
@@ -43,12 +43,12 @@ class BranchingTest {
     void approvesAfterManualReview() {
         var processId = startApplication(20_000);
         var waiting = emulator.runUntilStop(processId);
-        assertEquals(LoanApplicationDefinition.State.MANUAL_REVIEW.id(), waiting.state());
+        assertEquals(LoanApplicationDefinition.State.MANUAL_REVIEW, waiting.state());
 
         var approved = emulator.sendMessageAndRunUntilStop(processId, LoanApplicationDefinition.REVIEW_DECISION,
                 new ReviewDecision(true, "Stable income"));
 
-        assertEquals(LoanApplicationDefinition.State.APPROVED.id(), approved.state());
+        assertEquals(LoanApplicationDefinition.State.APPROVED, approved.state());
     }
 
     @Test
@@ -59,7 +59,7 @@ class BranchingTest {
         var rejected = emulator.sendMessageAndRunUntilStop(processId, LoanApplicationDefinition.REVIEW_DECISION,
                 new ReviewDecision(false, "Insufficient income"));
 
-        assertEquals(LoanApplicationDefinition.State.REJECTED.id(), rejected.state());
+        assertEquals(LoanApplicationDefinition.State.REJECTED, rejected.state());
         assertEquals("Insufficient income",
                 rejected.variables().get(LoanApplicationDefinition.REJECTION_REASON).orElseThrow());
     }

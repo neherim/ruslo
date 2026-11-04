@@ -14,31 +14,38 @@ import java.util.stream.Collectors;
 
 /**
  * Validated states and handlers of a process type. Created only by {@link ProcessSpecBuilder}.
+ * <p>
+ * This is the engine model: its getters and records return canonical {@link ProcessTypeId} and
+ * {@link ProcessStateId}. The objects passed to the builder are returned by {@link #declaredType()} and
+ * {@link #declaredState(String)}.
  */
 public class ProcessSpec {
     private final ProcessTypeId type;
+    private final ProcessType declaredType;
     private final String description;
     private final ProcessStateId initialState;
     private final Map<String, StateSpec> stateSpecs;
-    private final Map<String, String> stateDescriptions;
+    private final Map<String, ProcessState> declaredStates;
     private final ProcessErrorHandler processErrorHandler;
     private final ProcessStateId giveUpState;
     private final Set<String> timerNames;
 
     ProcessSpec(
             ProcessTypeId type,
+            ProcessType declaredType,
             String description,
             ProcessStateId initialState,
             Map<String, StateSpec> stateSpecs,
-            Map<String, String> stateDescriptions,
+            Map<String, ProcessState> declaredStates,
             ProcessErrorHandler processErrorHandler,
             ProcessStateId giveUpState
     ) {
         this.type = type;
+        this.declaredType = declaredType;
         this.description = description;
         this.initialState = initialState;
         this.stateSpecs = Map.copyOf(stateSpecs);
-        this.stateDescriptions = Map.copyOf(stateDescriptions);
+        this.declaredStates = Map.copyOf(declaredStates);
         this.processErrorHandler = processErrorHandler;
         this.giveUpState = giveUpState;
         this.timerNames = stateSpecs.values()
@@ -52,6 +59,20 @@ public class ProcessSpec {
         return type;
     }
 
+    /** Returns the type object passed to {@link ProcessSpecBuilder#type(ProcessType)}. */
+    public ProcessType declaredType() {
+        return declaredType;
+    }
+
+    /**
+     * Returns the state object passed to the declaration of the state ({@code step}, {@code await} or
+     * {@code terminal}), or {@link ProcessState#of(String)} if the process declares no state with this name.
+     */
+    public ProcessState declaredState(String name) {
+        var state = declaredStates.get(name);
+        return state != null ? state : ProcessState.of(name);
+    }
+
     public Optional<String> getDescription() {
         return Optional.ofNullable(description);
     }
@@ -59,7 +80,7 @@ public class ProcessSpec {
     /** Returns the state description given in its declaration. */
     public String getStateDescription(ProcessState state) {
         getStateSpec(state);
-        return stateDescriptions.get(state.name());
+        return declaredStates.get(state.name()).description();
     }
 
     public ProcessStateId getInitialState() {

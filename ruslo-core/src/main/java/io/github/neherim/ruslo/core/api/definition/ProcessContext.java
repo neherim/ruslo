@@ -13,9 +13,11 @@ public interface ProcessContext {
 
     String correlationId();
 
-    ProcessTypeId processType();
+    /** Returns the declared process type, see {@link ProcessType}. */
+    ProcessType processType();
 
-    ProcessStateId state();
+    /** Returns the declared current state, see {@link ProcessState}. */
+    ProcessState state();
 
     /**
      * Returns the variable deserialized from JSON into {@code clazz}, or {@code null} if it is not set.

@@ -24,13 +24,13 @@ public class DefaultProcessContext implements ProcessContext {
     }
 
     @Override
-    public ProcessTypeId processType() {
-        return processInstance.getType();
+    public ProcessType processType() {
+        return processInstance.getProcessSpec().declaredType();
     }
 
     @Override
-    public ProcessStateId state() {
-        return processInstance.getState();
+    public ProcessState state() {
+        return processInstance.getProcessSpec().declaredState(processInstance.getState().name());
     }
 
     @Override

@@ -14,7 +14,7 @@ public class ProcessDefinitionTest extends BaseTest {
         var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
         var process = processEngine.processes().byId(processId).singleDetails().orElseThrow();
 
-        Assertions.assertEquals(SimpleProcessDefinition.State.INIT.id(), process.state());
+        Assertions.assertEquals(SimpleProcessDefinition.State.INIT, process.state());
     }
 
     @Test

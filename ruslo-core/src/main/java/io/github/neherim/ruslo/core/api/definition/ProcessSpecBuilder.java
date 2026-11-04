@@ -20,6 +20,10 @@ import static java.util.Objects.requireNonNull;
  * A handler reports a result, the definition declares the target state. A target equal to the current state is not
  * a state change: the message queue, the {@code every} and {@code after} timers and the state history are kept. A
  * step runs again; an await keeps waiting for its events.
+ * <p>
+ * The declared object of a state is the one passed to {@code step}, {@code await} or {@code terminal}; the engine
+ * returns it in views and {@link ProcessContext}. References to a state ({@code next}, {@code on},
+ * {@code initialState}, {@code onGiveUp}) match it by name only.
  */
 public class ProcessSpecBuilder {
     public ProcessSpecBuilder() {
@@ -40,7 +44,7 @@ public class ProcessSpecBuilder {
         private final Draft draft;
 
         private TypedBuilder(ProcessType type) {
-            draft = new Draft(ProcessType.of(requireNonNull(type, "Process type cannot be null").name()));
+            draft = new Draft(requireNonNull(type, "Process type cannot be null"));
         }
 
         /** Sets the description shown in the admin UI. */
@@ -397,17 +401,19 @@ public class ProcessSpecBuilder {
     }
 
     private static final class Draft {
+        private final ProcessType declaredType;
         private final ProcessTypeId type;
         private final Map<String, StateSpec> states = new LinkedHashMap<>();
-        private final Map<String, String> stateDescriptions = new HashMap<>();
+        private final Map<String, ProcessState> declaredStates = new HashMap<>();
         private String description;
         private WorkerId defaultWorker = WorkerId.DEFAULT;
         private ProcessErrorHandler errorHandler = ProcessErrorHandler.noRetry();
         private ProcessStateId giveUpState;
         private ProcessStateId initial;
 
-        private Draft(ProcessTypeId type) {
-            this.type = type;
+        private Draft(ProcessType declaredType) {
+            this.declaredType = declaredType;
+            this.type = declaredType.id();
         }
 
         private static ProcessStateId id(ProcessState state) {
@@ -424,7 +430,7 @@ public class ProcessSpecBuilder {
                 throw new IllegalArgumentException("Description of state " + name + " of process " + type.name()
                         + " cannot be blank");
             }
-            stateDescriptions.put(name, stateDescription);
+            declaredStates.put(name, state);
         }
 
         private void addStep(
@@ -463,7 +469,8 @@ public class ProcessSpecBuilder {
                 }
             }
             if (giveUpState != null) checkDeclared(giveUpState, "onGiveUp state");
-            return new ProcessSpec(type, description, initial, states, stateDescriptions, errorHandler, giveUpState);
+            return new ProcessSpec(type, declaredType, description, initial, states, declaredStates, errorHandler,
+                    giveUpState);
         }
 
         private void checkAwait(AwaitState await, Map<String, Class<?>> payloads) {

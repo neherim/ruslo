@@ -18,10 +18,11 @@ and annotate the test with `@ProcessEngineTest`. The annotation:
 | `sendMessageAndRunUntilStop(id, type, payload)` | `sendMessage`, then `runUntilStop` |
 | `fastForwardTime(duration)`, `setTime(instant)` | Move the engine clock |
 
-The methods return `ProcessInstanceDetails`. Compare the state by id, expected value first:
+The methods return `ProcessInstanceDetails`. Its state is the constant declared in the definition
+([processes.md](processes.md#process-definition)); compare with it, expected value first:
 
 ```java
-assertEquals(OrderState.COMPLETED.id(), details.state(), details::toString);
+assertEquals(OrderState.COMPLETED, details.state(), details::toString);
 ```
 
 On a mismatch the message shows the actual state, and `details::toString` adds the status, `lastError`, recent
@@ -50,7 +51,7 @@ class OrderServiceTest {
         emulator.fastForwardTime(Duration.ofHours(3));   // the order from the README waits after(2 hours)
 
         var cancelled = emulator.runUntilStop(processId);
-        assertEquals(OrderState.CANCELLED.id(), cancelled.state());
+        assertEquals(OrderState.CANCELLED, cancelled.state());
     }
 }
 ```

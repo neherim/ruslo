@@ -14,6 +14,7 @@ import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceLifecycle;
 import io.github.neherim.ruslo.core.runtime.ProcessRuntimeService;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
+import io.github.neherim.ruslo.core.search.ProcessSearchService;
 
 import java.time.Instant;
 import java.util.List;
@@ -31,6 +32,7 @@ public final class ProcessEngineAdmin {
     private final ProcessDefinitionRegistry processDefinitionRegistry;
     private final ProcessRuntimeService processRuntimeService;
     private final ApplicationInstanceLifecycle applicationInstanceLifecycle;
+    private final ProcessSearchService processSearchService;
 
     public ProcessEngineAdmin(ProcessEngine processEngine) {
         Objects.requireNonNull(processEngine, "ProcessEngine must not be null");
@@ -38,6 +40,7 @@ public final class ProcessEngineAdmin {
         this.processDefinitionRegistry = processEngine.processDefinitionRegistry();
         this.processRuntimeService = processEngine.processRuntimeService();
         this.applicationInstanceLifecycle = processEngine.applicationInstanceLifecycle();
+        this.processSearchService = processEngine.processSearchService();
     }
 
     /** Returns the registered workers, the {@code DEFAULT} worker included. */
@@ -62,7 +65,7 @@ public final class ProcessEngineAdmin {
      */
     public List<ProcessTypeCounts> countIncompleteProcessesByType(Instant overdueAt) {
         Objects.requireNonNull(overdueAt, "Overdue moment must not be null");
-        return processRuntimeService.countIncompleteProcessesByType(overdueAt);
+        return processSearchService.countIncompleteByType(overdueAt);
     }
 
     /**

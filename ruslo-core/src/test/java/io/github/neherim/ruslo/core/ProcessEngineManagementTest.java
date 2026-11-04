@@ -37,7 +37,7 @@ class ProcessEngineManagementTest extends BaseTest {
             var failed = engine.newProcess(SimpleProcessDefinition.TYPE).start();
             database.update("update xs_process_instance set status = 'FAILED' where id = ?", failed);
 
-            assertEquals(List.of(new ProcessTypeCounts(SimpleProcessDefinition.TYPE.id(), 1, 1, 1)),
+            assertEquals(List.of(new ProcessTypeCounts(SimpleProcessDefinition.TYPE, 1, 1, 1)),
                     admin.countIncompleteProcessesByType(now.plusSeconds(60)));
             assertEquals(0, admin.countIncompleteProcessesByType(now.minusSeconds(60)).getFirst().overdue());
             assertEquals(2, new ProcessEngineAdmin(engine).listProcessSpecifications().getFirst().states().size());
@@ -98,12 +98,12 @@ class ProcessEngineManagementTest extends BaseTest {
             var now = Instant.now();
             engine.newProcess(withAfter).start();
             var waiting = engine.newProcess(withMessage).start();
-            assertEquals(List.of(new ProcessTypeCounts(withAfter.id(), 1, 0, 0),
-                    new ProcessTypeCounts(withMessage.id(), 1, 0, 0)),
+            assertEquals(List.of(new ProcessTypeCounts(withAfter, 1, 0, 0),
+                    new ProcessTypeCounts(withMessage, 1, 0, 0)),
                     admin.countIncompleteProcessesByType(now.plus(Duration.ofMinutes(59))));
             engine.sendMessage(waiting, signal, "unhandled");
-            assertEquals(List.of(new ProcessTypeCounts(withAfter.id(), 1, 0, 1),
-                    new ProcessTypeCounts(withMessage.id(), 1, 0, 1)),
+            assertEquals(List.of(new ProcessTypeCounts(withAfter, 1, 0, 1),
+                    new ProcessTypeCounts(withMessage, 1, 0, 1)),
                     admin.countIncompleteProcessesByType(now.plus(Duration.ofHours(2))));
         } finally {
             engine.close();

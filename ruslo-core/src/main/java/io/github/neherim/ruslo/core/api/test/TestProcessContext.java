@@ -2,9 +2,7 @@ package io.github.neherim.ruslo.core.api.test;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
-import io.github.neherim.ruslo.core.api.definition.ProcessTypeId;
 import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.runtime.process.ProcessTimers;
@@ -31,8 +29,8 @@ import java.util.UUID;
 public final class TestProcessContext implements ProcessContext {
     private final UUID processId;
     private final String correlationId;
-    private final ProcessTypeId processType;
-    private final ProcessStateId state;
+    private final ProcessType processType;
+    private final ProcessState state;
     private final int attempt;
     private final String businessKey;
     private final Clock clock;
@@ -86,12 +84,12 @@ public final class TestProcessContext implements ProcessContext {
     }
 
     @Override
-    public ProcessTypeId processType() {
+    public ProcessType processType() {
         return processType;
     }
 
     @Override
-    public ProcessStateId state() {
+    public ProcessState state() {
         return state;
     }
 
@@ -158,8 +156,8 @@ public final class TestProcessContext implements ProcessContext {
     public static final class Builder {
         private UUID processId = UUID.randomUUID();
         private String correlationId = UUID.randomUUID().toString();
-        private ProcessTypeId processType = ProcessType.of("test");
-        private ProcessStateId state = ProcessState.of("test");
+        private ProcessType processType = ProcessType.of("test");
+        private ProcessState state = ProcessState.of("test");
         private int attempt;
         private String businessKey;
         private Clock clock = Clock.systemUTC();
@@ -181,12 +179,12 @@ public final class TestProcessContext implements ProcessContext {
         }
 
         public Builder processType(ProcessType processType) {
-            this.processType = Objects.requireNonNull(processType, "Process type must not be null").id();
+            this.processType = Objects.requireNonNull(processType, "Process type must not be null");
             return this;
         }
 
         public Builder state(ProcessState state) {
-            this.state = Objects.requireNonNull(state, "Process state must not be null").id();
+            this.state = Objects.requireNonNull(state, "Process state must not be null");
             return this;
         }
 
