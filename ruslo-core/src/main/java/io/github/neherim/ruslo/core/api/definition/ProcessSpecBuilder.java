@@ -43,6 +43,7 @@ public class ProcessSpecBuilder {
             draft = new Draft(ProcessType.of(requireNonNull(type, "Process type cannot be null").name()));
         }
 
+        /** Sets the description shown in the admin UI. */
         public TypedBuilder description(String description) {
             draft.description = description;
             return this;
@@ -244,7 +245,8 @@ public class ProcessSpecBuilder {
          * Checks follow a grid: entering the await from another state plus {@code firstAfter} plus
          * {@code k * period}. An event that targets this await, this one included, does not restart the grid. A
          * late check does not shift the next ones; missed points are skipped, and the next check is the first point
-         * after the check starts.
+         * after the check starts. For example, with a period of 10 minutes and the await entered at 12:00, checks are
+         * due at 12:10, 12:20 and so on; if the 12:10 check starts at 12:25, the next one is due at 12:30.
          */
         public AwaitBuilder every(Interval interval, ProcessTimerHandler handler, ProcessState next) {
             requireNonNull(handler, "Timer handler cannot be null");

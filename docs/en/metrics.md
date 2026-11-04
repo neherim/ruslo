@@ -7,15 +7,16 @@ The Spring Boot starter registers Micrometer metrics when a `MeterRegistry` is p
 
 | Metric | Type | Meaning |
 |---|---|---|
-| `ruslo.processes.started` | Counter, `type` | Process starts, after commit |
-| `ruslo.processes.completed` | Counter, `type` | Transitions to a terminal state, after commit |
-| `ruslo.processes.failed` | Counter, `type` | Transitions to status `FAILED`, after commit |
-| `ruslo.processes.steps.duration` | Timer, `type`, `state`, `outcome` | Duration of steps and message and timer handlers; `outcome=success`: the handler returned (even if saving the transition then failed), `outcome=error`: it threw an exception |
-| `ruslo.processes` | Gauge, `status` | Number of processes in statuses `ACTIVE` and `FAILED`; the values do not overlap |
+| `ruslo.processes.started` | Counter, `type` | Process starts |
+| `ruslo.processes.completed` | Counter, `type` | Completed processes |
+| `ruslo.processes.failed` | Counter, `type` | Processes that moved to status `FAILED` |
+| `ruslo.processes.steps.duration` | Timer, `type`, `state`, `outcome` | Duration of process steps. `outcome=success`: the handler completed successfully, `outcome=error`: it threw an exception |
+| `ruslo.processes` | Gauge, `status` | Number of processes in statuses `ACTIVE` and `FAILED` |
 | `ruslo.system.errors` | Counter | Errors of the engine itself, not related to your handlers (usually database unavailability) |
 
-A metric is tagged with the state whose handler was called. Retries and give-ups are not counted separately: errors
-are visible through `outcome=error`, stops through `processes.failed`.
+A metric is tagged with the state whose handler was called. Errors are visible through `outcome=error`, stops through
+`processes.failed`. There is no separate error counter: the `count` of `ruslo.processes.steps.duration` with
+`outcome=error` is the number of handler errors.
 
 ## Workers
 

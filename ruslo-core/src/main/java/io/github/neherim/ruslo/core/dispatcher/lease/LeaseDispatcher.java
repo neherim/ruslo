@@ -19,6 +19,19 @@ import java.util.function.Supplier;
  *
  * <p>While the instance is not registered (e.g. after a lost registration and before re-registration), a claim
  * returns nothing: the same SQL checks the registration.
+ *
+ * <p>Invariants every change in this package must keep:
+ * <ul>
+ * <li>Ready processes are claimed one by one with {@code FOR UPDATE SKIP LOCKED}; {@code lease_owner} stores the
+ * current registration id of the instance ({@link ApplicationInstanceLifecycle}).
+ * <li>Business-state fencing uses {@code lease_owner + row_version}. Claim and release do not change
+ * {@code row_version}; release checks the current owner.
+ * <li>Transactional workers keep the process row locked while the step runs; non-transactional workers validate owner
+ * and row version before saving the result.
+ * <li>{@code lease_owner} has no foreign key. Recovery deletes expired registrations ({@link ApplicationInstanceDao})
+ * and releases every lease whose owner is not registered, skipping locked rows; skipped rows are released on the next
+ * tick.
+ * </ul>
  */
 public final class LeaseDispatcher implements ProcessDispatcher {
     private static final Logger log = LoggerFactory.getLogger(LeaseDispatcher.class);

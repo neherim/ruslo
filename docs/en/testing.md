@@ -13,8 +13,8 @@ and annotate the test with `@ProcessEngineTest`. The annotation:
 |---|---|
 | `runUntilStop(id)` | Runs transitions while the process has something to do: stops in an await with no due events, at a future timer or retry, in `FAILED` or on completion |
 | `runOneStep(id)` | Runs one step or one due await event |
-| `runUntilState(id, state)` | Runs transitions up to the given state; throws with the process summary if the process stops earlier |
-| `runAll()` | Runs all active processes to their next stop, for processes that interact |
+| `runUntilState(id, state)` | Runs transitions up to the given state; throws if the process stops earlier |
+| `runAll()` | Runs all active processes to their next stop |
 | `sendMessageAndRunUntilStop(id, type, payload)` | `sendMessage`, then `runUntilStop` |
 | `fastForwardTime(duration)`, `setTime(instant)` | Move the engine clock |
 
@@ -55,24 +55,6 @@ class OrderServiceTest {
 }
 ```
 
-For an `at` deadline, set the time first, so the step that sets the timer from `context.now()` sees it:
-
-```java
-var start = Instant.parse("2026-10-07T10:00:00Z");
-emulator.setTime(start);
-var processId = processEngine.newProcess(SeatReservationDefinition.TYPE).start();
-emulator.runUntilStop(processId);                    // the step sets PAYMENT_DUE = now + PAYMENT_TIME
-
-emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
-assertEquals(SeatReservationDefinition.State.EXPIRED.id(), emulator.runUntilStop(processId).state());
-```
-
-Handlers must take the time from `context.now()`: a handler that calls `Instant.now()` does not see the test time.
-The application's own `Clock` beans do not affect the engine.
-
-Full examples in [`ruslo-examples/cookbook`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/cookbook): the `deadline`, `subscription` and
-`retries` recipes.
-
 ## Unit tests of a handler: TestProcessContext
 
 A step or handler can be tested without Spring, the engine or a database with a `TestProcessContext` (`ruslo-core`).
@@ -90,7 +72,7 @@ assertEquals("p-1", context.getVariable(PAYMENT_ID));
 ```
 
 The builder also sets the process id, type, state, business key, `now()`, timers and the `ObjectMapper`; use the same
-mapper as the engine. Example: `CheckApplicationStepTest` of the `branching` recipe.
+mapper as the engine.
 
 ## What the emulator does not check
 

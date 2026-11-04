@@ -5,22 +5,20 @@
 
 ## Движок без Spring
 
-`ruslo-core` не зависит от Spring. Передайте ему `Database`: готовый `PlainJdbcDatabase` или свою реализацию.
+`ruslo-core` не зависит от Spring, для минимальной настройки достаточно передать `Database` и определение процесса.
+Для этого можно использовать готовый `PlainJdbcDatabase` или свою реализацию:
 
 ```java
 ProcessEngine engine = new ProcessEngineBuilder(new PlainJdbcDatabase(dataSource))
         .addProcessDefinition(new OrderProcessDefinition())
-        .registerWorker(WorkerSpec.builder(new WorkerId("io-worker"))
-                .nonTransactional()
-                .maxConcurrency(50)
-                .build())
         .build();
 engine.start();
 ```
 
-`start()` выполняет миграцию и запускает диспетчер; до него операции движка бросают `IllegalStateException`.
-Регистрируйте definitions до `start()`: процесс незарегистрированного типа не может выполняться. Если шагам нужен
-сам движок, сначала постройте его, а definition зарегистрируйте через `engine.registerDefinition(...)`.
+`engine.start()` выполняет миграцию схемы БД и запускает диспетчер запуска процессов.
+Необходимо зарегистрировать все `ProcessDefinition` до `start()`, так как процесс незарегистрированного типа не может выполняться.
+Если шагам процесса нужен `ProcessEngine`, то сначала постройте его, 
+потом зарегистрируйте ваши `ProcessDefinition` через `engine.registerDefinition(...)` и запустите движок через `start()`
 
 Рабочий пример — [`ruslo-examples/standalone-core`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/standalone-core).
 
@@ -52,22 +50,5 @@ engine.start();
 
 ## Workers
 
-Ключ `<name>` — id worker. Worker `DEFAULT` существует всегда; объявите его под ключом `DEFAULT`, чтобы изменить его
-`max-concurrency`. Он должен оставаться `transactional`, потому что на нём выполняются обработчики сообщений и
-таймеров.
-
-```yaml
-ruslo:
-  workers:
-    DEFAULT:
-      max-concurrency: 20
-    io-worker:
-      execution-mode: non_transactional
-      max-concurrency: 50
-```
-
-Workers делят пул соединений с приложением: подбирайте `max-concurrency` с учётом размера пула. Назначение workers
-шагам — в [workers.md](workers.md).
-
-Worker может работать на вашем executor: `WorkerSpec.builder(id).customExecutor(executorService)`. Движок
-ограничивает его `maxConcurrency`, но не останавливает.
+Ключ `<name>` в `ruslo.workers.<name>.*` — id worker. Как объявить worker, перенастроить `DEFAULT` и подобрать
+`max-concurrency` — в [workers.md](workers.md#регистрация).

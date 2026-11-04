@@ -12,43 +12,9 @@
   [README модуля](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md#spring-security).
 - **Хранение.** Запланируйте очистку завершённых процессов, см. [ниже](#хранение-завершённых-процессов).
 
-## Поиск процессов
-
-```java
-List<ProcessInstanceSummary> failed = processEngine.processes()
-        .byTypeName("ORDER")
-        .byStatus(ProcessStatus.FAILED)
-        .list(100, 0);
-
-Optional<ProcessInstanceDetails> order = processEngine.processes().byBusinessKey("order-42").singleDetails();
-```
-
-`ProcessInstanceDetails` добавляет к summary переменные, таймеры процесса, последнюю ошибку и историю состояний.
-Переменные читаются типизированно: `details.variables().get(ORDER_ID)` возвращает `Optional`. `nextRunAt` — когда
-движок в следующий раз возьмёт процесс; он пуст, если процесс ждёт только сообщений, находится в `FAILED` или
-завершён.
-
-## Ручное вмешательство
-
-| Операция | Что делает |
-|---|---|
-| `processEngine.resumeFailedProcess(id)` | Продолжает процесс в `FAILED`: упавший шаг или событие выполняется снова |
-| `processEngineAdmin.moveProcessToState(id, state)` | Переводит процесс в любое объявленное состояние, в том числе из `FAILED`, и сбрасывает ошибку |
-| `processEngineAdmin.setProcessVariable(id, type, value)`, `removeProcessVariable(id, name)` | Меняет переменные процесса |
-| `processEngineAdmin.setProcessTimer(id, timer, moment)`, `cancelProcessTimer(id, timer)` | Меняет таймер процесса, как `setTimer` и `cancelTimer` в обработчике; `Instant.now()` запускает `at` сразу |
-| `processEngineAdmin.countIncompleteProcessesByType(overdueAt)` | Активные и упавшие процессы по типам и сколько из них просрочено |
-| `processEngineAdmin.listApplicationInstances()` | Зарегистрированные узлы движка и захваченные ими процессы |
-
-Перевод следует правилам переходов: перевод в другое состояние очищает очередь сообщений, перевод в текущее
-состояние снова выполняет шаг или наступившее событие, перевод в terminal-состояние завершает процесс.
-
-В Spring Boot `ProcessEngineAdmin` — бин; без Spring создайте его через `new ProcessEngineAdmin(processEngine)`.
-Те же операции доступны в [Admin UI](admin-ui.md).
-
 ## Правка процесса в SQL
 
-Предпочитайте `ProcessEngineAdmin`: он сохраняет согласованность строки процесса. Колонки `xs_process_instance` —
-внутренние и могут меняться между версиями. Если во время инцидента всё же нужно изменить строку вручную:
+Если во время инцидента всё же нужно изменить строку вручную:
 
 - меняйте только строки с `lease_owner is null` и всегда увеличивайте `row_version`, иначе работающий worker может
   перезаписать изменение;

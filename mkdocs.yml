@@ -55,7 +55,8 @@ plugins:
           build: true
           nav_translations:
             Getting started: С чего начать
-            Reference: Справочник
+            Guide: Руководство
+            Integration and operations: Интеграция и эксплуатация
 
 markdown_extensions:
   - admonition
@@ -76,12 +77,14 @@ nav:
   - index.md
   - Getting started:
       - quickstart.md
-      - concepts.md
-  - Reference:
-      - guarantees.md
-      - error-handling.md
+  - Guide:
+      - processes.md
+      - steps.md
+      - awaits.md
       - workers.md
-      - execution.md
+      - error-handling.md
+      - dispatcher.md
+  - Integration and operations:
       - spring.md
       - configuration.md
       - testing.md

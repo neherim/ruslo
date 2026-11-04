@@ -13,8 +13,8 @@
 |---|---|
 | `runUntilStop(id)` | Выполняет переходы, пока процессу есть что делать: останавливается в ожидании без наступивших событий, на будущем таймере или повторе, в `FAILED` или при завершении |
 | `runOneStep(id)` | Выполняет один шаг или одно наступившее событие ожидания |
-| `runUntilState(id, state)` | Выполняет переходы до заданного состояния; если процесс остановился раньше, бросает исключение со сводкой процесса |
-| `runAll()` | Доводит все активные процессы до следующей остановки — для процессов, которые взаимодействуют |
+| `runUntilState(id, state)` | Выполняет переходы до заданного состояния; если процесс остановился раньше, бросает исключение |
+| `runAll()` | Доводит все активные процессы до следующей остановки |
 | `sendMessageAndRunUntilStop(id, type, payload)` | `sendMessage`, затем `runUntilStop` |
 | `fastForwardTime(duration)`, `setTime(instant)` | Двигают часы движка |
 
@@ -55,24 +55,6 @@ class OrderServiceTest {
 }
 ```
 
-Для срока `at` сначала задайте время, чтобы шаг, который ставит таймер от `context.now()`, его увидел:
-
-```java
-var start = Instant.parse("2026-10-07T10:00:00Z");
-emulator.setTime(start);
-var processId = processEngine.newProcess(SeatReservationDefinition.TYPE).start();
-emulator.runUntilStop(processId);                    // шаг ставит PAYMENT_DUE = now + PAYMENT_TIME
-
-emulator.setTime(start.plus(SeatReservationDefinition.PAYMENT_TIME));
-assertEquals(SeatReservationDefinition.State.EXPIRED.id(), emulator.runUntilStop(processId).state());
-```
-
-Обработчики должны брать время из `context.now()`: обработчик, который вызывает `Instant.now()`, не видит время
-теста. Собственные бины `Clock` приложения на движок не влияют.
-
-Полные примеры в [`ruslo-examples/cookbook`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/cookbook): рецепты `deadline`, `subscription` и
-`retries`.
-
 ## Юнит-тесты обработчика: TestProcessContext
 
 Шаг или обработчик можно проверить без Spring, движка и базы данных с `TestProcessContext` (`ruslo-core`). В отличие
@@ -90,7 +72,7 @@ assertEquals("p-1", context.getVariable(PAYMENT_ID));
 ```
 
 Builder также задаёт id, тип и состояние процесса, business key, `now()`, таймеры и `ObjectMapper`; используйте тот
-же mapper, что и движок. Пример — `CheckApplicationStepTest` рецепта `branching`.
+же mapper, что и движок.
 
 ## Что эмулятор не проверяет
 

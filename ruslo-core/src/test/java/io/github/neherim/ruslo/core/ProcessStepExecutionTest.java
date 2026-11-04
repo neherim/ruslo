@@ -216,6 +216,28 @@ class ProcessStepExecutionTest extends BaseTest {
     }
 
     @Test
+    void rejectedMessageNamesAwaitedMessages() {
+        var reply = MessageType.of("REPLY", String.class);
+        ProcessDefinition definition = builder -> builder.type("TWO_AWAITS")
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {}, State.AFTER))
+            .await(State.AFTER, await -> await.message(reply, (context, message) -> {}, State.DONE))
+            .terminal(State.DONE)
+            .build();
+        var engine = newProcessEngineWith(definition);
+        try {
+            var id = engine.newProcess(ProcessType.of("TWO_AWAITS")).start();
+
+            var rejected = assertThrows(MessageNotExpectedException.class, () -> engine.sendMessage(id, reply, "r"));
+
+            assertEquals("Message REPLY is not expected for ACTIVE process " + id
+                    + " in state WAIT: the state awaits only [SIGNAL]", rejected.getMessage());
+        } finally {
+            engine.close();
+        }
+    }
+
+    @Test
     void failedProcessQueuesMessagesAndRejectsSynchronousExecutionUntilResume() {
         var fail = new AtomicBoolean(true);
         var received = new ArrayList<String>();
@@ -245,6 +267,9 @@ class ProcessStepExecutionTest extends BaseTest {
                     () -> engine.sendMessageSync(id, SIGNAL, "sync"));
             assertEquals(ProcessStatus.FAILED, rejected.getStatus());
             assertEquals(Set.of(SIGNAL.name()), rejected.getExpectedMessageNames());
+            assertEquals("Message SIGNAL is not expected for FAILED process " + id + " in state WAIT: a FAILED "
+                    + "process cannot handle a message synchronously; resume it or queue the message with sendMessage",
+                    rejected.getMessage());
             assertThrows(IllegalArgumentException.class,
                     () -> engine.sendMessage(id, MessageType.of("OTHER", String.class), "other"));
             assertEquals(List.of("first"), received);

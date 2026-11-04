@@ -18,6 +18,8 @@ public class MutableClock extends Clock {
     }
 
     /**
+     * Creates a clock that starts at {@code initTime}.
+     *
      * @param precision unit {@link #instant()} is truncated to
      */
     public MutableClock(ZoneId zoneId, Instant initTime, ChronoUnit precision) {
@@ -50,6 +52,7 @@ public class MutableClock extends Clock {
         this.time.set(time);
     }
 
+    /** Sets the time, interpreting {@code time} in the zone of this clock. */
     public void setTime(LocalDateTime time) {
         this.time.set(ZonedDateTime.of(time, zoneId).toInstant());
     }

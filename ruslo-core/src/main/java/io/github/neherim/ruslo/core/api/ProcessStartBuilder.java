@@ -37,6 +37,7 @@ public class ProcessStartBuilder {
         return processStarter.start(type, businessKey, correlationId, variables, timers);
     }
 
+    /** Sets the application's own key of the process, used in search; it need not be unique. */
     public ProcessStartBuilder businessKey(String businessKey) {
         this.businessKey = businessKey;
         return this;

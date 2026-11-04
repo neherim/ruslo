@@ -20,6 +20,8 @@ import java.util.UUID;
 /**
  * Runs processes synchronously in the calling thread for tests. Each step runs directly: worker routing,
  * concurrency limits and production transaction boundaries are not reproduced.
+ * <p>
+ * Operations that take a process id throw {@link ProcessNotFoundException} if no such process exists.
  */
 public class ProcessEngineEmulator {
     public static final int DEFAULT_MAX_STEPS = 1000;
@@ -37,7 +39,10 @@ public class ProcessEngineEmulator {
     }
 
     /**
+     * Creates an emulator with a custom step limit.
+     *
      * @param maxSteps step limit of a single {@code runUntil*} call
+     * @throws IllegalArgumentException if {@code maxSteps} is not positive
      */
     public ProcessEngineEmulator(ProcessEngine processEngine, int maxSteps) {
         if (maxSteps <= 0) {

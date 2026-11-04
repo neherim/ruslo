@@ -1,8 +1,8 @@
 # Ruslo
 
-An embedded engine for long-running business processes in Java and Spring Boot. You describe a process as a state
-machine in a Java DSL, and the engine runs it right inside your application, keeping its state in the database you
-already have. No separate cluster, broker or BPMN.
+An embedded engine for long-running business processes in Java. You describe a process as a state machine in a
+Java DSL, and the engine runs it right inside your application, keeping its state in a relational database.
+No separate cluster, broker or BPMN.
 
 Typical uses:
 
@@ -28,7 +28,8 @@ Requirements: Java 21, Spring Boot 4, PostgreSQL (H2 works for tests and local r
 ## Where to start
 
 1. [Quickstart](quickstart.md): a working order process, from dependencies to a test.
-2. [Process model](concepts.md): steps, awaits, branching, timers, variables, definition evolution.
+2. [Processes](processes.md): definition, transitions, start, variables, search, definition evolution.
+3. [Steps](steps.md) and [awaits](awaits.md): process code, messages and timers.
 
 The reference sections are in the navigation. Features, limitations and performance figures are in the
 [README](https://github.com/neherim/ruslo#readme); ready-to-run examples are in
