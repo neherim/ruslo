@@ -18,8 +18,8 @@
 | `sendMessageAndRunUntilStop(id, type, payload)` | `sendMessage`, затем `runUntilStop` |
 | `fastForwardTime(duration)`, `setTime(instant)` | Двигают часы движка |
 
-Методы возвращают `ProcessInstanceDetails`. Его состояние — константа, объявленная в описании
-([processes.md](processes.md#описание-процесса)); сравнивайте с ней, ожидаемое значение первым:
+Методы возвращают `ProcessInstanceDetails`. Сравнивайте состояние с объявленной константой, ожидаемое значение
+первым:
 
 ```java
 assertEquals(OrderState.COMPLETED, details.state(), details::toString);

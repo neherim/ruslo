@@ -18,8 +18,7 @@ and annotate the test with `@ProcessEngineTest`. The annotation:
 | `sendMessageAndRunUntilStop(id, type, payload)` | `sendMessage`, then `runUntilStop` |
 | `fastForwardTime(duration)`, `setTime(instant)` | Move the engine clock |
 
-The methods return `ProcessInstanceDetails`. Its state is the constant declared in the definition
-([processes.md](processes.md#process-definition)); compare with it, expected value first:
+The methods return `ProcessInstanceDetails`. Compare the state with the declared constant, expected value first:
 
 ```java
 assertEquals(OrderState.COMPLETED, details.state(), details::toString);
