@@ -2,7 +2,7 @@
 
 `ruslo-spring-boot-starter` строит движок из `DataSource` и transaction manager приложения. Настройки `ruslo.*` ему
 не нужны: при запуске он создаёт таблицы движка, транзакционный worker `DEFAULT` и запускает диспетчер. Настройки на
-случай, когда значения по умолчанию не подходят, — в [configuration.md](configuration.md).
+случай, когда значения по умолчанию не подходят.
 
 ```xml
 <dependency>
@@ -12,8 +12,7 @@
 </dependency>
 ```
 
-Starter регистрирует бины `ProcessEngine` и `ProcessEngineAdmin`. Внедряйте их там, где запускаются процессы,
-отправляются сообщения или процессами управляют вручную.
+Starter регистрирует бины `ProcessEngine` и `ProcessEngineAdmin`.
 
 ## Definitions
 
@@ -35,14 +34,13 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
 ```
 
 `define` вызывается после создания всех singleton-бинов, поэтому `bean(...)` не вызывает ранней инициализации и
-циклических зависимостей. Внедрение через конструктор в обычный бин `ProcessDefinition` тоже работает.
+циклических зависимостей. Внедрение бинов обработчиков через конструктор в `ProcessDefinition` тоже работает.
 
 ## Свойства
 
 Свойства начинаются с `ruslo.*`; полный список — в [configuration.md](configuration.md#настройки).
 Неизвестные свойства `ruslo.*` ломают запуск, поэтому опечатка не игнорируется молча.
-
-Кроме `ruslo.workers.*`, worker можно объявить бином `WorkerSpec`; worker из свойств заменяет бин с тем же id.
+Workers объявляются свойствами `ruslo.workers.*` или бинами `WorkerSpec`: [workers.md](workers.md#регистрация).
 
 ## Транзакции приложения
 

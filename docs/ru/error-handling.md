@@ -13,7 +13,7 @@
 public ProcessSpec define(ProcessSpecBuilder builder) {
     return builder
             .type(TYPE)
-            // Повторяем упавший шаг 5 раз с экспонициальной задержкой
+            // Повторяем упавший шаг 5 раз с экспоненциальной задержкой
             .onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(1), Duration.ofMinutes(5)))
             // Если упавший шаг так и не был исполнен после 5 попыток, то переводим процесс в состояние CANCELLED
             .onGiveUp(CANCELLED)
@@ -64,14 +64,13 @@ public class CustomProcessErrorHandler implements ProcessErrorHandler {
 
 ## Повторы в ожидании
 
-Повтор приостанавливает всё ожидание (`await`): до повтора новые сообщения и наступившие таймеры не обрабатываются. Если у
-ожидания жёсткий срок, ограничьте повторы или перехватите ошибку в обработчике. Подробнее —
-[execution.md](execution.md#повтор-приостанавливает-ожидание).
+Повтор приостанавливает всё ожидание (`await`): до повтора новые сообщения и наступившие таймеры не обрабатываются.
+Что это значит для сроков и как с этим работать — в [awaits.md](awaits.md#ошибки-в-ожидании).
 
 ## Процессы в FAILED
 
 Процесс в `FAILED` не выполняется: ни шаги, ни таймеры. Найдите такие процессы по статусу
-([operations.md](operations.md#поиск-процессов)), устраните причину и продолжите через
+([processes.md](processes.md#поиск-процессов)), устраните причину и продолжите через
 `processEngine.resumeFailedProcess(id)`: упавший шаг или событие выполняется снова, а счёт попыток начинается
 заново. Для процесса не в `FAILED` `resumeFailedProcess` бросает `ProcessStatusException`.
 

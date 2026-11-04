@@ -5,23 +5,20 @@ The engine is configured with `ProcessEngineBuilder`. In Spring Boot the starter
 
 ## Engine without Spring
 
-`ruslo-core` does not depend on Spring. Pass it a `Database`: the bundled `PlainJdbcDatabase` or your own
-implementation.
+`ruslo-core` does not depend on Spring; a minimal setup needs a `Database` and a process definition. Use the
+bundled `PlainJdbcDatabase` or your own implementation:
 
 ```java
 ProcessEngine engine = new ProcessEngineBuilder(new PlainJdbcDatabase(dataSource))
         .addProcessDefinition(new OrderProcessDefinition())
-        .registerWorker(WorkerSpec.builder(new WorkerId("io-worker"))
-                .nonTransactional()
-                .maxConcurrency(50)
-                .build())
         .build();
 engine.start();
 ```
 
-`start()` runs the migration and starts the dispatcher; engine operations throw `IllegalStateException` before it.
-Register definitions before `start()`: a process of an unregistered type cannot run. If steps need the engine
-itself, build it first and register the definition with `engine.registerDefinition(...)`.
+`engine.start()` runs the database schema migration and starts the process dispatcher.
+Register every `ProcessDefinition` before `start()`: a process of an unregistered type cannot run.
+If process steps need the `ProcessEngine`, build it first, then register your `ProcessDefinition`s with
+`engine.registerDefinition(...)` and start the engine with `start()`.
 
 A working example: [`ruslo-examples/standalone-core`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/standalone-core).
 
@@ -53,21 +50,5 @@ If the schema is managed by Flyway, Liquibase or a DBA, disable the migration an
 
 ## Workers
 
-The `<name>` key is the worker id. The `DEFAULT` worker always exists; declare it under the `DEFAULT` key to change
-its `max-concurrency`. It must stay `transactional`, because message and timer handlers run on it.
-
-```yaml
-ruslo:
-  workers:
-    DEFAULT:
-      max-concurrency: 20
-    io-worker:
-      execution-mode: non_transactional
-      max-concurrency: 50
-```
-
-Workers share the application's connection pool: size `max-concurrency` with the pool in mind. Assigning workers to
-steps: [workers.md](workers.md).
-
-A worker can run on your own executor: `WorkerSpec.builder(id).customExecutor(executorService)`. The engine limits
-it by `maxConcurrency` but does not shut it down.
+The `<name>` key in `ruslo.workers.<name>.*` is the worker id. How to declare a worker, reconfigure `DEFAULT` and
+choose `max-concurrency`: [workers.md](workers.md#registration).

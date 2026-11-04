@@ -50,18 +50,5 @@ engine.start();
 
 ## Workers
 
-Ключ `<name>` — id worker. Worker `default` существует всегда; объявите его под ключом `default`, чтобы изменить его
-`max-concurrency`. Он должен оставаться `transactional`, потому что на нём выполняются обработчики сообщений и
-таймеров. Более подробно worker описаны в [workers.md](workers.md).
-
-```yaml
-ruslo:
-  workers:
-    default:
-      max-concurrency: 20
-    io-worker:
-      execution-mode: non_transactional
-      max-concurrency: 50
-```
-Worker может работать на вашем executor: `WorkerSpec.builder(id).customExecutor(executorService)`. Движок
-ограничивает его `maxConcurrency`, но не останавливает.
+Ключ `<name>` в `ruslo.workers.<name>.*` — id worker. Как объявить worker, перенастроить `DEFAULT` и подобрать
+`max-concurrency` — в [workers.md](workers.md#регистрация).

@@ -143,20 +143,20 @@ The documentation is also published as a site: [neherim.github.io/ruslo](https:/
 Start here:
 
 1. [Quickstart](docs/en/quickstart.md): a working order process, from dependencies to a test.
-2. [Process model](docs/en/concepts.md): steps, awaits, branching, timers, variables, definition evolution.
+2. [Processes](docs/en/processes.md): definition, transitions, start, variables, search, definition evolution.
+3. [Steps](docs/en/steps.md) and [awaits](docs/en/awaits.md): process code, messages, timers, event order.
 
 Reference:
 
 | Section | Contents |
 |---|---|
-| [Guarantees](docs/en/guarantees.md) | What survives a failure, message delivery, timer accuracy |
+| [Workers](docs/en/workers.md) | Step execution pools: modes, registration, capacity |
 | [Error handling](docs/en/error-handling.md) | Delayed retries, give-up state |
-| [Workers](docs/en/workers.md) | Separate pools for steps with external I/O |
-| [Execution](docs/en/execution.md) | Exact rules of event selection and transaction boundaries |
+| [Dispatcher and nodes](docs/en/dispatcher.md) | Process pickup, timer accuracy, multiple nodes, node failure |
 | [Spring Boot](docs/en/spring.md) | Starter, `SpringProcessDefinition`, application transactions |
 | [Configuration](docs/en/configuration.md) | Engine without Spring; all settings and `ruslo.*` properties |
 | [Testing](docs/en/testing.md) | `@ProcessEngineTest`, emulator, timers, step unit tests |
-| [Operations](docs/en/operations.md) | Production checklist, process search, cleanup of completed processes |
+| [Operations](docs/en/operations.md) | Production checklist, editing a process in SQL, cleanup of completed processes |
 | [Admin UI](docs/en/admin-ui.md) | Viewing and managing processes |
 | [Metrics](docs/en/metrics.md) | Micrometer, list of metrics |
 

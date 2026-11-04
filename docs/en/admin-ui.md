@@ -16,8 +16,7 @@ A web UI for viewing processes and manual intervention. It is disabled by defaul
 
 ## Actions
 
-The Actions menu of the process page shows every action; one that does not apply to the process is disabled with the
-reason. The actions are the [manual intervention operations](operations.md#manual-intervention):
+The Actions menu of the process page shows all manual actions available for the process:
 
 | Action | Operation |
 |---|---|

@@ -360,11 +360,12 @@ repository, not in the user's project. Docs: `https://raw.githubusercontent.com/
 
 | Need | Doc file | Cookbook recipe |
 |---|---|---|
-| Branching, awaits, timers | `concepts.md` | `branching`, `deadline`, `polling`, `approval`, `subscription` |
+| Definition, transitions, start, variables, definition evolution | `processes.md` | `fanout`, `batch` |
+| Linear and branching steps, repeated execution | `steps.md` | `branching`, `externalcall` |
+| Awaits, messages, timers, event order, `sendMessageSync` | `awaits.md` | `deadline`, `polling`, `approval`, `subscription`, `webhook`, `cancellation` |
 | Errors, retries, compensation | `error-handling.md` | `retries`, `failandresume` |
-| Delivery guarantees, messages | `guarantees.md` | `webhook`, `externalcall` |
-| Event ordering, `sendMessageSync` | `execution.md` | `cancellation`, `batch` |
-| Workers | `workers.md` | `externalcall` |
+| Workers, execution modes | `workers.md` | `externalcall` |
+| Pickup, timer accuracy, multiple nodes, node failure | `dispatcher.md` | |
 | Testing | `testing.md` | `branching` (`CheckApplicationStepTest`) |
 | Spring starter, application transactions | `spring.md` | `transactionalstart` |
 | Settings, `ruslo.*` properties | `configuration.md` | |

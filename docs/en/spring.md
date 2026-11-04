@@ -2,7 +2,7 @@
 
 `ruslo-spring-boot-starter` builds the engine from the application's `DataSource` and transaction manager. It needs
 no `ruslo.*` settings: on startup it creates the engine tables, a transactional `DEFAULT` worker and starts the
-dispatcher. The settings for when the defaults do not fit are in [configuration.md](configuration.md).
+dispatcher. The settings are for when the defaults do not fit.
 
 ```xml
 <dependency>
@@ -12,8 +12,7 @@ dispatcher. The settings for when the defaults do not fit are in [configuration.
 </dependency>
 ```
 
-The starter registers the `ProcessEngine` and `ProcessEngineAdmin` beans. Inject them where processes are started,
-messages are sent or processes are managed manually.
+The starter registers the `ProcessEngine` and `ProcessEngineAdmin` beans.
 
 ## Definitions
 
@@ -35,15 +34,13 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
 ```
 
 `define` is called after all singletons are created, so `bean(...)` causes no early initialization or circular
-dependencies. Constructor injection into a plain `ProcessDefinition` bean works too.
+dependencies. Constructor injection of handler beans into a `ProcessDefinition` works too.
 
 ## Properties
 
 The properties are prefixed with `ruslo.*`; the full list is in [configuration.md](configuration.md#settings).
 Unknown `ruslo.*` properties fail the startup, so a typo is not silently ignored.
-
-Besides `ruslo.workers.*`, a worker can be declared as a `WorkerSpec` bean; a worker from the properties overrides a
-bean with the same id.
+Workers are declared with the `ruslo.workers.*` properties or as `WorkerSpec` beans: [workers.md](workers.md#registration).
 
 ## Application transactions
 

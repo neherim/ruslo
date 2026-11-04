@@ -38,7 +38,6 @@ public enum OrderState implements ProcessState {
 ```
 
 Enum реализует `ProcessState`; имена состояний сохраняются в БД.
-`COMPLETED` и `CANCELLED` будут terminal-состояниями.
 
 ## 3. Реализуйте шаги и сообщения
 
@@ -73,12 +72,14 @@ public class DeliverOrderStep implements ProcessStep {
 }
 ```
 
-Объявите конкретный payload и типизированные ключи:
+Объявляем payload для сообщения:
 
 ```java
 public record PaymentConfirmed(String transactionId) {
 }
 ```
+
+Объявляем типизированные ключи сообщений и переменных для доступа к ним:
 
 ```java
 public class Constants {
@@ -109,7 +110,7 @@ public class WaitingForPaymentHandlers {
 }
 ```
 
-## 4. Свяжите состояния в definition
+## 4. Строим описание процесса в definition
 
 ```java
 import static io.github.neherim.ruslo.examples.quickstart.Constants.ORDER_CANCELLED;
@@ -125,12 +126,16 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            // Задаем начальное состояние процесса
             .initialState(CREATED)
+            // Задаем обработчик для состояния CREATED и задаем следующий шаг после обработчика 
             .step(CREATED, bean(CreateOrderStep.class), WAITING_FOR_PAYMENT)
+            // Определяем реакции на сообщения PAYMENT_CONFIRMED и ORDER_CANCELLED в состоянии WAITING_FOR_PAYMENT
             .await(WAITING_FOR_PAYMENT, await -> await
                 .message(PAYMENT_CONFIRMED, bean(WaitingForPaymentHandlers.class)::onPaymentConfirmed, DELIVERING)
                 .message(ORDER_CANCELLED, bean(WaitingForPaymentHandlers.class)::onCancelled, CANCELLED))
             .step(DELIVERING, bean(DeliverOrderStep.class), COMPLETED)
+            // Указываем терминальные состояния, при переходе в них процесс будет завершен
             .terminal(COMPLETED)
             .terminal(CANCELLED)
             .build();
@@ -188,7 +193,7 @@ public class OrderService {
 `createOrder` возвращает `processId` сразу после сохранения процесса; шаги выполняются асинхронно.
 После входа в `WAITING_FOR_PAYMENT` вызовите `confirmPayment(processId, "txn-42")` или `cancelOrder`.
 Сообщение, которое процесс сейчас не ждёт, отклоняется с `MessageNotExpectedException`, см.
-[гарантии](guarantees.md#сообщения).
+[как сообщение отправляется](awaits.md#отправка-сообщения).
 
 Текущее состояние доступно через `processEngine.processes().byId(processId).singleDetails()`.
 
@@ -230,6 +235,7 @@ class QuickstartOrderTest {
     void completesOrderAfterPaymentMessage() {
         var processId = orderService.createOrder("customer-1");
 
+        // Запускаем обработку сообщения, пока не остановимся на ожидании
         var waiting = emulator.runUntilStop(processId);
         assertEquals(OrderState.WAITING_FOR_PAYMENT.id(), waiting.state());
 
@@ -260,5 +266,5 @@ class QuickstartOrderTest {
 ./mvnw test -pl ruslo-examples/quickstart -am
 ```
 
-Дальше: [модель процесса](concepts.md), [гарантии](guarantees.md),
+Дальше: [процессы](processes.md), [шаги](steps.md), [ожидания](awaits.md),
 [обработка ошибок](error-handling.md), [Spring Boot](spring.md), [тестирование](testing.md).

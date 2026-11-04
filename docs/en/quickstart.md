@@ -38,7 +38,6 @@ public enum OrderState implements ProcessState {
 ```
 
 The enum implements `ProcessState`; state names are stored in the database.
-`COMPLETED` and `CANCELLED` will be terminal states.
 
 ## 3. Implement steps and message handlers
 
@@ -73,12 +72,14 @@ public class DeliverOrderStep implements ProcessStep {
 }
 ```
 
-Declare a concrete payload and typed keys:
+Declare the message payload:
 
 ```java
 public record PaymentConfirmed(String transactionId) {
 }
 ```
+
+Declare typed keys of the messages and variables to access them:
 
 ```java
 public class Constants {
@@ -89,7 +90,7 @@ public class Constants {
 }
 ```
 
-Message handlers also only perform an action; the transition target is declared in the definition:
+Message handlers also perform an action; the transition target is declared in the definition:
 
 ```java
 /** Event handlers of the waiting-for-payment state. */
@@ -109,7 +110,7 @@ public class WaitingForPaymentHandlers {
 }
 ```
 
-## 4. Connect the states in a definition
+## 4. Build the process description in a definition
 
 ```java
 import static io.github.neherim.ruslo.examples.quickstart.Constants.ORDER_CANCELLED;
@@ -125,12 +126,16 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            // Set the initial state of the process
             .initialState(CREATED)
+            // Set the handler of the CREATED state and the next state after the handler
             .step(CREATED, bean(CreateOrderStep.class), WAITING_FOR_PAYMENT)
+            // Declare reactions to the PAYMENT_CONFIRMED and ORDER_CANCELLED messages in WAITING_FOR_PAYMENT
             .await(WAITING_FOR_PAYMENT, await -> await
                 .message(PAYMENT_CONFIRMED, bean(WaitingForPaymentHandlers.class)::onPaymentConfirmed, DELIVERING)
                 .message(ORDER_CANCELLED, bean(WaitingForPaymentHandlers.class)::onCancelled, CANCELLED))
             .step(DELIVERING, bean(DeliverOrderStep.class), COMPLETED)
+            // Declare the terminal states: entering one completes the process
             .terminal(COMPLETED)
             .terminal(CANCELLED)
             .build();
@@ -188,7 +193,7 @@ public class OrderService {
 `createOrder` returns the `processId` right after the process is saved; steps run asynchronously.
 Once the process is in `WAITING_FOR_PAYMENT`, call `confirmPayment(processId, "txn-42")` or `cancelOrder`.
 A message the process is not waiting for now is rejected with `MessageNotExpectedException`, see
-[guarantees](guarantees.md#messages).
+[sending a message](awaits.md#sending-a-message).
 
 The current state is available through `processEngine.processes().byId(processId).singleDetails()`.
 
@@ -230,6 +235,7 @@ class QuickstartOrderTest {
     void completesOrderAfterPaymentMessage() {
         var processId = orderService.createOrder("customer-1");
 
+        // Run the process until it stops in the await
         var waiting = emulator.runUntilStop(processId);
         assertEquals(OrderState.WAITING_FOR_PAYMENT.id(), waiting.state());
 
@@ -260,5 +266,5 @@ From the repository root, run:
 ./mvnw test -pl ruslo-examples/quickstart -am
 ```
 
-Next: [process model](concepts.md), [guarantees](guarantees.md),
+Next: [processes](processes.md), [steps](steps.md), [awaits](awaits.md),
 [error handling](error-handling.md), [Spring Boot](spring.md), [testing](testing.md).
