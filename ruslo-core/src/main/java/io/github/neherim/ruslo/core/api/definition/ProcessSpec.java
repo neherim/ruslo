@@ -14,10 +14,6 @@ import java.util.stream.Collectors;
 
 /**
  * Validated states and handlers of a process type. Created only by {@link ProcessSpecBuilder}.
- * <p>
- * This is the engine model: its getters and records return canonical {@link ProcessTypeId} and
- * {@link ProcessStateId}. The objects passed to the builder are returned by {@link #declaredType()} and
- * {@link #declaredState(String)}.
  */
 public class ProcessSpec {
     private final ProcessTypeId type;
@@ -64,10 +60,7 @@ public class ProcessSpec {
         return declaredType;
     }
 
-    /**
-     * Returns the state object passed to the declaration of the state ({@code step}, {@code await} or
-     * {@code terminal}), or {@link ProcessState#of(String)} if the process declares no state with this name.
-     */
+    /** Returns the declared state object, or {@link ProcessState#of(String)} if the process does not declare it. */
     public ProcessState declaredState(String name) {
         var state = declaredStates.get(name);
         return state != null ? state : ProcessState.of(name);

@@ -9,10 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * Read-only view of a registered process definition. Type and states are the objects declared in
- * {@link io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder}.
- */
+/** Read-only view of a registered process definition. */
 public record ProcessSpecInfo(
         ProcessType type,
         Optional<String> description,

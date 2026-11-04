@@ -84,19 +84,13 @@ public class ProcessDefinitionRegistry {
         return processDefinition;
     }
 
-    /**
-     * Returns the type object of the registered definition, or {@link ProcessType#of(String)} if the type is not
-     * registered.
-     */
+    /** Returns the declared type, or {@link ProcessType#of(String)} if it is not registered. */
     public ProcessType declaredType(String name) {
         var spec = specs.get(ProcessType.of(name));
         return spec != null ? spec.declaredType() : ProcessType.of(name);
     }
 
-    /**
-     * Returns the state object declared in the definition of the type, or {@link ProcessState#of(String)} if the
-     * type is not registered or does not declare the state.
-     */
+    /** Returns the declared state, or {@link ProcessState#of(String)} if the definition does not declare it. */
     public ProcessState declaredState(String type, String name) {
         var spec = specs.get(ProcessType.of(type));
         return spec != null ? spec.declaredState(name) : ProcessState.of(name);

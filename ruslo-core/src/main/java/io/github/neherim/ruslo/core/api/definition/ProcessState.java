@@ -4,13 +4,8 @@ package io.github.neherim.ruslo.core.api.definition;
  * Process state, usually implemented by an enum or created by {@link #of(String)}.
  * <p>
  * States are identified by {@link #name()} only: objects with the same name are the same state regardless of
- * their Java type.
- * <p>
- * A state the engine returns (views, {@link ProcessContext#state()}, exceptions) is the object declared in
- * {@link ProcessSpecBuilder}, so {@code equals} and {@code ==} with the declared constants work. If the current
- * definition declares no such state, or its type is not registered on this node, the engine returns
- * {@link #of(String)}. Use {@link #is(ProcessState)} or {@link #is(String)} to compare with {@code of(...)} or
- * a name.
+ * their Java type. The engine returns the declared object, or {@link #of(String)} if the definition does not
+ * declare it.
  */
 public interface ProcessState {
 

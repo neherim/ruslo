@@ -53,7 +53,6 @@ public class MessageNotExpectedException extends ProcessEngineException {
         return status;
     }
 
-    /** Returns the declared current state, see {@link ProcessState}. */
     public ProcessState getCurrentState() {
         return currentState;
     }

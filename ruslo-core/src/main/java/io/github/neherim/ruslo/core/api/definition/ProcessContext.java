@@ -13,10 +13,8 @@ public interface ProcessContext {
 
     String correlationId();
 
-    /** Returns the declared process type, see {@link ProcessType}. */
     ProcessType processType();
 
-    /** Returns the declared current state, see {@link ProcessState}. */
     ProcessState state();
 
     /**

@@ -52,7 +52,6 @@ public class ProcessInstanceSearchDao {
     private final ObjectMapper objectMapper;
     private final ProcessDefinitionRegistry processDefinitionRegistry;
 
-    /** @param processDefinitionRegistry resolves stored type and state names to the declared objects */
     public ProcessInstanceSearchDao(
             Database database,
             ObjectMapper objectMapper,

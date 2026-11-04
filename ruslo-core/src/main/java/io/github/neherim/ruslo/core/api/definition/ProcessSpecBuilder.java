@@ -21,9 +21,7 @@ import static java.util.Objects.requireNonNull;
  * a state change: the message queue, the {@code every} and {@code after} timers and the state history are kept. A
  * step runs again; an await keeps waiting for its events.
  * <p>
- * The declared object of a state is the one passed to {@code step}, {@code await} or {@code terminal}; the engine
- * returns it in views and {@link ProcessContext}. References to a state ({@code next}, {@code on},
- * {@code initialState}, {@code onGiveUp}) match it by name only.
+ * References to a state match it by name.
  */
 public class ProcessSpecBuilder {
     public ProcessSpecBuilder() {

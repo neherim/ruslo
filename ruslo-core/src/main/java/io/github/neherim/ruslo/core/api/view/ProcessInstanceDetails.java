@@ -11,8 +11,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Process instance with variables, timers, last error and state history. The message queue is not exposed. Type
- * and states are the declared objects, see {@link io.github.neherim.ruslo.core.api.definition.ProcessState}.
+ * Process instance with variables, timers, last error and state history. The message queue is not exposed.
  *
  * @param nextRunAt when the engine next takes the process: a step, a retry, a queued message or a timer; empty if it
  *                  waits only for messages, is {@code FAILED} or completed
