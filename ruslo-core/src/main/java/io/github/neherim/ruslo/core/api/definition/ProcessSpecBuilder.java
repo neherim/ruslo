@@ -21,7 +21,8 @@ import static java.util.Objects.requireNonNull;
  * a state change: the message queue, the {@code every} and {@code after} timers and the state history are kept. A
  * step runs again; an await keeps waiting for its events.
  * <p>
- * References to a state match it by name.
+ * A reference to a state ({@code next}, {@code on}, {@code initialState}, {@code onGiveUp}) must be equal to the
+ * object passed to its declaration.
  */
 public class ProcessSpecBuilder {
     public ProcessSpecBuilder() {
@@ -451,6 +452,7 @@ public class ProcessSpecBuilder {
                 throw new IllegalArgumentException("Initial state " + initial.name() + " of process " + type.name()
                         + " must be a declared step or await");
             }
+            checkDeclared(initial, "initialState");
             var payloads = new HashMap<String, Class<?>>();
             for (var spec : states.values()) {
                 var name = spec.state().name();
@@ -462,50 +464,7 @@ public class ProcessSpecBuilder {
                 }
             }
             if (giveUpState != null) checkDeclared(giveUpState, "onGiveUp state");
-            var resolved = new LinkedHashMap<String, StateSpec>();
-            states.forEach((name, spec) -> resolved.put(name, resolve(spec)));
-            return new ProcessSpec(type, description, declared(initial), resolved, errorHandler,
-                    giveUpState == null ? null : declared(giveUpState));
-        }
-
-        /** Replaces references to states with the objects from their declarations. */
-        private StateSpec resolve(StateSpec spec) {
-            return switch (spec) {
-                case StepState step -> new StepState(step.state(), step.step(), step.worker(), resolve(step.exit()));
-                case AwaitState await -> new AwaitState(await.state(),
-                        await.messages().stream().<MessageEvent<?>>map(this::resolve).toList(),
-                        await.every() == null
-                                ? null
-                                : new EveryEvent(await.every().interval(), await.every().handler(),
-                                        resolve(await.every().exit())),
-                        await.after() == null
-                                ? null
-                                : new AfterEvent(await.after().delay(), await.after().handler(),
-                                        resolve(await.after().exit())),
-                        await.at() == null
-                                ? null
-                                : new AtEvent(await.at().timer(), await.at().handler(), resolve(await.at().exit())));
-                case TerminalState terminal -> terminal;
-            };
-        }
-
-        private <T> MessageEvent<T> resolve(MessageEvent<T> message) {
-            return new MessageEvent<>(message.type(), message.handler(), resolve(message.exit()));
-        }
-
-        private Exit resolve(Exit exit) {
-            return switch (exit) {
-                case Target target -> new Target(declared(target.state()));
-                case ProcessSpec.Routes routes -> {
-                    var resolved = new LinkedHashMap<Enum<?>, ProcessState>();
-                    routes.routes().forEach((outcome, target) -> resolved.put(outcome, declared(target)));
-                    yield new ProcessSpec.Routes(resolved);
-                }
-            };
-        }
-
-        private ProcessState declared(ProcessState state) {
-            return states.get(state.name()).state();
+            return new ProcessSpec(type, description, initial, states, errorHandler, giveUpState);
         }
 
         private void checkAwait(AwaitState await, Map<String, Class<?>> payloads) {
@@ -567,6 +526,10 @@ public class ProcessSpecBuilder {
             if (!states.containsKey(target.name())) {
                 throw new IllegalArgumentException("Target state " + target.name() + " of " + where + " of process "
                         + type.name() + " is not declared");
+            }
+            if (!states.get(target.name()).state().equals(target)) {
+                throw new IllegalArgumentException("Target state " + target.name() + " of " + where + " of process "
+                        + type.name() + " is not the object passed to its declaration");
             }
         }
     }
