@@ -77,7 +77,7 @@ public class ProcessDefinitionRegistry {
      * @throws UnsupportedProcessTypeException if no definition of the type is registered
      */
     public ProcessSpec getProcessSpec(ProcessType processType) {
-        var processDefinition = specs.get(ProcessType.of(processType.name()));
+        var processDefinition = specs.get(processType.id());
         if (processDefinition == null) {
             throw new UnsupportedProcessTypeException(processType.name());
         }

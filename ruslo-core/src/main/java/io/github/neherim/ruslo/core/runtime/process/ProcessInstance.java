@@ -116,9 +116,9 @@ public final class ProcessInstance {
         if (status == ProcessStatus.COMPLETED) {
             throw new ProcessStatusException(id, status, "a completed process cannot change state");
         }
-        var targetId = ProcessState.of(target.name());
+        var targetId = target.id();
         var behavior = spec.getStateSpec(targetId);
-        if (state != null && state.is(targetId)) {
+        if (state != null && state.equals(targetId)) {
             status = ProcessStatus.ACTIVE;
             resetAttemptsAndError();
             if (behavior instanceof StepState) nextRunAt = now;

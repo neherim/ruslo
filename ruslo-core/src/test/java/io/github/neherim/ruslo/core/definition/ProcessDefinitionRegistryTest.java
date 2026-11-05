@@ -65,7 +65,7 @@ class ProcessDefinitionRegistryTest {
     }
 
     private static StateInfo state(java.util.Set<StateInfo> states, State state) {
-        return states.stream().filter(info -> info.state().is(state)).findFirst().orElseThrow();
+        return states.stream().filter(info -> info.state() == state).findFirst().orElseThrow();
     }
 
     private static TransitionInfo transition(

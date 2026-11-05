@@ -375,7 +375,7 @@ public class ProcessSpecBuilder {
 
         private Target withoutHandler(ProcessState next, String event) {
             var target = Draft.id(next);
-            if (state.is(target)) {
+            if (state.equals(target)) {
                 throw new IllegalArgumentException(where(event) + " without a handler cannot target its own await "
                         + "state: it would do nothing");
             }
@@ -507,8 +507,8 @@ public class ProcessSpecBuilder {
 
         private static boolean leaves(Exit exit, ProcessStateId state) {
             return switch (exit) {
-                case Target target -> !target.state().is(state);
-                case ProcessSpec.Routes routes -> routes.routes().values().stream().anyMatch(t -> !t.is(state));
+                case Target target -> !target.state().equals(state);
+                case ProcessSpec.Routes routes -> routes.routes().values().stream().anyMatch(t -> !t.equals(state));
             };
         }
 

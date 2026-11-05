@@ -633,11 +633,11 @@ class ProcessStepExecutionTest extends BaseTest {
             engine.sendMessage(id, SIGNAL, "restart");
             engine.sendMessage(id, SIGNAL, "obsolete");
             var kept = emulator(engine, 20).runOneStep(id);
-            assertEquals(1, kept.stateHistory().stream().filter(entry -> entry.state().is(State.WAIT)).count());
+            assertEquals(1, kept.stateHistory().stream().filter(entry -> entry.state() == State.WAIT).count());
             emulator(engine, 20).runOneStep(id);
             emulator(engine, 20).runOneStep(id);
             var reentered = engine.processes().byId(id).singleDetails().orElseThrow();
-            assertEquals(2, reentered.stateHistory().stream().filter(entry -> entry.state().is(State.WAIT)).count());
+            assertEquals(2, reentered.stateHistory().stream().filter(entry -> entry.state() == State.WAIT).count());
             assertEquals(List.of("keep", "restart"), handled);
             clock.advance(Duration.ofSeconds(49));
             assertEquals(State.WAIT.name(), emulator(engine, 20).runOneStep(id).state().name());

@@ -74,7 +74,7 @@ public class StepExecutor {
             var message = new IncomingMessage<>(UUIDGenerator.generate(), event.type(),
                     event.type().clazz().cast(payload), clock.instant());
             var target = executeMessage(process, new DefaultProcessContext(process), event, message);
-            if (!process.getState().is(target)) process.enterState(target);
+            if (!process.getState().equals(target)) process.enterState(target);
             recordStepExecuted(process, executedState, started);
         } catch (HandlerException ex) {
             recordStepFailed(process, executedState, started);
