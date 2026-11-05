@@ -19,16 +19,6 @@ public interface ProcessState {
         return name();
     }
 
-    /** Returns {@code true} if {@code other} has the same name. */
-    default boolean is(ProcessState other) {
-        return other != null && name().equals(other.name());
-    }
-
-    /** Returns {@code true} if this state is named {@code stateName}. */
-    default boolean is(String stateName) {
-        return name().equals(stateName);
-    }
-
     /** Returns the canonical state with the same name. */
     default ProcessStateId id() {
         return new ProcessStateId(name());

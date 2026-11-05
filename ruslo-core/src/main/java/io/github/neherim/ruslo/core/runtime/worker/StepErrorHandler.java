@@ -89,7 +89,7 @@ public class StepErrorHandler {
                 var process = processInstanceDao.findWithLockById(processId).orElse(null);
                 if (process == null) return false;
                 try (var ignored = processMdc.open(process)) {
-                    if (process.getStatus() != ProcessStatus.ACTIVE || !process.getState().is(state)) {
+                    if (process.getStatus() != ProcessStatus.ACTIVE || !process.getState().equals(state)) {
                         log.debug("Skip administrative error because process state changed for {}", processId);
                         return false;
                     }
@@ -125,7 +125,7 @@ public class StepErrorHandler {
             case ErrorResult.Fail ignored -> markFailed(process, error);
             case ErrorResult.GiveUp ignored -> {
                 var giveUpState = process.getProcessSpec().getGiveUpState().orElse(null);
-                if (giveUpState != null && !process.getState().is(giveUpState)) process.enterState(giveUpState);
+                if (giveUpState != null && !process.getState().equals(giveUpState)) process.enterState(giveUpState);
                 else
                     markFailed(process, error);
             }

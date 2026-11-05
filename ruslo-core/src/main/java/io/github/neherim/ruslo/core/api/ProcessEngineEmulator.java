@@ -94,7 +94,7 @@ public class ProcessEngineEmulator {
         var proc = findProcess(processId);
         var ready = isReadyToRun(proc);
         for (int i = 0; i < maxSteps; i++) {
-            if (proc.state().is(state)) {
+            if (proc.state().name().equals(state.name())) {
                 return proc;
             }
             if (!ready) {

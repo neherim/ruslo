@@ -65,6 +65,23 @@ class ProcessEngineEmulatorDiagnosticsTest extends BaseTest {
     }
 
     @Test
+    void runUntilStateMatchesStateByName() {
+        ProcessDefinition definition = builder -> builder.type("NAMED")
+            .initialState(State.START)
+            .step(State.START, context -> {}, State.WORK)
+            .step(State.WORK, context -> {}, State.DONE)
+            .terminal(State.DONE)
+            .build();
+        try (var engine = newProcessEngine(definition)) {
+            var id = engine.newProcess(ProcessType.of("NAMED")).start();
+
+            var reached = new ProcessEngineEmulator(engine).runUntilState(id, ProcessState.of("WORK"));
+
+            assertEquals(State.WORK, reached.state());
+        }
+    }
+
+    @Test
     void stepLimitReportsRecentHistory() {
         ProcessDefinition definition = builder -> builder.type("LOOP")
             .initialState(State.START)

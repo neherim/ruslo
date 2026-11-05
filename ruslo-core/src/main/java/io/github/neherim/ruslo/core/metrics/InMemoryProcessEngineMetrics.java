@@ -33,25 +33,25 @@ public class InMemoryProcessEngineMetrics implements ProcessEngineMetrics {
 
     @Override
     public void recordProcessStarted(ProcessType processType) {
-        processStartedCounts.merge(ProcessType.of(processType.name()), 1L, Long::sum);
+        processStartedCounts.merge(processType.id(), 1L, Long::sum);
     }
 
     @Override
     public void recordProcessCompleted(ProcessType processType) {
-        processCompletedCounts.merge(ProcessType.of(processType.name()), 1L, Long::sum);
+        processCompletedCounts.merge(processType.id(), 1L, Long::sum);
     }
 
     @Override
     public void recordProcessFailed(ProcessType processType) {
-        processFailedCounts.merge(ProcessType.of(processType.name()), 1L, Long::sum);
+        processFailedCounts.merge(processType.id(), 1L, Long::sum);
     }
 
     @Override
     public void recordStepExecuted(ProcessType processType, ProcessState processState, Duration stepDuration) {
         totalStepsExecuted.incrementAndGet();
         stepExecutionStats
-            .computeIfAbsent(ProcessType.of(processType.name()), k -> new ConcurrentHashMap<>())
-            .computeIfAbsent(ProcessState.of(processState.name()), k -> new StepExecutionMetrics())
+            .computeIfAbsent(processType.id(), k -> new ConcurrentHashMap<>())
+            .computeIfAbsent(processState.id(), k -> new StepExecutionMetrics())
             .updateStats(stepDuration.toMillis());
     }
 
@@ -90,15 +90,15 @@ public class InMemoryProcessEngineMetrics implements ProcessEngineMetrics {
     // Getter methods for retrieving metrics
 
     public long getProcessStartedCount(ProcessType processType) {
-        return processStartedCounts.getOrDefault(ProcessType.of(processType.name()), 0L);
+        return processStartedCounts.getOrDefault(processType.id(), 0L);
     }
 
     public long getProcessCompletedCount(ProcessType processType) {
-        return processCompletedCounts.getOrDefault(ProcessType.of(processType.name()), 0L);
+        return processCompletedCounts.getOrDefault(processType.id(), 0L);
     }
 
     public long getProcessFailedCount(ProcessType processType) {
-        return processFailedCounts.getOrDefault(ProcessType.of(processType.name()), 0L);
+        return processFailedCounts.getOrDefault(processType.id(), 0L);
     }
 
     public Map<ProcessTypeId, Long> getAllProcessStartedCounts() {
@@ -111,9 +111,9 @@ public class InMemoryProcessEngineMetrics implements ProcessEngineMetrics {
 
     public StepExecutionMetrics getStepExecutionMetrics(ProcessType processType, ProcessState processState) {
         Map<ProcessStateId, StepExecutionMetrics> stateStats = stepExecutionStats
-            .get(ProcessType.of(processType.name()));
+            .get(processType.id());
         if (stateStats != null) {
-            return stateStats.get(ProcessState.of(processState.name()));
+            return stateStats.get(processState.id());
         }
         return null;
     }

@@ -10,16 +10,6 @@ public interface ProcessType {
 
     String name();
 
-    /** Returns {@code true} if {@code other} has the same name. */
-    default boolean is(ProcessType other) {
-        return other != null && name().equals(other.name());
-    }
-
-    /** Returns {@code true} if this type is named {@code typeName}. */
-    default boolean is(String typeName) {
-        return name().equals(typeName);
-    }
-
     /** Returns the canonical type with the same name. */
     default ProcessTypeId id() {
         return new ProcessTypeId(name());
