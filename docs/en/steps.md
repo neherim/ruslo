@@ -11,7 +11,7 @@ next state:
 .step(CREATED, OrderDefinition::reserveItems, WAITING_FOR_PAYMENT)
 
 static void reserveItems(ProcessContext context) {
-    var order = context.getVariable(ORDER).orElseThrow();
+    var order = context.getVariable(ORDER);
     // reserve the order items
 }
 ```
@@ -29,7 +29,7 @@ enum Validation { VALID, REJECTED }
     .on(Validation.REJECTED, CANCELLED))
 ```
 
-The compiler checks that the routes use the step's enum, and `build()` checks that every constant has a route.
+The compiler checks that the routes use the step's enum, and the builder checks that every constant has a route.
 Express expected business situations as outcomes (an application is rejected, a card is declined). The engine treats
 an exception from the handler as a technical error, see [error-handling.md](error-handling.md).
 

@@ -10,7 +10,7 @@
 .step(CREATED, OrderDefinition::reserveItems, WAITING_FOR_PAYMENT)
 
 static void reserveItems(ProcessContext context) {
-    var order = context.getVariable(ORDER).orElseThrow();
+    var order = context.getVariable(ORDER);
     // зарезервировать товары заказа
 }
 ```
@@ -28,7 +28,7 @@ enum Validation { VALID, REJECTED }
     .on(Validation.REJECTED, CANCELLED))
 ```
 
-Компилятор проверяет, что маршруты используют enum шага, а `build()` — что для каждой константы задан маршрут.
+Компилятор проверяет, что маршруты используют enum шага, а builder — что для каждой константы задан маршрут.
 Результатом выражайте ожидаемые бизнес-ситуации (заявка отклонена, карта не прошла). 
 Исключение из обработчика движок воспринимает скорее как техническую ошибку, см. [error-handling.md](error-handling.md).
 

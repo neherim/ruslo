@@ -19,12 +19,12 @@ public interface ProcessState {
         return name();
     }
 
-    /** Returns the canonical state with the same name. */
+    /** Returns a state object that holds only the name. */
     default ProcessStateId id() {
         return new ProcessStateId(name());
     }
 
-    /** Returns the canonical state with the given name. */
+    /** Returns a state object that holds only the given name. */
     static ProcessStateId of(String name) {
         return new ProcessStateId(name);
     }

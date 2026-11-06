@@ -4,6 +4,7 @@ import io.github.neherim.ruslo.core.BaseTest;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
+import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceDao;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
@@ -26,6 +27,9 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LeaseAwareWorkerTest extends BaseTest {
+    private static final VariableType<Boolean> STALE = VariableType.of("stale", Boolean.class);
+    private static final VariableType<String> FIRST = VariableType.of("first", String.class);
+
     @Test
     void transactionalFailureRollsBackUserDatabaseChangesAndCanBeRetried() {
         database.update("CREATE TABLE tx_lease_effect (effect_value INTEGER NOT NULL)");
@@ -116,7 +120,7 @@ class LeaseAwareWorkerTest extends BaseTest {
             .step(TestState.INIT, context -> {
                 entered.countDown();
                 awaitLatch(release, "Test should release non-transactional step");
-                context.setVariable("stale", true);
+                context.setVariable(STALE, true);
             }, TestState.DONE)
             .terminal(TestState.DONE)
             .build();
@@ -138,8 +142,8 @@ class LeaseAwareWorkerTest extends BaseTest {
         }
 
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
-        assertTrue(stored.getVariable("fresh", Boolean.class));
-        assertNull(stored.getVariable("stale", Boolean.class));
+        assertTrue(stored.findVariable("fresh", Boolean.class).orElseThrow());
+        assertTrue(stored.findVariable("stale", Boolean.class).isEmpty());
         assertFalse(stored.isCompleted());
     }
 
@@ -153,7 +157,7 @@ class LeaseAwareWorkerTest extends BaseTest {
             .step(TestState.INIT, context -> {
                 entered.countDown();
                 awaitLatch(release, "Test should release non-transactional message step");
-                context.setVariable("stale", true);
+                context.setVariable(STALE, true);
             }, TestState.DONE)
             .terminal(TestState.DONE)
             .build();
@@ -177,7 +181,7 @@ class LeaseAwareWorkerTest extends BaseTest {
 
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
         assertTrue(stored.getMessages().isEmpty());
-        assertTrue(stored.getVariable("stale", Boolean.class));
+        assertTrue(stored.findVariable("stale", Boolean.class).orElseThrow());
         assertTrue(stored.isCompleted());
     }
 
@@ -251,7 +255,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         ProcessDefinition definition = builder -> builder.type(type)
             .initialState(TransitionState.INIT)
             .step(TransitionState.INIT, context -> {
-                context.setVariable("stale", true);
+                context.setVariable(STALE, true);
                 var concurrent = fixtureRef.get().dao().findById(context.processId()).orElseThrow();
                 concurrent.setVariable("fresh", true);
                 fixtureRef.get().dao().update(concurrent);
@@ -269,8 +273,8 @@ class LeaseAwareWorkerTest extends BaseTest {
             .tryExecute(fixture.task(process));
 
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
-        assertTrue(stored.getVariable("fresh", Boolean.class));
-        assertNull(stored.getVariable("stale", Boolean.class));
+        assertTrue(stored.findVariable("fresh", Boolean.class).orElseThrow());
+        assertTrue(stored.findVariable("stale", Boolean.class).isEmpty());
         assertEquals(TransitionState.INIT.name(), stored.getState().name());
         assertEquals(0, nextExecutions.get());
         assertNull(storedOwner(process.getId()));
@@ -396,7 +400,7 @@ class LeaseAwareWorkerTest extends BaseTest {
             .initialState(CheckpointState.FIRST)
             .step(CheckpointState.FIRST, context -> {
                 executions.incrementAndGet();
-                context.setVariable("first", "saved");
+                context.setVariable(FIRST, "saved");
             }, CheckpointState.SECOND)
             .step(CheckpointState.SECOND, context -> {
                 executions.incrementAndGet();
@@ -441,7 +445,7 @@ class LeaseAwareWorkerTest extends BaseTest {
             .initialState(CheckpointState.FIRST)
             .step(CheckpointState.FIRST, context -> {
                 firstExecutions.incrementAndGet();
-                context.setVariable("first", "saved");
+                context.setVariable(FIRST, "saved");
             }, CheckpointState.SECOND)
             .step(CheckpointState.SECOND, context -> {
                 if (shouldFail.getAndSet(false)) {
@@ -460,7 +464,7 @@ class LeaseAwareWorkerTest extends BaseTest {
 
         var failed = fixture.dao().findById(process.getId()).orElseThrow();
         assertEquals(CheckpointState.SECOND.name(), failed.getState().name());
-        assertEquals("saved", failed.getVariable("first", String.class));
+        assertEquals("saved", failed.findVariable("first", String.class).orElseThrow());
         assertFalse(failed.isCompleted());
         failed.resume();
         fixture.dao().update(failed);

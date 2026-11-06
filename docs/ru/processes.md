@@ -43,8 +43,8 @@ worker по умолчанию (`defaultWorker`, см. [workers.md](workers.md))
 Движок возвращает объявленные состояния и типы, поэтому сравнивайте их с константами:
 `details.state() == State.DONE`. Состояние, которого больше нет в описании, возвращается как `ProcessState.of(name)`.
 
-`build()` проверяет описание и бросает `IllegalArgumentException`, если оно несогласованно: например, для константы
-результата не задан маршрут или шаг ссылается на незарегистрированный worker.
+Builder проверяет объявления состояний и переходы; движок также проверяет регистрацию worker. Несогласованное
+описание отклоняется с `IllegalArgumentException`.
 
 В Spring Boot описание — это бин, который регистрируется при запуске: [spring.md](spring.md#definitions).
 
@@ -94,8 +94,8 @@ UUID processId = processEngine.newProcess(OrderDefinition.TYPE)
 
 | Метод | Назначение |
 |---|---|
-| `getVariable`, `setVariable`, `removeVariable` | Переменные процесса |
-| `getTimer`, `setTimer`, `cancelTimer` | Таймеры процесса для `at`: [awaits.md](awaits.md#таймеры-процесса-at) |
+| `getVariable`, `findVariable`, `setVariable`, `removeVariable` | Переменные процесса: `getVariable` бросает `IllegalStateException`, если переменная не задана, `findVariable` возвращает `Optional` |
+| `findTimer`, `setTimer`, `cancelTimer` | Таймеры процесса для `at`: [awaits.md](awaits.md#таймеры-процесса-at) |
 | `processId()`, `processType()`, `state()`, `businessKey()`, `correlationId()` | Идентификация процесса |
 | `attempt()` | Число неудачных попыток текущего шага или события: [error-handling.md](error-handling.md) |
 | `now()` | Время движка; используйте вместо `Instant.now()`, чтобы им управляли тесты |
@@ -136,7 +136,7 @@ Optional<ProcessInstanceDetails> order = processEngine.processes()
 `singleDetails` — не больше одного процесса и бросают `TooManyRowsException`, если подходят несколько.
 
 `ProcessInstanceDetails` добавляет к summary переменные, таймеры процесса, последнюю ошибку и историю состояний.
-Переменные читаются типизированно: `details.variables().get(ORDER_ID)` возвращает `Optional`.
+Переменные читаются типизированно: `details.variables().find(ORDER_ID)` возвращает `Optional`.
 
 Запрос выполняется в транзакции вызывающего. `withLock()` блокирует найденные строки через `SELECT ... FOR UPDATE` до
 конца транзакции.

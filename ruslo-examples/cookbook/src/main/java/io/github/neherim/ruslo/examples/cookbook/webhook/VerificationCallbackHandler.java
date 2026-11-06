@@ -7,8 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.Objects;
-
 @Component
 public class VerificationCallbackHandler
         implements BranchingMessageHandler<VerificationCallback, VerificationCallbackHandler.Result> {
@@ -21,8 +19,7 @@ public class VerificationCallbackHandler
     @Override
     public Result handle(ProcessContext context, IncomingMessage<VerificationCallback> message) {
         var callback = message.payload();
-        var handled = Objects.requireNonNullElse(context.getVariable(IdentityVerificationDefinition.HANDLED_EVENTS),
-                HandledEvents.NONE);
+        var handled = context.findVariable(IdentityVerificationDefinition.HANDLED_EVENTS).orElse(HandledEvents.NONE);
         if (handled.contains(callback.eventId())) {
             log.info("Repeated verification callback {} ignored", callback.eventId());
             return Result.WAIT;

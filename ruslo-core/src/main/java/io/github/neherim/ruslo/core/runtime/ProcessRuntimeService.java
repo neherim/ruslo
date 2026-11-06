@@ -17,7 +17,6 @@ import io.github.neherim.ruslo.core.runtime.worker.StepErrorHandler;
 import io.github.neherim.ruslo.core.runtime.worker.StepExecutor;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
-import io.github.neherim.ruslo.core.utils.UUIDGenerator;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -296,7 +295,7 @@ public class ProcessRuntimeService {
     }
 
     private void appendMessage(ProcessInstance process, ProcessSpec.MessageEvent<?> event, @Nullable Object payload) {
-        process.appendMessage(event, payload, UUIDGenerator.generate(), clock.instant());
+        process.appendMessage(event, payload, clock.instant());
         processInstanceDao.update(process);
         database.doAfterCommit(dispatchSignal::wakeUp);
     }

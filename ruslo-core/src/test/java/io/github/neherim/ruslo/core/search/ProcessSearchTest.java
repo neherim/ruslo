@@ -266,9 +266,9 @@ class ProcessSearchTest extends BaseTest {
 
         var variables = processEngine.processes().byId(processId).singleDetails().orElseThrow().variables();
 
-        assertEquals(Optional.of(42), variables.get(VariableType.of("amount", Integer.class)));
-        assertEquals(Optional.of(42L), variables.get(VariableType.of("amount", Long.class)));
-        assertEquals(Optional.empty(), variables.get(VariableType.of("missing", String.class)));
+        assertEquals(Optional.of(42), variables.find(VariableType.of("amount", Integer.class)));
+        assertEquals(Optional.of(42L), variables.find(VariableType.of("amount", Long.class)));
+        assertEquals(Optional.empty(), variables.find(VariableType.of("missing", String.class)));
     }
 
     @Test

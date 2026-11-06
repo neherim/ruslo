@@ -92,7 +92,7 @@ class CancellationTest {
 
         // The payment handler did not run: the cancel step refunds by order id, not by a process variable
         assertEquals(OrderDeliveryDefinition.State.CANCELLED, cancelled.state());
-        assertTrue(cancelled.variables().get(OrderDeliveryDefinition.PAYMENT_ID).isEmpty());
+        assertTrue(cancelled.variables().find(OrderDeliveryDefinition.PAYMENT_ID).isEmpty());
     }
 
     private UUID startOrder(String orderId) {

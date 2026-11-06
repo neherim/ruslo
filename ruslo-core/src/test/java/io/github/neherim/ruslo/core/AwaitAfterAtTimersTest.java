@@ -140,7 +140,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
     void handlerSeesFiredMomentAndSettingTimerAgainMakesSchedule() {
         engine(await -> await.message(SIGNAL, (context, message) -> {}, State.MSG_DONE)
             .at(DUE, context -> {
-                var fired = context.getTimer(DUE).orElseThrow();
+                var fired = context.findTimer(DUE).orElseThrow();
                 log.add(fired.toString());
                 if (log.size() < 2) context.setTimer(DUE, fired.plus(Duration.ofDays(1)));
             }, State.WAIT));
@@ -162,7 +162,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
         engine(await -> await.message(SIGNAL, (context, message) -> {}, State.MSG_DONE)
             .at(DUE, context -> {
                 log.add("at");
-                context.setTimer(DUE, context.getTimer(DUE).orElseThrow());
+                context.setTimer(DUE, context.findTimer(DUE).orElseThrow());
             }, State.WAIT));
         var id = start(instant("12:00:00"));
         at("12:00:00");
@@ -345,7 +345,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
 
     @Test
     void momentWithNanosecondsIsTruncatedToMicroseconds() {
-        engine(await -> await.message(SIGNAL, (context, message) -> log.add(context.getTimer(DUE)
+        engine(await -> await.message(SIGNAL, (context, message) -> log.add(context.findTimer(DUE)
             .orElseThrow()
             .toString()), State.WAIT)
             .message(CANCEL, (context, message) -> {}, State.MSG_DONE)
@@ -469,7 +469,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
         engine(await -> await.message(SIGNAL, (context, message) -> {
             log.add(assertThrows(IllegalArgumentException.class, () -> context.setTimer(other, context.now()))
                 .getMessage());
-            log.add(assertThrows(IllegalArgumentException.class, () -> context.getTimer(other)).getMessage());
+            log.add(assertThrows(IllegalArgumentException.class, () -> context.findTimer(other)).getMessage());
             log.add(assertThrows(IllegalArgumentException.class, () -> context.cancelTimer(other)).getMessage());
             log.add(assertThrows(NullPointerException.class, () -> context.setTimer(DUE, null)).getClass()
                 .getSimpleName());
@@ -500,7 +500,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
         var details = details(id);
         assertEquals(Map.of(), details.timers());
         assertEquals(Optional.empty(), details.nextRunAt());
-        assertEquals(Optional.of("next Monday"), details.variables().get(VariableType.of(DUE.name(), String.class)));
+        assertEquals(Optional.of("next Monday"), details.variables().find(VariableType.of(DUE.name(), String.class)));
     }
 
     @Test

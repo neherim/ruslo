@@ -101,7 +101,7 @@ public class SubscriptionDefinition implements ProcessDefinition {
 
     /** Stands for a charge in billing; a successful charge sets the timer to the next charge date. */
     private static Billing charge(ProcessContext context) {
-        var chargeAt = context.getTimer(NEXT_CHARGE).orElseThrow();
+        var chargeAt = context.findTimer(NEXT_CHARGE).orElseThrow();
         var cardToken = context.getVariable(CARD_TOKEN);
         var paid = !DECLINED_CARD.equals(cardToken);
         log.info("Subscription {} charged for {} to {}: paid={}", context.businessKey().orElseThrow(), chargeAt,

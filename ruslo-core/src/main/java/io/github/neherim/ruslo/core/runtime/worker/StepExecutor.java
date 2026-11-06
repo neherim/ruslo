@@ -8,7 +8,6 @@ import io.github.neherim.ruslo.core.runtime.process.DefaultProcessContext;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
 import io.github.neherim.ruslo.core.runtime.process.ProcessMessages.PendingMessage;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
-import io.github.neherim.ruslo.core.utils.UUIDGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +70,7 @@ public class StepExecutor {
         var executedState = process.getState();
         var started = System.nanoTime();
         try (var ignored = processMdc.open(process)) {
-            var message = new IncomingMessage<>(UUIDGenerator.generate(), event.type(),
+            var message = new IncomingMessage<>(event.type(),
                     event.type().clazz().cast(payload), clock.instant());
             var target = executeMessage(process, new DefaultProcessContext(process), event, message);
             if (!process.getState().equals(target)) process.enterState(target);

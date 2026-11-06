@@ -118,7 +118,7 @@ A process timer consists of a name and a fire moment. The rules:
    the process leaves an await with `at` by another event of that await (`message`, `after`, `every`): the timer then
    fires in the next await with `at` for the same name.
 5. **A fired timer is cancelled after the `at` handler.** While the `at` handler runs, the timer stays set, and
-   `ProcessContext.getTimer` returns its fire moment. After the handler the engine cancels the timer unless the
+   `ProcessContext.findTimer` returns its fire moment. After the handler the engine cancels the timer unless the
    handler set a new fire moment. If the handler fails, its changes are rolled back, and the retry sees the timer
    unchanged. For an `at` without a handler the timer is cancelled when it fires.
 
@@ -131,7 +131,7 @@ Moving the timer in the handler makes a schedule:
         .on(Run.LAST, DONE)))
 
 static Run buildReport(ProcessContext context) {
-    var runAt = context.getTimer(NEXT_RUN).orElseThrow();         // the fire moment
+    var runAt = context.findTimer(NEXT_RUN).orElseThrow();         // the fire moment
     // build the report for runAt
     context.setTimer(NEXT_RUN, runAt.plus(Duration.ofDays(1)));
     return Run.MORE;
@@ -144,6 +144,9 @@ Full examples: the `deadline` and `subscription` recipes in [`ruslo-examples/coo
 
 An event whose target is the await itself keeps the process waiting: the handled message is removed, other queued
 messages and the timers are kept ([transition to the same state](processes.md#transitions)).
+
+An await must declare at least one event. All its events may target the await itself: a process can keep handling
+messages or periodic events indefinitely, without a transition to another state.
 
 A transition to another state closes the await, and **all its unhandled messages are removed**. To start an await
 over, with an empty queue and new `every` and `after` timers, go through a step that leads back to it:

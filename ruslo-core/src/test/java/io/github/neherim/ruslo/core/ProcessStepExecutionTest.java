@@ -66,7 +66,7 @@ class ProcessStepExecutionTest extends BaseTest {
             emulator(engine).runOneStep(id);
             var completed = engine.processes().byId(id).singleDetails().orElseThrow();
             assertEquals(ProcessStatus.COMPLETED, completed.status());
-            assertEquals(Optional.of("accepted"), completed.variables().get(PAYLOAD));
+            assertEquals(Optional.of("accepted"), completed.variables().find(PAYLOAD));
         } finally {
             engine.close();
         }
@@ -198,7 +198,7 @@ class ProcessStepExecutionTest extends BaseTest {
             emulator(engine).runOneStep(id);
             var failed = engine.processes().byId(id).singleDetails().orElseThrow();
             assertEquals(ProcessStatus.FAILED, failed.status());
-            assertTrue(failed.variables().get(TEMPORARY).isEmpty());
+            assertTrue(failed.variables().find(TEMPORARY).isEmpty());
             fail.set(false);
             engine.resumeFailedProcess(id);
             var active = assertThrows(ProcessStatusException.class, () -> engine.resumeFailedProcess(id),

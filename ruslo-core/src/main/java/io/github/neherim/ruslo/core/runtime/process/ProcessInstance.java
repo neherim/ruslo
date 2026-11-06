@@ -164,8 +164,8 @@ public final class ProcessInstance {
      * retry backoff}. The event comes from {@link #expectedMessageEvent}, so the current state awaits it. A
      * {@code FAILED} process only queues the message; it is handled after resume.
      */
-    public void appendMessage(MessageEvent<?> event, Object payload, UUID messageId, Instant receivedAt) {
-        messages.append(event.type(), payload, messageId, receivedAt);
+    public void appendMessage(MessageEvent<?> event, Object payload, Instant receivedAt) {
+        messages.append(event.type(), payload, receivedAt);
         if (status == ProcessStatus.ACTIVE && !hasRetryBackoff()) recomputeNextRun();
     }
 
@@ -212,8 +212,9 @@ public final class ProcessInstance {
     }
 
     /**
-     * Finishes an await run without a due event, e.g. after a manual change of {@code next_run_at}: clears the errors
-     * of previous attempts and recomputes the next run, so a retry whose event is no longer due is dropped.
+     * Finishes an await run without a due event, e.g. after a manual change of {@code next_run_at}: clears the
+     * attempts and error of a failed event and recomputes the next run, so an event that is no longer due is not
+     * retried.
      */
     public void stayInAwait() {
         resetAttemptsAndError();
@@ -369,8 +370,8 @@ public final class ProcessInstance {
         return variables;
     }
 
-    public <T> T getVariable(String name, Class<T> clazz) {
-        return variables.getVariable(name, clazz);
+    public <T> Optional<T> findVariable(String name, Class<T> clazz) {
+        return variables.findVariable(name, clazz);
     }
 
     public void setVariable(String name, Object value) {

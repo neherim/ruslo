@@ -3,7 +3,6 @@ package io.github.neherim.ruslo.examples.cookbook.retries;
 import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
-import io.github.neherim.ruslo.core.api.definition.ProcessError;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
@@ -35,7 +34,7 @@ import java.time.Duration;
  * <ul>
  *   <li>A retry runs the whole step again. If the step did something in an external system before the error, that
  *       action repeats: the external call must be idempotent.</li>
- *   <li>The attempt counter ({@link ProcessError#attempt()}) belongs to the current state and resets on the
+ *   <li>The attempt counter ({@link ProcessContext#attempt()}) belongs to the current state and resets on the
  *       transition to the next one.</li>
  *   <li>Without {@code onGiveUp} {@code giveUp()} stops the process in status {@code FAILED} until a manual
  *       {@code resumeFailedProcess}. Use this when a human must look into the error (recipe
@@ -84,11 +83,11 @@ public class NotificationDefinition implements ProcessDefinition {
     }
 
     /** Does not retry errors a retry cannot fix; retries the rest with a growing delay. */
-    private ErrorResult onError(ProcessContext context, ProcessError error) {
-        if (error.cause() instanceof InvalidRecipientException) {
+    private ErrorResult onError(ProcessContext context, Throwable cause) {
+        if (cause instanceof InvalidRecipientException) {
             return ErrorResult.giveUp();
         }
-        return BACKOFF.handle(context, error);
+        return BACKOFF.handle(context, cause);
     }
 
     public enum State implements ProcessState {

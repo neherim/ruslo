@@ -4,7 +4,6 @@ import io.github.neherim.ruslo.core.BaseTest;
 import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
-import io.github.neherim.ruslo.core.api.definition.ProcessError;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
@@ -157,7 +156,7 @@ class ProcessMdcTest extends BaseTest {
         }
 
         private ProcessErrorHandler errorHandler() {
-            return (ProcessContext context, ProcessError error) -> {
+            return (ProcessContext context, Throwable cause) -> {
                 observedMdc.set(Map.of(
                         "correlation_id", MDC.get("correlation_id"),
                         "process_id", MDC.get("process_id"),

@@ -1,7 +1,6 @@
 package io.github.neherim.ruslo.core.runtime.worker;
 
 import io.github.neherim.ruslo.core.api.definition.ErrorResult;
-import io.github.neherim.ruslo.core.api.definition.ProcessError;
 import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseLostException;
@@ -114,7 +113,7 @@ public class StepErrorHandler {
         ErrorResult result;
         try {
             result = Objects.requireNonNull(process.getProcessErrorHandler()
-                .handle(new DefaultProcessContext(process), new ProcessError(cause, process.getAttempt())),
+                .handle(new DefaultProcessContext(process), cause),
                     "Process error handler returned null");
         } catch (RuntimeException ex) {
             log.error("Process error handler failed", ex);

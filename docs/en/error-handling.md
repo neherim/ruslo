@@ -49,10 +49,10 @@ An example of a custom error handler:
 
 ```java
 public class CustomProcessErrorHandler implements ProcessErrorHandler {
-    public ErrorResult handle(ProcessContext context, ProcessError error) {
-        if (error.cause() instanceof PermanentlyUnavailableException) return ErrorResult.giveUp();
-        if (error.cause() instanceof DataCorruptionException) return ErrorResult.fail();
-        if (error.attempt() < 3) return ErrorResult.retryAfter(Duration.ofSeconds(10));
+    public ErrorResult handle(ProcessContext context, Throwable cause) {
+        if (cause instanceof PermanentlyUnavailableException) return ErrorResult.giveUp();
+        if (cause instanceof DataCorruptionException) return ErrorResult.fail();
+        if (context.attempt() < 3) return ErrorResult.retryAfter(Duration.ofSeconds(10));
         return ErrorResult.giveUp();
     }
 }

@@ -6,8 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.Objects;
-
 @Component
 public class AccrueBonusStep implements BranchingStep<AccrueBonusStep.Batch> {
     private static final Logger log = LoggerFactory.getLogger(AccrueBonusStep.class);
@@ -18,7 +16,7 @@ public class AccrueBonusStep implements BranchingStep<AccrueBonusStep.Batch> {
      */
     @Override
     public Batch execute(ProcessContext context) {
-        long cursor = Objects.requireNonNullElse(context.getVariable(BonusAccrualDefinition.CURSOR), 0L);
+        long cursor = context.findVariable(BonusAccrualDefinition.CURSOR).orElse(0L);
         long lastId = context.getVariable(BonusAccrualDefinition.LAST_ACCOUNT_ID);
         long batchEnd = Math.min(cursor + BonusAccrualDefinition.BATCH_SIZE, lastId);
         log.info("Bonus accrued to accounts {}..{}", cursor + 1, batchEnd);

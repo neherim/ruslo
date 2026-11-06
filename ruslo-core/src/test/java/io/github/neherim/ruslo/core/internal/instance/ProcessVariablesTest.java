@@ -30,8 +30,8 @@ class ProcessVariablesTest {
 
         var second = ProcessVariables.fromString(om, first.serializeToString());
 
-        assertEquals("Hello", first.getVariable("varName", String.class));
-        assertEquals("Hello", second.getVariable("varName", String.class));
+        assertEquals("Hello", first.findVariable("varName", String.class).orElseThrow());
+        assertEquals("Hello", second.findVariable("varName", String.class).orElseThrow());
     }
 
     @Test
@@ -41,8 +41,8 @@ class ProcessVariablesTest {
 
         var second = ProcessVariables.fromString(om, first.serializeToString());
 
-        assertEquals(true, first.getVariable("varName", Boolean.class));
-        assertEquals(true, second.getVariable("varName", Boolean.class));
+        assertEquals(true, first.findVariable("varName", Boolean.class).orElseThrow());
+        assertEquals(true, second.findVariable("varName", Boolean.class).orElseThrow());
     }
 
     @Test
@@ -52,8 +52,8 @@ class ProcessVariablesTest {
 
         var second = ProcessVariables.fromString(om, first.serializeToString());
 
-        assertEquals(DATE_TIME, first.getVariable("varName", LocalDateTime.class));
-        assertEquals(DATE_TIME, second.getVariable("varName", LocalDateTime.class));
+        assertEquals(DATE_TIME, first.findVariable("varName", LocalDateTime.class).orElseThrow());
+        assertEquals(DATE_TIME, second.findVariable("varName", LocalDateTime.class).orElseThrow());
     }
 
     @Test
@@ -68,8 +68,8 @@ class ProcessVariablesTest {
 
         var second = ProcessVariables.fromString(om, first.serializeToString());
 
-        assertEquals(recordVariable, first.getVariable("varName", Rec.class));
-        assertEquals(recordVariable, second.getVariable("varName", Rec.class));
+        assertEquals(recordVariable, first.findVariable("varName", Rec.class).orElseThrow());
+        assertEquals(recordVariable, second.findVariable("varName", Rec.class).orElseThrow());
     }
 
     @Test
@@ -84,8 +84,8 @@ class ProcessVariablesTest {
 
         var second = ProcessVariables.fromString(om, first.serializeToString());
 
-        assertEquals(recordVariable, first.getVariable("varName", Rec.class));
-        assertEquals(recordVariable, second.getVariable("varName", Rec.class));
+        assertEquals(recordVariable, first.findVariable("varName", Rec.class).orElseThrow());
+        assertEquals(recordVariable, second.findVariable("varName", Rec.class).orElseThrow());
     }
 
     @Test
@@ -97,8 +97,8 @@ class ProcessVariablesTest {
 
         var second = ProcessVariables.fromString(om, first.serializeToString());
 
-        assertEquals(list, first.getVariable("varName", List.class));
-        assertEquals(list, second.getVariable("varName", List.class));
+        assertEquals(list, first.findVariable("varName", List.class).orElseThrow());
+        assertEquals(list, second.findVariable("varName", List.class).orElseThrow());
     }
 
     @Test
@@ -110,8 +110,8 @@ class ProcessVariablesTest {
 
         var second = ProcessVariables.fromString(om, first.serializeToString());
 
-        assertEquals(num, first.getVariable("varName", BigDecimal.class));
-        assertEquals(num, second.getVariable("varName", BigDecimal.class));
+        assertEquals(num, first.findVariable("varName", BigDecimal.class).orElseThrow());
+        assertEquals(num, second.findVariable("varName", BigDecimal.class).orElseThrow());
     }
 
     @Test
@@ -122,7 +122,7 @@ class ProcessVariablesTest {
             .setVariable("varName", num)
             .serializeToString());
 
-        assertEquals(num, second.getVariable("varName", BigDecimal.class));
+        assertEquals(num, second.findVariable("varName", BigDecimal.class).orElseThrow());
     }
 
     @Test
@@ -141,7 +141,7 @@ class ProcessVariablesTest {
             .setVariable("var1", "Hello")
             .setVariable("var1", 42);
 
-        assertEquals(42, variables.getVariable("var1", Integer.class));
+        assertEquals(42, variables.findVariable("var1", Integer.class).orElseThrow());
     }
 
     @Test
@@ -150,7 +150,7 @@ class ProcessVariablesTest {
         var first = ProcessVariables.empty(om)
             .setVariable("varName", context);
 
-        var firstContext = first.getVariable("varName", Context.class);
+        var firstContext = first.findVariable("varName", Context.class).orElseThrow();
         assertNotNull(firstContext);
         assertEquals("string", firstContext.stringValue);
         assertEquals(10, firstContext.intValue);

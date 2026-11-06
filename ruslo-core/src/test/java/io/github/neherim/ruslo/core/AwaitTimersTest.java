@@ -29,6 +29,37 @@ class AwaitTimersTest extends BaseTest {
     private final List<String> log = new ArrayList<>();
 
     @Test
+    void awaitWithoutExitKeepsHandlingMessagesAndPeriodicEvents() {
+        ProcessDefinition definition = builder -> builder.type("CONTINUOUS")
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await
+                .message(SIGNAL, (context, message) -> handled(message), State.WAIT)
+                .every(Duration.ofMinutes(10), context -> log.add("every"), State.WAIT))
+            .build();
+        try (var engine = engine(definition)) {
+            var id = start(engine, "CONTINUOUS", "11:00:00");
+            at("11:05:00");
+            engine.sendMessage(id, SIGNAL, "first");
+            engine.sendMessage(id, SIGNAL, "second");
+            var first = run(engine, id);
+            assertEquals(ProcessStatus.ACTIVE, first.status());
+            assertEquals(State.WAIT, first.state());
+            assertEquals(List.of("first"), log);
+            run(engine, id);
+            assertEquals(List.of("first", "second"), log);
+            at("11:10:00");
+            var firstCheck = run(engine, id);
+            assertEquals(Instant.parse("2026-09-24T11:20:00Z"), firstCheck.nextRunAt().orElseThrow());
+            at("11:20:00");
+            var secondCheck = run(engine, id);
+            assertEquals(ProcessStatus.ACTIVE, secondCheck.status());
+            assertEquals(State.WAIT, secondCheck.state());
+            assertEquals(1, secondCheck.stateHistory().size());
+            assertEquals(List.of("first", "second", "every", "every"), log);
+        }
+    }
+
+    @Test
     void messageBeforeDeadlineWinsEvenIfHandledAfterIt() {
         var engine = engine("T1", (context, message) -> handled(message), null, null, noRetry());
         try {

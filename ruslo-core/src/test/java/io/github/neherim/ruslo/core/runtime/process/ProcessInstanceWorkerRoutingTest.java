@@ -41,7 +41,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
         assertEquals(now.plusSeconds(2), process.getAfterDueAt().orElseThrow());
         assertTrue(process.getEveryDueAt().isEmpty());
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "payload",
-                java.util.UUID.randomUUID(), now.plusSeconds(1));
+                now.plusSeconds(1));
         assertEquals(now.plusSeconds(1), process.getNextRunAt().orElseThrow());
         dao.update(process);
         var restored = dao.findById(process.getId()).orElseThrow();

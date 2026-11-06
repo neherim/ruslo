@@ -43,8 +43,8 @@ the whole process: the default worker (`defaultWorker`, see [workers.md](workers
 The engine returns the declared states and types, so compare them with the constants:
 `details.state() == State.DONE`. A state the definition no longer declares is returned as `ProcessState.of(name)`.
 
-`build()` validates the definition and throws `IllegalArgumentException` if it is inconsistent: for example, an
-outcome constant has no route or a step refers to an unregistered worker.
+The builder validates state declarations and transitions; the engine also checks worker registration. An
+inconsistent definition is rejected with `IllegalArgumentException`.
 
 In Spring Boot a definition is a bean registered on startup: [spring.md](spring.md#definitions).
 
@@ -94,8 +94,8 @@ A handler receives a `ProcessContext`:
 
 | Method | Purpose |
 |---|---|
-| `getVariable`, `setVariable`, `removeVariable` | Process variables |
-| `getTimer`, `setTimer`, `cancelTimer` | Process timers for `at`: [awaits.md](awaits.md#process-timers-at) |
+| `getVariable`, `findVariable`, `setVariable`, `removeVariable` | Process variables: `getVariable` throws `IllegalStateException` if the variable is not set, `findVariable` returns an `Optional` |
+| `findTimer`, `setTimer`, `cancelTimer` | Process timers for `at`: [awaits.md](awaits.md#process-timers-at) |
 | `processId()`, `processType()`, `state()`, `businessKey()`, `correlationId()` | Process identity |
 | `attempt()` | Number of failed attempts of the current step or event: [error-handling.md](error-handling.md) |
 | `now()` | Engine time; use it instead of `Instant.now()`, so that tests control it |
@@ -136,7 +136,7 @@ failed attempts (`byAttempted`) and a `LIKE` pattern on variables. `list` return
 `singleDetails` return at most one process and throw `TooManyRowsException` if several match.
 
 `ProcessInstanceDetails` adds the variables, process timers, last error and state history to the summary. Variables
-are read in a typed way: `details.variables().get(ORDER_ID)` returns an `Optional`.
+are read in a typed way: `details.variables().find(ORDER_ID)` returns an `Optional`.
 
 The query runs in the caller's transaction. `withLock()` locks the found rows with `SELECT ... FOR UPDATE` until the
 transaction ends.

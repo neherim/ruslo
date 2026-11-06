@@ -10,12 +10,12 @@ public interface ProcessType {
 
     String name();
 
-    /** Returns the canonical type with the same name. */
+    /** Returns a type object that holds only the name. */
     default ProcessTypeId id() {
         return new ProcessTypeId(name());
     }
 
-    /** Returns the canonical type with the given name. */
+    /** Returns a type object that holds only the given name. */
     static ProcessTypeId of(String name) {
         return new ProcessTypeId(name);
     }

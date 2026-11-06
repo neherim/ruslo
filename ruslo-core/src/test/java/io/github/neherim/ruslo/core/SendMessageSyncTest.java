@@ -59,7 +59,7 @@ class SendMessageSyncTest extends BaseTest {
 
         var process = find(id);
         assertEquals(State.NEXT, process.state());
-        assertEquals(Optional.of("m"), process.variables().get(SIGNAL_PAYLOAD));
+        assertEquals(Optional.of("m"), process.variables().find(SIGNAL_PAYLOAD));
         assertEquals(List.of("m"), log);
     }
 

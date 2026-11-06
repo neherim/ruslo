@@ -11,9 +11,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
-/** Message queue of the current await; cleared on every state entry. */
+/**
+ * Message queue of the current await; cleared on every state entry.
+ */
 public final class ProcessMessages {
     private static final TypeReference<List<PendingMessage>> MESSAGE_LIST = new TypeReference<>() {
     };
@@ -41,12 +42,11 @@ public final class ProcessMessages {
         return mapper.writeValueAsString(entries);
     }
 
-    public void append(MessageType<?> type, Object payload, UUID id, Instant receivedAt) {
+    public void append(MessageType<?> type, Object payload, Instant receivedAt) {
         Objects.requireNonNull(type);
-        Objects.requireNonNull(id);
         Objects.requireNonNull(receivedAt);
         var tree = mapper.valueToTree(payload);
-        entries.add(new PendingMessage(id, type.name(), tree, receivedAt));
+        entries.add(new PendingMessage(type.name(), tree, receivedAt));
     }
 
     public Optional<PendingMessage> peekFirst() {
@@ -75,7 +75,7 @@ public final class ProcessMessages {
         T payload = entry.payload() == null || entry.payload().isNull()
                 ? null
                 : mapper.treeToValue(entry.payload(), type.clazz());
-        return new IncomingMessage<>(entry.id(), type, payload, entry.receivedAt());
+        return new IncomingMessage<>(type, payload, entry.receivedAt());
     }
 
     public Object normalizePayload(Object payload, Class<?> payloadClass) {
@@ -83,10 +83,11 @@ public final class ProcessMessages {
         return mapper.treeToValue(mapper.valueToTree(payload), payloadClass);
     }
 
-    /** A stored message not yet handled by the current await. */
-    public record PendingMessage(UUID id, String type, JsonNode payload, Instant receivedAt) {
+    /**
+     * A stored message not yet handled by the current await.
+     */
+    public record PendingMessage(String type, JsonNode payload, Instant receivedAt) {
         public PendingMessage {
-            Objects.requireNonNull(id);
             Objects.requireNonNull(type);
             Objects.requireNonNull(receivedAt);
         }

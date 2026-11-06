@@ -2,7 +2,6 @@ package io.github.neherim.ruslo.core.utils;
 
 import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
-import io.github.neherim.ruslo.core.api.definition.ProcessError;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
 
 import java.time.Duration;
@@ -35,9 +34,9 @@ public class ExponentialBackoffProcessErrorHandler implements ProcessErrorHandle
     }
 
     @Override
-    public ErrorResult handle(ProcessContext context, ProcessError error) {
-        if (error.attempt() < maxRetries) {
-            return ErrorResult.retryAfter(calculateDelay(error.attempt()));
+    public ErrorResult handle(ProcessContext context, Throwable cause) {
+        if (context.attempt() < maxRetries) {
+            return ErrorResult.retryAfter(calculateDelay(context.attempt()));
         }
         return ErrorResult.giveUp();
     }

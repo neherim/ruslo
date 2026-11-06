@@ -72,22 +72,21 @@ class StepExecutorTest {
     @Test
     void selfTargetMessageIsConsumedWithoutReentry() {
         var process = awaitProcess(State.WAIT);
-        var first = UUID.randomUUID();
-        var second = UUID.randomUUID();
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", first, NOW);
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", second, NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", NOW);
         var deadline = process.getAfterDueAt().orElseThrow();
         assertTrue(executor.executeNextProcessStep(process));
         assertEquals(State.WAIT.name(), process.getState().name());
-        assertEquals(second, process.getMessages().peekFirst().orElseThrow().id());
+        var queued = process.getMessages().peekFirst().orElseThrow();
+        assertEquals("b", process.getMessages().convert(queued, SIGNAL).payload());
         assertEquals(deadline, process.getAfterDueAt().orElseThrow());
     }
 
     @Test
     void otherTargetMessageEntersStateAndClosesQueue() {
         var process = awaitProcess(State.DONE);
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", UUID.randomUUID(), NOW);
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", UUID.randomUUID(), NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", NOW);
         assertTrue(executor.executeNextProcessStep(process));
         assertTrue(process.getMessages().isEmpty());
         assertEquals(ProcessStatus.COMPLETED, process.getStatus());
@@ -96,7 +95,7 @@ class StepExecutorTest {
     @Test
     void messageReceivedBeforeDeadlineWinsWithoutBackoff() {
         var process = awaitProcess(State.DONE);
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", UUID.randomUUID(), NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
         clock.now = NOW.plus(Duration.ofMinutes(2));
         executor.executeNextProcessStep(process);
         assertEquals(State.DONE.name(), process.getState().name());
@@ -105,7 +104,7 @@ class StepExecutorTest {
     @Test
     void retryBackoffKeepsOrderOfEvents() {
         var process = awaitProcess(State.DONE);
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", UUID.randomUUID(), NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
         process.scheduleRetryAfter(Duration.ofMinutes(10), "boom");
         assertEquals(Optional.of(NOW.plus(Duration.ofMinutes(10))), process.getNextRunAt());
         clock.now = process.getNextRunAt().orElseThrow();

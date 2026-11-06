@@ -8,6 +8,8 @@ package io.github.neherim.ruslo.core.api.definition;
  */
 @FunctionalInterface
 public interface ProcessMessageHandler<T> {
-    /** Handles the message. */
+    /**
+     * Handles the message.
+     */
     void handle(ProcessContext context, IncomingMessage<T> message);
 }

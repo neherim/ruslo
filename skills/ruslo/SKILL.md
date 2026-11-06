@@ -95,22 +95,23 @@ enum Validation { VALID, REJECTED }
 ```
 
 To add a branch, change `ProcessStep` to `BranchingStep<Outcome>`; the compiler then points at the definition
-line where the target must become routes. `build()` checks that all enum constants are routed.
+line where the target must become routes. The builder checks that all enum constants are routed when the routes
+callback returns.
 
 ### Await rules
 
-- At most one `every`, one `after` and one `at` per await, in any combination; at least one event must lead to
-  another state.
+- At most one `every`, one `after` and one `at` per await, in any combination; at least one event is required.
+  All events may target the await itself, allowing the process to handle messages or periodic events indefinitely.
 - `every` and `after` are await timers: they live one entry of the await. `after(delay)` fires `delay` after
   entering the await.
 - `at(T)` waits for a **process timer** `T` (`static final TimerType DUE = TimerType.of("due")`): a named moment the
   code sets with `context.setTimer(T, moment)` (or `newProcess(...).timer(T, moment)` at start) and cancels with
-  `context.cancelTimer(T)`; `context.getTimer(T)` returns `Optional<Instant>`. It fires when the process is in that
+  `context.cancelTimer(T)`; `context.findTimer(T)` returns `Optional<Instant>`. It fires when the process is in that
   await and the timer is set and due; a past moment fires right away; `setTimer` moves it earlier or later without
   re-entry. No timer set, no `at`. `T` must be used by some `at` of the process, otherwise these methods and the
   start throw `IllegalArgumentException`; `setTimer(T, null)` throws `NullPointerException`. Moments are truncated
   to microseconds.
-- **A fired process timer stays set while its handler runs**: `getTimer(T)` returns the fired moment. Moving the
+- **A fired process timer stays set while its handler runs**: `findTimer(T)` returns the fired moment. Moving the
   timer makes a schedule; count the next moment from the fired one, not from `now()`. A timer the handler left
   unchanged (or set to the same moment) is cancelled after it, and the await waits for its other events (no error).
   Keep a date in a variable only if it is not the moment itself (e.g. a date in the customer's time zone).
@@ -130,7 +131,7 @@ line where the target must become routes. `build()` checks that all enum constan
   (`fixed(maxRetries, delay)` + `onGiveUp`) or catch the error in the handler.
 - A deadline that can move (extension by a message, a due date from the order) is `at(DUE, ...)` plus a message
   handler that calls `setTimer(DUE, newMoment)` and targets the await itself. A schedule by calendar dates is `at`
-  whose handler moves its timer to the next date; compute the date from the fired moment (`getTimer`) and the
+  whose handler moves its timer to the next date; compute the date from the fired moment (`findTimer`) and the
   original date (e.g. sign-up date plus n months), not from the current time (the day drifts after a short month,
   and a late charge would shift the schedule).
 - Polling an external system: `every` with branching routes back to the same await. Do not build a
@@ -141,7 +142,8 @@ line where the target must become routes. `build()` checks that all enum constan
 
 ### ProcessContext
 
-`getVariable(type)` (nullable), `setVariable(type, value)`, `removeVariable(type)`, `getTimer(timer)`,
+`getVariable(type)` (throws `IllegalStateException` if not set), `findVariable(type)` (`Optional`, for optional
+variables), `setVariable(type, value)`, `removeVariable(type)`, `findTimer(timer)`,
 `setTimer(timer, moment)`, `cancelTimer(timer)`, `processId()`,
 `processType()`, `state()`, `businessKey()`, `correlationId()`, `attempt()`, `now()`.
 
@@ -199,6 +201,7 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
   the `onGiveUp` state itself stops the process in `FAILED`.
 - Expected business situations (declined card, rejected application) are **outcomes of a branching handler**,
   not exceptions.
+- A custom handler is `(context, cause) -> ErrorResult`; the number of previous failures is `context.attempt()`.
 - Built-ins: `ProcessErrorHandler.noRetry()` (default), `fixed(maxRetries, delay)`,
   `exponential(maxRetries, initialDelay, maxDelay)`. With `onGiveUp`, `noRetry()` goes there on the first
   error.
@@ -312,7 +315,7 @@ class OrderProcessTest {
 - Emulator: `runUntilStop(id)`, `runOneStep(id)`, `runUntilState(id, state)`, `runAll()`,
   `sendMessageAndRunUntilStop(id, type, payload)`, `fastForwardTime(d)`, `setTime(instant)`.
   Results are `ProcessInstanceDetails`: check `state()`, `status()`, `lastError()`,
-  `variables().get(TYPE)` (`Optional`), `timers().get(DUE.name())`.
+  `variables().find(TYPE)` (`Optional`), `timers().get(DUE.name())`.
 - Assert the state as `assertEquals(State.X, details.state())`, expected value first: the failure shows the
   actual state. `details.toString()` summarizes status, `lastError`, recent history, variables and timers: pass
   `details::toString` as the message, and read it when `runUntilState` throws.
@@ -349,8 +352,9 @@ class OrderProcessTest {
 | `X cannot be converted to Y` inside routes | Routes use constants of another enum than the handler returns |
 | Same symptoms with `message(...)` / `every(...)` | Same fixes as for steps |
 
-`build()` validates the rest (duplicate states/events, undeclared targets, incomplete routes, non-positive
-delays, await without exit, unregistered workers) and its message names the problem.
+The builder validates declarations and transitions (duplicate states/events, undeclared targets, incomplete routes,
+non-positive delays, empty awaits) and its message names the problem. Routes and empty awaits are checked when their
+callbacks return; undeclared targets are checked by `build()`. Engine registration also checks workers.
 
 ## Online documentation (optional)
 

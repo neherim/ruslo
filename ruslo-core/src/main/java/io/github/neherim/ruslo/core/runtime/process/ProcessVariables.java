@@ -10,6 +10,7 @@ import tools.jackson.databind.cfg.JsonNodeFeature;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /** Stores process variables as one JSON object: variable name to its JSON value. */
 public class ProcessVariables {
@@ -30,7 +31,7 @@ public class ProcessVariables {
 
     /**
      * Reads variables from a JSON object. Decimals are read as {@code BigDecimal} without losing precision or scale,
-     * so {@link #getVariable} returns the stored value.
+     * so {@link #findVariable} returns the stored value.
      */
     public static ProcessVariables fromString(ObjectMapper objectMapper, String json) {
         if (json == null || json.isBlank()) {
@@ -73,12 +74,13 @@ public class ProcessVariables {
         return variables.remove(name) != null;
     }
 
-    public <T> T getVariable(String name, Class<T> clazz) {
+    /** Returns the variable, empty if it is not set or holds JSON {@code null}. */
+    public <T> Optional<T> findVariable(String name, Class<T> clazz) {
         var jsonValue = variables.get(name);
         if (jsonValue == null) {
-            return null;
+            return Optional.empty();
         }
-        return objectMapper.treeToValue(jsonValue, clazz);
+        return Optional.ofNullable(objectMapper.treeToValue(jsonValue, clazz));
     }
 
     /** Returns an immutable map of variable name to the JSON text of its value. */
