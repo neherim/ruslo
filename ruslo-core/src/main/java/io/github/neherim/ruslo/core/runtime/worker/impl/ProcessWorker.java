@@ -8,10 +8,7 @@ import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
 import io.github.neherim.ruslo.core.runtime.process.ClaimedProcess;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceDao;
-import io.github.neherim.ruslo.core.runtime.worker.HandlerException;
-import io.github.neherim.ruslo.core.runtime.worker.StepErrorHandler;
-import io.github.neherim.ruslo.core.runtime.worker.StepExecutor;
-import io.github.neherim.ruslo.core.runtime.worker.Worker;
+import io.github.neherim.ruslo.core.runtime.worker.*;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import org.slf4j.Logger;
@@ -88,7 +85,6 @@ public class ProcessWorker implements Worker {
 
     @Override
     public boolean tryExecute(ProcessLease lease) {
-        Objects.requireNonNull(lease, "Lease must not be null");
         return executor.trySubmit(() -> execute(lease));
     }
 
@@ -108,11 +104,7 @@ public class ProcessWorker implements Worker {
 
     private void execute(ProcessLease lease) {
         try {
-            try {
-                executeSteps(lease);
-            } catch (HandlerException ex) {
-                stepErrorHandler.handleHandlerError(ex.getCause(), lease);
-            }
+            executeSteps(lease);
         } catch (LeaseLostException ex) {
             onLeaseLost(ex, lease);
         } catch (RuntimeException ex) {
@@ -121,8 +113,12 @@ public class ProcessWorker implements Worker {
     }
 
     private void executeSteps(ProcessLease lease) {
-        while (executeNextStep(lease)) {
-            // The transition is committed and the process is ready on this worker: continue under the same lease.
+        try {
+            while (executeNextStep(lease)) {
+                // The transition is committed and the process is ready on this worker: continue under the same lease.
+            }
+        } catch (WorkerHandlerException ex) {
+            stepErrorHandler.handleWorkerError(ex);
         }
     }
 
@@ -142,8 +138,13 @@ public class ProcessWorker implements Worker {
      */
     private boolean executeClaimedStep(ClaimedProcess claimed) {
         var process = claimed.process();
-        var retainLease = isRunnableHere(process) && stepExecutor.executeNextProcessStep(process)
-                && isRunnableHere(process);
+        boolean retainLease;
+        try {
+            retainLease = isRunnableHere(process) && stepExecutor.executeNextProcessStep(process)
+                    && isRunnableHere(process);
+        } catch (HandlerException ex) {
+            throw new WorkerHandlerException(ex.getCause(), claimed.lease(), claimed.expectedRowVersion());
+        }
         if (retainLease) {
             processInstanceDao.updateClaimed(claimed);
         } else {
@@ -180,4 +181,5 @@ public class ProcessWorker implements Worker {
     private static LeaseLostException leaseLost(ProcessLease lease) {
         return new LeaseLostException(lease.processId());
     }
+
 }

@@ -90,10 +90,12 @@ class ProcessMdcTest extends BaseTest {
         var definition = new ErrorDefinition(observedMdc);
         var fixture = WorkerTestFixture.with(database, definition);
         var process = fixture.insertNewProcess(ErrorDefinition.TYPE, "error-correlation");
+        var lease = fixture.task(process);
+        var claimed = fixture.dao().findClaimed(lease).orElseThrow();
 
         fixture.stepErrorHandler()
-            .handleHandlerError(
-                    new IllegalStateException("boom"), fixture.task(process));
+            .handleWorkerError(
+                    new WorkerHandlerException(new IllegalStateException("boom"), lease, claimed.expectedRowVersion()));
 
         assertEquals("error-correlation", observedMdc.get().get("correlation_id"));
         assertEquals(process.getId().toString(), observedMdc.get().get("process_id"));

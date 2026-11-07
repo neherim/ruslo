@@ -1,17 +1,21 @@
 package io.github.neherim.ruslo.core.runtime.worker.impl;
 
 import io.github.neherim.ruslo.core.BaseTest;
+import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
 import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceDao;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerTestFixture;
 import io.github.neherim.ruslo.core.utils.thread.CurrentThreadExecutorService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -316,6 +320,61 @@ class LeaseAwareWorkerTest extends BaseTest {
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
         assertEquals(0, stored.getAttempt());
         assertTrue(stored.getLastError().isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void handlerFailureDoesNotMutateConcurrentlyChangedProcess(boolean completeProcess) {
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var errorHandlerCalls = new AtomicInteger();
+        var type = ProcessType.of("LEASE_ERROR_VERSION_CONFLICT");
+        ProcessDefinition definition = builder -> builder.type(type)
+            .onError((context, cause) -> {
+                errorHandlerCalls.incrementAndGet();
+                return ErrorResult.fail();
+            })
+            .initialState(TestState.INIT)
+            .step(TestState.INIT, context -> {
+                context.setVariable(STALE, true);
+                entered.countDown();
+                awaitLatch(release, "Test should release the failing step");
+                throw new IllegalStateException("Failure of the old process version");
+            }, TestState.DONE)
+            .terminal(TestState.DONE)
+            .build();
+        var fixture = WorkerTestFixture.with(database, definition);
+        var process = fixture.insertNewProcess(type, "error-version-conflict");
+        var lease = fixture.leaseTask(process);
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var worker = fixture.nonTransactionalLeaseWorker(1, executor, new ProcessDispatchSignal());
+            try {
+                assertTrue(worker.tryExecute(lease));
+                awaitLatch(entered, "Failing step should start before the process changes");
+                database.doInTransaction(() -> {
+                    var changed = fixture.dao().findWithLockById(process.getId()).orElseThrow();
+                    changed.setVariable("fresh", true);
+                    if (completeProcess) changed.enterState(TestState.DONE);
+                    fixture.dao().update(changed);
+                });
+                assertEquals(lease.ownerId(), storedOwner(process.getId()));
+            } finally {
+                release.countDown();
+                worker.close();
+            }
+        }
+
+        var stored = fixture.dao().findById(process.getId()).orElseThrow();
+        assertEquals(0, errorHandlerCalls.get());
+        assertEquals(completeProcess ? ProcessStatus.COMPLETED : ProcessStatus.ACTIVE, stored.getStatus());
+        assertEquals((completeProcess ? TestState.DONE : TestState.INIT).name(), stored.getState().name());
+        assertTrue(stored.findVariable("fresh", Boolean.class).orElseThrow());
+        assertTrue(stored.findVariable("stale", Boolean.class).isEmpty());
+        assertEquals(0, stored.getAttempt());
+        assertTrue(stored.getLastError().isEmpty());
+        assertEquals(1L, storedVersion(process.getId()));
+        assertNull(storedOwner(process.getId()));
     }
 
     @Test

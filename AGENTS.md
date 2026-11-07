@@ -78,6 +78,7 @@ the related Spring properties in the starter.
 ## Design Principles
 
 - Simplicity is the main value of this library, in the public API and in the implementation. Choose the simplest, most direct and maintainable solution that works; do not add extra abstractions, wrapper classes, design patterns or future-proofing unless explicitly asked. Over-engineering is a defect.
+- Validate external input at system boundaries. Internal code must rely on invariants already guaranteed by its callers and types. Do not repeat null checks, range checks or other validation without a concrete current call path that requires them. A public modifier on an internal class does not make it an external API boundary. Checks of mutable concurrent state, such as `row_version`, remain necessary.
 - When choosing between solutions, prefer the one with fewer independent concepts, allowed combinations and special rules. The number of types or lines is not the goal: one class with nullable fields and many valid combinations is more complex than three small records.
 - Simplicity of execution rules matters most: how the engine selects events, commits transitions and handles errors. Every new rule or exception to a rule must be justified by a real requirement.
 
@@ -102,8 +103,8 @@ Engine operations join the caller's transaction, and in Spring any exception esc
 ## Working Rules
 
 - Implementation plans go to `plans/` at the repository root; the folder is not committed. Everything worth keeping from a plan moves into code, Javadoc, docs and the commit message.
-- If you change public API, configuration properties, database schema, test utilities or behavior, also update affected callers and relevant Javadoc, docs and examples in the same change.
-- For behavior changes or changes affecting what a library user writes (definitions, handlers, engine calls, error handling, workers, testing), also update the user-facing agent skill `skills/ruslo/SKILL.md` in the same change.
+- If you change public API, configuration properties, database schema, test utilities or behavior, also update affected callers and relevant Javadoc in the same change.
+- Update user documentation, examples and `skills/ruslo/SKILL.md` only when a change affects the public contract, recommended usage, or what a library user should write, configure or do. Internal refactorings and bug fixes that restore existing invariants do not require user-facing documentation changes unless existing guidance becomes incorrect. Keep implementation details and internal concurrency safeguards in code, internal Javadoc and tests.
 - If you add, rename, remove, or change defaults/semantics of Spring Boot configuration properties, also update `ruslo-spring-boot-starter/src/main/resources/META-INF/additional-spring-configuration-metadata.json`.
 - Database migrations are append-only: never edit or delete an existing `V<n>__*.sql`. Add the next version for every
   supported database (`ruslo-core/src/main/resources/db/migration/h2/` and `.../postgresql/`, auto-discovered by

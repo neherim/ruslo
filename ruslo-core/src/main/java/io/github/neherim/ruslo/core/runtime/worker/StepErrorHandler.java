@@ -19,7 +19,9 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Handles system and handler errors raised while executing a process step. */
+/**
+ * Handles system and handler errors raised while executing a process step.
+ */
 public class StepErrorHandler {
     private static final Logger log = LoggerFactory.getLogger(StepErrorHandler.class);
     private static final Duration SYSTEM_RETRY_DELAY = Duration.ofSeconds(60);
@@ -58,18 +60,22 @@ public class StepErrorHandler {
     }
 
     /**
-     * Handles a step or event handler failure, only while the lease of the original worker task holds.
+     * Handles a step or event handler failure.
      *
-     * @throws LeaseLostException if the lease is lost
+     * @throws LeaseLostException if the lease is lost or the process was changed concurrently
      */
-    public void handleHandlerError(Throwable cause, ProcessLease lease) {
+    public void handleWorkerError(WorkerHandlerException failure) {
         database.doInTransaction(() -> {
+            var lease = failure.getLease();
             var claimed = processInstanceDao.findClaimedWithLock(lease)
                 .orElseThrow(() -> new LeaseLostException(lease.processId()));
+            if (claimed.expectedRowVersion() != failure.getExpectedRowVersion()) {
+                throw new LeaseLostException(lease.processId());
+            }
             var process = claimed.process();
             try (var ignored = processMdc.open(process)) {
-                log.error("Handle process step execution error", cause);
-                applyErrorPolicy(process, cause);
+                log.error("Handle process step execution error", failure.getCause());
+                applyErrorPolicy(process, failure.getCause());
                 processInstanceDao.updateAndReleaseLease(claimed);
             }
         });
@@ -79,7 +85,7 @@ public class StepErrorHandler {
      * Applies the same error policy after an administrative execution of {@code state} was rolled back.
      *
      * @return {@code true} if the process is ready to continue immediately, e.g. {@code giveUp} or a zero-delay
-     *         retry leads to a step
+     * retry leads to a step
      */
     public boolean handleAdministrativeError(Throwable cause, UUID processId, ProcessStateId state) {
         log.error("Administrative step execution failed for process {}", processId, cause);
