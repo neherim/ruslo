@@ -4,8 +4,7 @@ ruslo is a Java library for long-running business processes stored in a relation
 machine: steps run code and move it to the next state, awaits wait for messages and timers. State lives in `xs_*`
 tables, a lease dispatcher runs ready processes on one or many nodes. Supported databases: H2 and PostgreSQL.
 
-The project is before 1.0: public API may change incompatibly when it makes the library simpler. Update callers, docs,
-examples and `skills/ruslo/SKILL.md` in the same change.
+The project is before 1.0: public API may change incompatibly when it makes the library simpler.
 
 ## Project Structure
 
@@ -78,10 +77,9 @@ the related Spring properties in the starter.
 
 ## Design Principles
 
-- Simplicity is the main value of this library, in the public API and in the implementation. Over-engineering is a defect, not a reserve for the future.
+- Simplicity is the main value of this library, in the public API and in the implementation. Choose the simplest, most direct and maintainable solution that works; do not add extra abstractions, wrapper classes, design patterns or future-proofing unless explicitly asked. Over-engineering is a defect.
 - When choosing between solutions, prefer the one with fewer independent concepts, allowed combinations and special rules. The number of types or lines is not the goal: one class with nullable fields and many valid combinations is more complex than three small records.
 - Simplicity of execution rules matters most: how the engine selects events, commits transitions and handles errors. Every new rule or exception to a rule must be justified by a real requirement.
-- Always choose the simplest, most direct, and most maintainable solution that works. Do not add extra abstractions, wrapper classes, design patterns, or future-proofing unless explicitly asked.
 
 ### Exceptions vs. return values in the public API
 
@@ -104,9 +102,9 @@ Engine operations join the caller's transaction, and in Spring any exception esc
 ## Working Rules
 
 - Implementation plans go to `plans/` at the repository root; the folder is not committed. Everything worth keeping from a plan moves into code, Javadoc, docs and the commit message.
-- If you change public API, configuration properties, database schema, or test utilities, also update the relevant docs/examples in the same change.
-- If such a change affects what a library user writes (definitions, handlers, engine calls, error handling, workers, testing), also update the user-facing agent skill `skills/ruslo/SKILL.md` in the same change.
-- If you add, rename, remove, or change defaults/semantics of Spring Boot configuration properties, update `ruslo-spring-boot-starter/src/main/resources/META-INF/additional-spring-configuration-metadata.json` and relevant docs/examples in the same change.
+- If you change public API, configuration properties, database schema, test utilities or behavior, also update affected callers and relevant Javadoc, docs and examples in the same change.
+- For behavior changes or changes affecting what a library user writes (definitions, handlers, engine calls, error handling, workers, testing), also update the user-facing agent skill `skills/ruslo/SKILL.md` in the same change.
+- If you add, rename, remove, or change defaults/semantics of Spring Boot configuration properties, also update `ruslo-spring-boot-starter/src/main/resources/META-INF/additional-spring-configuration-metadata.json`.
 - Database migrations are append-only: never edit or delete an existing `V<n>__*.sql`. Add the next version for every
   supported database (`ruslo-core/src/main/resources/db/migration/h2/` and `.../postgresql/`, auto-discovered by
   `V<version>__<name>.sql`) and verify the affected DAO/query code. All engine tables use the `xs_` prefix.
@@ -138,9 +136,7 @@ Javadoc is a technical contract, not prose. Write the minimum the caller needs, 
 - The first sentence says what the element does, in third person: `Starts…`, `Returns…`.
 - Describe what the caller observes: result, exceptions, side effects, transaction and threading behavior. Do not retell the implementation.
 - Describe a rule shared by several methods once (class, exception or `package-info` Javadoc) and link to it with `{@link}`.
-- Write `@param` and `@return` only when they add something to the name and type. Keep `@throws` for every exception the caller may need to handle.
-- Do not repeat in the text what a `@throws` or `@param` tag already says.
-- Cut a sentence that restates a type or name, repeats a rule documented elsewhere, or explains internals.
+- Write `@param` and `@return` only when they add something to the name and type. Keep `@throws` for every exception the caller may need to handle. Do not repeat names, types or tag content in the prose.
 - Internal classes: explain why, not what the code does. A short class Javadoc is usually enough.
 
 ### Documentation
@@ -150,8 +146,8 @@ Javadoc is a technical contract, not prose. Write the minimum the caller needs, 
 - Documentation may explain in more detail than Javadoc, but stays technical: no filler, no marketing.
 - Documentation describes the model and the recommended usage. Exact edge cases of a method (argument checks,
   truncation, behavior in rare states) belong in its Javadoc, not in `docs/`.
-- Every fact has one home page; other pages link to it instead of restating it. A behavior change should touch its
-  home page, the Javadoc and `skills/ruslo/SKILL.md`, not every page that mentions the feature.
+- Every fact has one home page; other pages link to it instead of restating it. Update that page when behavior
+  changes, not every page that mentions the feature.
 
 | Topic | Home in `docs/<lang>/` |
 |---|---|
