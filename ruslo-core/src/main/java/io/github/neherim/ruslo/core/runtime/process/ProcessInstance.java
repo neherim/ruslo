@@ -289,7 +289,10 @@ public final class ProcessInstance {
 
     /** Returns the current await; {@code null} for another or a removed state. */
     private AwaitState currentAwait() {
-        return spec.hasState(state) && getStateSpec() instanceof AwaitState await ? await : null;
+        return spec.findStateSpec(state)
+            .filter(AwaitState.class::isInstance)
+            .map(AwaitState.class::cast)
+            .orElse(null);
     }
 
     /** Clears the previous error. */
@@ -437,8 +440,11 @@ public final class ProcessInstance {
 
     /** Returns the worker of the current state; empty for a terminal or removed state. */
     public Optional<WorkerId> getWorkerId() {
-        if (!spec.hasState(state) || getStateSpec() instanceof TerminalState) return Optional.empty();
-        return Optional.of(spec.getWorkerId(state));
+        return spec.findStateSpec(state).flatMap(stateSpec -> switch (stateSpec) {
+            case StepState step -> Optional.of(step.worker());
+            case AwaitState ignored -> Optional.of(WorkerId.DEFAULT);
+            case TerminalState ignored -> Optional.empty();
+        });
     }
 
     List<ProcessStateHist> drainPendingHistoryEntries() {

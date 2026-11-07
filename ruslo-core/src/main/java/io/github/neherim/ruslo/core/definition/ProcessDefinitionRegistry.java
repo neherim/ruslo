@@ -111,8 +111,8 @@ public class ProcessDefinitionRegistry {
     }
 
     private ProcessSpecInfo.StateInfo mapStateToInfo(ProcessSpec spec, ProcessSpec.StateSpec state) {
-        var description = spec.getStateDescription(state.state());
-        var declared = spec.declaredState(state.state().name());
+        var declared = state.declaration();
+        var description = declared.description();
         return switch (state) {
             case ProcessSpec.StepState step -> new ProcessSpecInfo.StateInfo(declared, description,
                     ProcessSpecInfo.StateKind.STEP, Optional.of(step.worker()), Set.of(), Optional.empty(),

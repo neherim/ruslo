@@ -35,6 +35,9 @@ class ProcessSpecBuilderTest {
         assertInstanceOf(StepState.class, spec.getStateSpec(State.START));
         assertInstanceOf(AwaitState.class, spec.getStateSpec(State.WAIT));
         assertInstanceOf(TerminalState.class, spec.getStateSpec(State.DONE));
+        assertSame(State.START, spec.getStateSpec(State.START).declaration());
+        assertTrue(spec.findStateSpec(State.START).isPresent());
+        assertTrue(spec.findStateSpec(ProcessState.of("MISSING")).isEmpty());
         assertEquals(new WorkerId("DEFAULT_WORKER"), spec.getWorkerId(State.START));
         assertEquals(new WorkerId("OWN_WORKER"), spec.getWorkerId(State.OTHER));
         assertEquals(WorkerId.DEFAULT, spec.getWorkerId(State.WAIT));
@@ -42,6 +45,8 @@ class ProcessSpecBuilderTest {
         assertEquals(MESSAGE, spec.getMessageEvent(MESSAGE, State.WAIT).orElseThrow().type());
         assertEquals(Set.of("MESSAGE"), spec.getApplicableMessageTypeNames(State.WAIT));
         var await = (AwaitState) spec.getStateSpec(State.WAIT);
+        assertEquals(MESSAGE, await.message("MESSAGE").orElseThrow().type());
+        assertEquals(Set.of("MESSAGE"), await.messageTypeNames());
         assertEquals(Interval.of(Duration.ofSeconds(1)), await.every().interval());
         assertEquals(Duration.ofSeconds(1), await.every().interval().firstAfter());
         assertEquals(Duration.ofSeconds(2), await.after().delay());

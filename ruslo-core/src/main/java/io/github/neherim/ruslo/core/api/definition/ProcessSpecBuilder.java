@@ -140,8 +140,7 @@ public class ProcessSpecBuilder {
          * @throws IllegalArgumentException if the await has no events
          */
         public StatesBuilder await(ProcessState state, Consumer<AwaitBuilder> definition) {
-            var id = state.id();
-            var events = new AwaitBuilder(id, draft);
+            var events = new AwaitBuilder(state, draft);
             requireNonNull(definition, "Await definition cannot be null").accept(events);
             draft.add(state, events.build());
             return this;
@@ -149,7 +148,7 @@ public class ProcessSpecBuilder {
 
         /** Declares a terminal state: entering it completes the process. */
         public StatesBuilder terminal(ProcessState state) {
-            draft.add(state, new TerminalState(state.id()));
+            draft.add(state, new TerminalState(state));
             return this;
         }
 
@@ -196,14 +195,14 @@ public class ProcessSpecBuilder {
      */
     public static class AwaitBuilder {
         private static final Function<ProcessContext, Enum<?>> NO_HANDLER = context -> null;
-        private final ProcessStateId state;
+        private final ProcessState state;
         private final Draft draft;
         private final List<MessageEvent<?>> messages = new ArrayList<>();
         private EveryEvent every;
         private AfterEvent after;
         private AtEvent at;
 
-        private AwaitBuilder(ProcessStateId state, Draft draft) {
+        private AwaitBuilder(ProcessState state, Draft draft) {
             this.state = state;
             this.draft = draft;
         }
@@ -391,7 +390,7 @@ public class ProcessSpecBuilder {
 
         private Target withoutHandler(ProcessState next, String event) {
             var target = next.id();
-            if (state.equals(target)) {
+            if (state.id().equals(target)) {
                 throw new IllegalArgumentException(where(event) + " without a handler cannot target its own await "
                         + "state: it would do nothing");
             }
@@ -417,8 +416,7 @@ public class ProcessSpecBuilder {
     private static final class Draft {
         private final ProcessType declaredType;
         private final ProcessTypeId type;
-        private final Map<String, StateSpec> states = new LinkedHashMap<>();
-        private final Map<String, ProcessState> declaredStates = new HashMap<>();
+        private final Map<ProcessStateId, StateSpec> states = new LinkedHashMap<>();
         private String description;
         private WorkerId defaultWorker = WorkerId.DEFAULT;
         private ProcessErrorHandler errorHandler = ProcessErrorHandler.noRetry();
@@ -431,8 +429,9 @@ public class ProcessSpecBuilder {
         }
 
         private void add(ProcessState state, StateSpec spec) {
-            var name = spec.state().name();
-            if (states.putIfAbsent(name, spec) != null) {
+            var id = state.id();
+            var name = id.name();
+            if (states.putIfAbsent(id, spec) != null) {
                 throw new IllegalArgumentException("State " + name + " is already defined in process " + type.name());
             }
             var stateDescription = state.description();
@@ -440,7 +439,6 @@ public class ProcessSpecBuilder {
                 throw new IllegalArgumentException("Description of state " + name + " of process " + type.name()
                         + " cannot be blank");
             }
-            declaredStates.put(name, state);
         }
 
         private void addStep(
@@ -450,7 +448,7 @@ public class ProcessSpecBuilder {
                 Exit exit
         ) {
             requireNonNull(worker, "Worker id cannot be null");
-            add(state, new StepState(state.id(), step, worker, exit));
+            add(state, new StepState(state, step, worker, exit));
         }
 
         private <O extends Enum<O>> ProcessSpec.Routes routes(Consumer<Routes<O>> definition, String where) {
@@ -468,8 +466,8 @@ public class ProcessSpecBuilder {
         }
 
         private ProcessSpec build() {
-            if (!(states.get(initial.name()) instanceof StepState)
-                    && !(states.get(initial.name()) instanceof AwaitState)) {
+            if (!(states.get(initial) instanceof StepState)
+                    && !(states.get(initial) instanceof AwaitState)) {
                 throw new IllegalArgumentException("Initial state " + initial.name() + " of process " + type.name()
                         + " must be a declared step or await");
             }
@@ -484,8 +482,7 @@ public class ProcessSpecBuilder {
                 }
             }
             if (giveUpState != null) checkDeclared(giveUpState, "onGiveUp state");
-            return new ProcessSpec(type, declaredType, description, initial, states, declaredStates, errorHandler,
-                    giveUpState);
+            return new ProcessSpec(declaredType, description, initial, states, errorHandler, giveUpState);
         }
 
         private void checkAwait(AwaitState await, Map<String, Class<?>> payloads) {
@@ -518,7 +515,7 @@ public class ProcessSpecBuilder {
         }
 
         private void checkDeclared(ProcessStateId target, String where) {
-            if (!states.containsKey(target.name())) {
+            if (!states.containsKey(target)) {
                 throw new IllegalArgumentException("Target state " + target.name() + " of " + where + " of process "
                         + type.name() + " is not declared");
             }
