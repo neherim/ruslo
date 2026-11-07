@@ -91,7 +91,7 @@ class ProcessMdcTest extends BaseTest {
         var fixture = WorkerTestFixture.with(database, definition);
         var process = fixture.insertNewProcess(ErrorDefinition.TYPE, "error-correlation");
         var lease = fixture.task(process);
-        var claimed = fixture.dao().findClaimed(lease).orElseThrow();
+        var claimed = fixture.dao().findClaimed(lease);
 
         fixture.stepErrorHandler()
             .handleWorkerError(

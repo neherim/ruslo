@@ -31,14 +31,11 @@ final class BoundedExecutor implements AutoCloseable {
     }
 
     BoundedExecutor(
-            int maxConcurrency,
-            Executor executor,
-            Runnable completionHook,
-            Duration shutdownTimeout
+        int maxConcurrency,
+        Executor executor,
+        Runnable completionHook,
+        Duration shutdownTimeout
     ) {
-        if (maxConcurrency <= 0) {
-            throw new IllegalArgumentException("maxConcurrency must be greater than 0");
-        }
         this.executor = Objects.requireNonNull(executor, "Executor must not be null");
         this.completionHook = Objects.requireNonNull(completionHook, "Completion hook must not be null");
         this.shutdownTimeout = Objects.requireNonNull(shutdownTimeout, "Shutdown timeout must not be null");
@@ -96,16 +93,14 @@ final class BoundedExecutor implements AutoCloseable {
             slots.release();
             // The hook runs after the slot is released so the dispatcher sees the free capacity.
             if (accepting) {
-                try {
-                    completionHook.run();
-                } catch (RuntimeException ex) {
-                    log.warn("Worker completion hook failed", ex);
-                }
+                completionHook.run();
             }
         }
     }
 
-    /** Waits for accepted tasks: all slots are free only when no task is active. */
+    /**
+     * Waits for accepted tasks: all slots are free only when no task is active.
+     */
     private boolean acquireAllSlots() {
         try {
             return slots.tryAcquire(maxConcurrency, shutdownTimeout.toNanos(), TimeUnit.NANOSECONDS);

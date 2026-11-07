@@ -67,8 +67,7 @@ public class StepErrorHandler {
     public void handleWorkerError(WorkerHandlerException failure) {
         database.doInTransaction(() -> {
             var lease = failure.getLease();
-            var claimed = processInstanceDao.findClaimedWithLock(lease)
-                .orElseThrow(() -> new LeaseLostException(lease.processId()));
+            var claimed = processInstanceDao.findClaimedWithLock(lease);
             if (claimed.expectedRowVersion() != failure.getExpectedRowVersion()) {
                 throw new LeaseLostException(lease.processId());
             }

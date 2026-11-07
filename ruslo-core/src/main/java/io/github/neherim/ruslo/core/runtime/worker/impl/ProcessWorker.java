@@ -46,16 +46,16 @@ public class ProcessWorker implements Worker {
     private final BoundedExecutor executor;
 
     public ProcessWorker(
-            WorkerSpec spec,
-            ExecutorService executorService,
-            boolean ownsExecutor,
-            Database database,
-            ProcessInstanceDao processInstanceDao,
-            StepExecutor stepExecutor,
-            StepErrorHandler stepErrorHandler,
-            ProcessEngineMetrics metrics,
-            LeaseReleaser leaseReleaser,
-            ProcessDispatchSignal dispatchSignal
+        WorkerSpec spec,
+        ExecutorService executorService,
+        boolean ownsExecutor,
+        Database database,
+        ProcessInstanceDao processInstanceDao,
+        StepExecutor stepExecutor,
+        StepErrorHandler stepErrorHandler,
+        ProcessEngineMetrics metrics,
+        LeaseReleaser leaseReleaser,
+        ProcessDispatchSignal dispatchSignal
     ) {
         this.spec = Objects.requireNonNull(spec);
         this.database = Objects.requireNonNull(database);
@@ -67,10 +67,10 @@ public class ProcessWorker implements Worker {
         this.executorService = Objects.requireNonNull(executorService);
         this.ownsExecutor = ownsExecutor;
         this.executor = new BoundedExecutor(spec.maxConcurrency(), executorService,
-                dispatchSignal::wakeUp);
+            dispatchSignal::wakeUp);
         metrics.registerWorkerMetrics(spec.workerId().name(), spec.maxConcurrency(), executor::getActiveTaskCount,
-                () -> processInstanceDao.countReadyForWorker(spec.workerId()),
-                () -> processInstanceDao.oldestReadyAgeForWorker(spec.workerId()));
+            () -> processInstanceDao.countReadyForWorker(spec.workerId()),
+            () -> processInstanceDao.oldestReadyAgeForWorker(spec.workerId()));
     }
 
     @Override
@@ -123,14 +123,16 @@ public class ProcessWorker implements Worker {
     }
 
     private boolean executeNextStep(ProcessLease lease) {
-        if (spec.executionMode() == WorkerSpec.ExecutionMode.TRANSACTIONAL) {
-            return database.doInTransactionWithResult(() -> {
-                var claimed = processInstanceDao.findClaimedWithLock(lease).orElseThrow(() -> leaseLost(lease));
+        return switch (spec.executionMode()) {
+            case TRANSACTIONAL -> database.doInTransactionWithResult(() -> {
+                var claimed = processInstanceDao.findClaimedWithLock(lease);
                 return executeClaimedStep(claimed);
             });
-        }
-        var claimed = processInstanceDao.findClaimed(lease).orElseThrow(() -> leaseLost(lease));
-        return executeClaimedStep(claimed);
+            case NON_TRANSACTIONAL -> {
+                var claimed = processInstanceDao.findClaimed(lease);
+                yield executeClaimedStep(claimed);
+            }
+        };
     }
 
     /**
@@ -141,7 +143,7 @@ public class ProcessWorker implements Worker {
         boolean retainLease;
         try {
             retainLease = isRunnableHere(process) && stepExecutor.executeNextProcessStep(process)
-                    && isRunnableHere(process);
+                && isRunnableHere(process);
         } catch (HandlerException ex) {
             throw new WorkerHandlerException(ex.getCause(), claimed.lease(), claimed.expectedRowVersion());
         }
@@ -176,10 +178,6 @@ public class ProcessWorker implements Worker {
         metrics.recordLeaseLost();
         log.debug(ex.getMessage());
         leaseReleaser.release(lease);
-    }
-
-    private static LeaseLostException leaseLost(ProcessLease lease) {
-        return new LeaseLostException(lease.processId());
     }
 
 }

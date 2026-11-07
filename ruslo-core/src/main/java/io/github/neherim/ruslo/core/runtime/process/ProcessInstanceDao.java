@@ -118,9 +118,9 @@ public class ProcessInstanceDao {
     /**
      * Loads the process and locks its row if {@code lease} still owns it.
      *
-     * @return the claimed snapshot, or empty if the lease is lost
+     * @throws LeaseLostException if the lease is lost
      */
-    public Optional<ClaimedProcess> findClaimedWithLock(ProcessLease lease) {
+    public ClaimedProcess findClaimedWithLock(ProcessLease lease) {
         return findClaimed(SELECT_CLAIMED_PROCESS_SQL + FOR_UPDATE, lease);
     }
 
@@ -128,15 +128,16 @@ public class ProcessInstanceDao {
      * Loads the process without a row lock if {@code lease} still owns it. Used by the non-transactional worker,
      * which holds no transaction while user code runs.
      *
-     * @return the claimed snapshot, or empty if the lease is lost
+     * @throws LeaseLostException if the lease is lost
      */
-    public Optional<ClaimedProcess> findClaimed(ProcessLease lease) {
+    public ClaimedProcess findClaimed(ProcessLease lease) {
         return findClaimed(SELECT_CLAIMED_PROCESS_SQL, lease);
     }
 
-    private Optional<ClaimedProcess> findClaimed(String sql, ProcessLease lease) {
+    private ClaimedProcess findClaimed(String sql, ProcessLease lease) {
         return database.queryForObject(sql, rs -> mapClaimedProcessRow(rs, lease),
-                lease.processId(), lease.ownerId());
+                lease.processId(), lease.ownerId())
+            .orElseThrow(() -> new LeaseLostException(lease.processId()));
     }
 
     private ProcessInstance mapProcessRow(ResultSet rs) throws SQLException {
