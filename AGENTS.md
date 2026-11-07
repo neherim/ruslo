@@ -41,7 +41,7 @@ modules must not import internal packages.
 | `core.runtime.process` | Process instance model and DAO |
 | `core.runtime.worker` | Step execution, workers, runtime error handling |
 | `core.dispatcher` | Polling scheduler and dispatcher abstraction |
-| `core.dispatcher.lease` | Lease claim, fencing and multi-node dispatching; invariants in the `LeaseDispatcher` Javadoc |
+| `core.dispatcher.lease` | Lease claim, instance registration, recovery and multi-node dispatching |
 | `core.search` | Process search |
 | `core.management` | Schema migration and management operations |
 | `core.metrics` | Metrics abstraction, in-memory and no-op implementations |
@@ -100,8 +100,6 @@ Engine operations join the caller's transaction, and in Spring any exception esc
 - A transition to the same state is not a state change: the queue, `every`, `after` and history are kept, the error
   is cleared; a step runs again, an await keeps waiting. The rule lives in `ProcessInstance.enterState`, the single
   path for every transition.
-- Lease and fencing rules: the `LeaseDispatcher` Javadoc. User-facing rules: the docs pages in the
-  [table below](#documentation).
 
 ## Working Rules
 

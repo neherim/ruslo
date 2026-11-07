@@ -20,7 +20,12 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Reads and writes process instances and their state history. */
+/**
+ * Reads and writes process instances and their state history.
+ *
+ * <p>Saving a claimed snapshot checks both {@code lease_owner} and {@code row_version} to reject results from stale
+ * owners or concurrent process state changes.
+ */
 public class ProcessInstanceDao {
     private static final String STATE_COLUMNS = """
             state, worker_id, status, variables, timers, messages, attempt, last_error,

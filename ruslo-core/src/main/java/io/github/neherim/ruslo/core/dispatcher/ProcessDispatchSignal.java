@@ -1,6 +1,5 @@
 package io.github.neherim.ruslo.core.dispatcher;
 
-import java.time.Duration;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -11,18 +10,20 @@ import java.util.concurrent.TimeUnit;
 public final class ProcessDispatchSignal {
     private final ArrayBlockingQueue<Boolean> signals = new ArrayBlockingQueue<>(1);
 
-    /** Wakes the waiting scheduler, or keeps one signal for its next wait. */
+    /**
+     * Wakes the waiting scheduler, or keeps one signal for its next wait.
+     */
     public void wakeUp() {
         signals.offer(Boolean.TRUE);
     }
 
     /**
-     * Waits for a signal at most {@code timeout}.
+     * Waits for a signal at most {@code timeoutMs}.
      *
      * @return {@code true} if a signal ended the wait
      * @throws InterruptedException if the scheduler thread is interrupted
      */
-    public boolean await(Duration timeout) throws InterruptedException {
-        return signals.poll(timeout.toMillis(), TimeUnit.MILLISECONDS) != null;
+    public boolean await(long timeoutMs) throws InterruptedException {
+        return signals.poll(timeoutMs, TimeUnit.MILLISECONDS) != null;
     }
 }

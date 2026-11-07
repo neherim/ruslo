@@ -130,7 +130,7 @@ class ProcessRuntimeServiceTest extends BaseTest {
 
     private static boolean awaitSignal(ProcessDispatchSignal signal) {
         try {
-            return signal.await(Duration.ZERO);
+            return signal.await(0);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new AssertionError("Interrupted while awaiting process dispatch signal", ex);

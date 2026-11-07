@@ -74,9 +74,9 @@ public final class ApplicationInstanceDao {
     /**
      * Deletes expired registrations and releases every lease whose owner is not registered.
      *
-     * <p>Rows locked by running transactions are skipped without waiting and released by the next call. Leases
-     * claimed after their owner was deleted are also released by the next call; fencing on
-     * {@code lease_owner + row_version} protects against the stale owner.
+     * <p>{@code lease_owner} has no foreign key to the registration, so deleting expired registrations does not wait
+     * for process row locks. Locked process rows are skipped and retried on subsequent calls, as are leases claimed
+     * after their owner was deleted.
      */
     public RecoveryResult recover() {
         var removed = database.update(DELETE_EXPIRED_SQL);

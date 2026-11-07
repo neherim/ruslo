@@ -129,8 +129,8 @@ class ProcessDispatchSchedulerTest {
             signal.wakeUp();
         }
 
-        assertTrue(signal.await(Duration.ZERO));
-        assertFalse(signal.await(Duration.ZERO));
+        assertTrue(signal.await(0));
+        assertFalse(signal.await(0));
     }
 
     private static void awaitUninterruptibly(CountDownLatch latch) {

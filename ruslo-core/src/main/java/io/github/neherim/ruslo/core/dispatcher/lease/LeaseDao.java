@@ -12,7 +12,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Short transactions that claim and release process leases. */
+/**
+ * Claims and releases process leases in short transactions.
+ *
+ * <p>Claim and release leave {@code row_version} unchanged: it tracks process state changes, not lease ownership.
+ */
 public final class LeaseDao {
     private static final String POSTGRESQL_CLAIM_SQL = """
             with candidates as (
@@ -88,6 +92,8 @@ public final class LeaseDao {
 
     /**
      * Claims ready processes of the worker.
+     *
+     * <p>The claim statement checks that {@code ownerId} has an unexpired registration; otherwise it claims nothing.
      *
      * @param ownerId current registration id of this instance
      * @param now     engine time to check process readiness against; owner liveness uses database time
