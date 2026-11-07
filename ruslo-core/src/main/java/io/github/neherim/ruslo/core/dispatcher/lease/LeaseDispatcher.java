@@ -80,9 +80,9 @@ public final class LeaseDispatcher implements ProcessDispatcher {
             if (worker.getAvailableCapacity() <= 0) {
                 continue;
             }
-            var workerNext = leaseDao.findNextRunAt(worker.getId()).orElse(null);
-            if (workerNext != null && (next == null || workerNext.isBefore(next))) {
-                next = workerNext;
+            var workerNextRunAt = leaseDao.findNextRunAt(worker.getId()).orElse(null);
+            if (workerNextRunAt != null && (next == null || workerNextRunAt.isBefore(next))) {
+                next = workerNextRunAt;
             }
         }
         return Optional.ofNullable(next);

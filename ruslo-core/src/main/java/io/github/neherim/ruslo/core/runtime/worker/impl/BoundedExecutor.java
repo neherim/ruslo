@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Executor that limits the number of accepted tasks, without a local queue. A task is accepted only if a slot is
  * free; when the task finishes, the slot is released and {@code completionHook} is called. On close it waits for
- * accepted tasks and shuts down only an {@link ExecutorService} owned by the library.
+ * accepted tasks without shutting down the underlying executor.
  */
 final class BoundedExecutor implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(BoundedExecutor.class);
@@ -21,20 +21,18 @@ final class BoundedExecutor implements AutoCloseable {
 
     private final int maxConcurrency;
     private final Semaphore slots;
-    private final ExecutorService executor;
-    private final boolean executorOwned;
+    private final Executor executor;
     private final Runnable completionHook;
     private final Duration shutdownTimeout;
     private volatile boolean accepting = true;
 
-    BoundedExecutor(int maxConcurrency, ExecutorService executor, boolean executorOwned, Runnable completionHook) {
-        this(maxConcurrency, executor, executorOwned, completionHook, DEFAULT_SHUTDOWN_TIMEOUT);
+    BoundedExecutor(int maxConcurrency, Executor executor, Runnable completionHook) {
+        this(maxConcurrency, executor, completionHook, DEFAULT_SHUTDOWN_TIMEOUT);
     }
 
     BoundedExecutor(
             int maxConcurrency,
-            ExecutorService executor,
-            boolean executorOwned,
+            Executor executor,
             Runnable completionHook,
             Duration shutdownTimeout
     ) {
@@ -46,7 +44,6 @@ final class BoundedExecutor implements AutoCloseable {
         this.shutdownTimeout = Objects.requireNonNull(shutdownTimeout, "Shutdown timeout must not be null");
         this.maxConcurrency = maxConcurrency;
         this.slots = new Semaphore(maxConcurrency);
-        this.executorOwned = executorOwned;
     }
 
     /**
@@ -78,20 +75,15 @@ final class BoundedExecutor implements AutoCloseable {
     }
 
     /**
-     * Stops accepting tasks and waits for accepted ones, at most the shutdown timeout. An owned
-     * {@link ExecutorService} is then shut down, interrupting unfinished tasks.
+     * Stops accepting tasks and waits for accepted ones, at most the shutdown timeout.
      */
     @Override
     public void close() {
         accepting = false;
-        var drained = acquireAllSlots();
-        if (drained) {
+        if (acquireAllSlots()) {
             slots.release(maxConcurrency);
-        }
-        if (executorOwned) {
-            executor.shutdownNow();
-        } else if (!drained) {
-            log.warn("Timed out waiting for worker tasks on an external ExecutorService");
+        } else {
+            log.warn("Timed out waiting for accepted tasks");
         }
     }
 

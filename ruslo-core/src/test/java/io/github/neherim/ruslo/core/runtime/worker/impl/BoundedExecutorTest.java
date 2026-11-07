@@ -1,7 +1,6 @@
 package io.github.neherim.ruslo.core.runtime.worker.impl;
 
 import io.github.neherim.ruslo.core.TestAwait;
-import io.github.neherim.ruslo.core.utils.thread.CurrentThreadExecutorService;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -24,7 +23,7 @@ class BoundedExecutorTest {
         var executorReference = new AtomicReference<BoundedExecutor>();
         var capacityAtHook = new AtomicInteger(-1);
         var activeAtHook = new AtomicInteger(-1);
-        var executor = new BoundedExecutor(1, new CurrentThreadExecutorService(), true, () -> {
+        var executor = new BoundedExecutor(1, Runnable::run, () -> {
             var boundedExecutor = executorReference.get();
             capacityAtHook.set(boundedExecutor.getAvailableCapacity());
             activeAtHook.set(boundedExecutor.getActiveTaskCount());
@@ -43,7 +42,7 @@ class BoundedExecutorTest {
         ExecutorService delegate = Executors.newSingleThreadExecutor();
         delegate.shutdown();
         var completions = new AtomicInteger();
-        var executor = new BoundedExecutor(1, delegate, false, completions::incrementAndGet);
+        var executor = new BoundedExecutor(1, delegate, completions::incrementAndGet);
 
         assertFalse(executor.trySubmit(() -> {}));
 
@@ -54,7 +53,7 @@ class BoundedExecutorTest {
 
     @Test
     void executionFailureStillReleasesCapacity() {
-        var executor = new BoundedExecutor(1, new CurrentThreadExecutorService(), true, () -> {});
+        var executor = new BoundedExecutor(1, Runnable::run, () -> {});
 
         assertThrows(IllegalStateException.class, () -> executor.trySubmit(() -> {
             throw new IllegalStateException("execution failed");
@@ -66,11 +65,11 @@ class BoundedExecutorTest {
     }
 
     @Test
-    void closeWaitsForAcceptedExecutionAndKeepsExternalExecutorOpen() throws Exception {
+    void closeWaitsForAcceptedExecutionAndKeepsExecutorOpen() throws Exception {
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         ExecutorService delegate = Executors.newSingleThreadExecutor();
-        var executor = new BoundedExecutor(2, delegate, false, () -> {});
+        var executor = new BoundedExecutor(2, delegate, () -> {});
         Runnable task = () -> {
             entered.countDown();
             await(release);
@@ -113,7 +112,7 @@ class BoundedExecutorTest {
 
         var completions = new AtomicInteger();
         var executions = new AtomicInteger();
-        var executor = new BoundedExecutor(3, delegate, false, completions::incrementAndGet);
+        var executor = new BoundedExecutor(3, delegate, completions::incrementAndGet);
         Runnable task = executions::incrementAndGet;
 
         try {
@@ -140,11 +139,11 @@ class BoundedExecutorTest {
     }
 
     @Test
-    void closeTimeoutDoesNotShutdownExternalExecutor() throws Exception {
+    void closeTimeoutDoesNotShutdownExecutor() throws Exception {
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         ExecutorService delegate = Executors.newSingleThreadExecutor();
-        var executor = new BoundedExecutor(1, delegate, false, () -> {}, Duration.ofMillis(50));
+        var executor = new BoundedExecutor(1, delegate, () -> {}, Duration.ofMillis(50));
         Runnable task = () -> {
             entered.countDown();
             await(release);

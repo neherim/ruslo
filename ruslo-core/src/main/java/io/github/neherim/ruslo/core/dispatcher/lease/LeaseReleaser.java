@@ -26,14 +26,18 @@ public final class LeaseReleaser {
         this.metrics = Objects.requireNonNull(metrics, "Metrics must not be null");
     }
 
-    /** Releases the lease if its owner still holds it; on failure queues it for retry. */
+    /**
+     * Releases the lease if its owner still holds it; on failure queues it for retry.
+     */
     public void release(ProcessLease lease) {
         if (!tryRelease(lease)) {
             pending.add(lease);
         }
     }
 
-    /** Retries releasing the leases that failed before. */
+    /**
+     * Retries releasing the leases that failed before.
+     */
     public void retryPending() {
         pending.removeIf(this::tryRelease);
     }
@@ -41,7 +45,7 @@ public final class LeaseReleaser {
     private boolean tryRelease(ProcessLease lease) {
         try {
             if (!leaseDao.release(lease)) {
-                log.debug("Lease release fenced for process {} owner {}", lease.processId(), lease.ownerId());
+                log.warn("Lease release failed for process {} owner {}", lease.processId(), lease.ownerId());
             }
             return true;
         } catch (RuntimeException ex) {

@@ -220,7 +220,7 @@ public class ProcessEngineBuilder {
         var leaseReleaser = new LeaseReleaser(leaseDao, effectiveMetrics);
         var dispatchSignal = new ProcessDispatchSignal();
         var workerFactory = new WorkerFactory(database, processInstanceDao, stepExecutor, stepErrorHandler,
-                effectiveMetrics, leaseReleaser, dispatchSignal::wakeUp);
+                effectiveMetrics, leaseReleaser, dispatchSignal);
         var workerRegistry = new WorkerRegistry(workerFactory);
 
         var applicationInstanceLifecycle = new ApplicationInstanceLifecycle(instanceHeartbeatInterval,

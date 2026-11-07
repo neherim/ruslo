@@ -6,6 +6,7 @@ import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
+import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
 import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceDao;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerTestFixture;
@@ -72,7 +73,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var staleLease = claim(fixture, process.getId());
         var currentLease = replaceLease(fixture, process.getId());
 
-        fixture.transactionalLeaseWorker(new CurrentThreadExecutorService(), () -> {})
+        fixture.transactionalLeaseWorker(new CurrentThreadExecutorService(), new ProcessDispatchSignal())
             .tryExecute(fixture.leaseTask(staleLease));
 
         assertEquals(0, executions.get());
@@ -91,7 +92,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var task = fixture.leaseTask(process);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            fixture.transactionalLeaseWorker(executor, () -> {}).tryExecute(task);
+            fixture.transactionalLeaseWorker(executor, new ProcessDispatchSignal()).tryExecute(task);
             awaitLatch(entered, "Transactional lease worker should enter user code");
             var replacementOwner = registerOwner();
             assertTrue(fixture.leaseDao()
@@ -128,7 +129,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var process = fixture.insertNewProcess(type, "version-conflict");
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(1, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(1, executor, new ProcessDispatchSignal());
             worker.tryExecute(fixture.leaseTask(process));
             awaitLatch(entered, "Non-transactional step should start");
             var concurrent = fixture.dao().findById(process.getId()).orElseThrow();
@@ -165,7 +166,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var process = fixture.insertNewProcess(type, "message-conflict");
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(1, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(1, executor, new ProcessDispatchSignal());
             worker.tryExecute(fixture.leaseTask(process));
             awaitLatch(entered, "Non-transactional message step should start");
             var concurrent = fixture.dao().findById(process.getId()).orElseThrow();
@@ -197,7 +198,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var staleTask = fixture.leaseTask(process);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(1, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(1, executor, new ProcessDispatchSignal());
             worker.tryExecute(staleTask);
             awaitLatch(entered, "Non-transactional step should start before lease replacement");
             var currentLease = replaceLease(fixture, process.getId());
@@ -269,7 +270,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         fixtureRef.set(fixture);
         var process = fixture.insertNewProcess(type, "transition-conflict");
 
-        fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(), () -> {})
+        fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(), new ProcessDispatchSignal())
             .tryExecute(fixture.task(process));
 
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
@@ -301,7 +302,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var staleTask = fixture.leaseTask(process);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(1, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(1, executor, new ProcessDispatchSignal());
             worker.tryExecute(staleTask);
             awaitLatch(entered, "Failing step should start");
             var currentLease = replaceLease(fixture, process.getId());
@@ -328,7 +329,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var process = fixture.insertNewProcess(type, "no-local-dedup");
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(2, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(2, executor, new ProcessDispatchSignal());
             assertTrue(worker.tryExecute(fixture.leaseTask(process)));
             awaitLatch(entered, "First lease task should enter user code");
             var replacement = replaceLease(fixture, process.getId());
@@ -357,7 +358,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var rejected = fixture.insertNewProcess(type, "rejected");
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(1, false, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(1, false, executor, new ProcessDispatchSignal());
             assertTrue(worker.tryExecute(fixture.leaseTask(running)));
             awaitLatch(entered, "First task should occupy worker capacity");
             var rejectedLease = fixture.leaseTask(rejected);
@@ -376,16 +377,25 @@ class LeaseAwareWorkerTest extends BaseTest {
     }
 
     @Test
-    void completionHookRunsAfterLeaseTaskFinishes() {
-        var completions = new AtomicInteger();
-        var type = ProcessType.of("LEASE_COMPLETION_HOOK");
+    void dispatchSignalIsSentAfterLeaseTaskFinishes() throws InterruptedException {
+        var dispatchSignal = new ProcessDispatchSignal();
+        var type = ProcessType.of("LEASE_DISPATCH_SIGNAL");
         var fixture = WorkerTestFixture.with(database, completingDefinition(type, new AtomicInteger()));
-        var process = fixture.insertNewProcess(type, "completion-hook");
+        var process = fixture.insertNewProcess(type, "dispatch-signal");
 
-        fixture.transactionalLeaseWorker(new CurrentThreadExecutorService(), completions::incrementAndGet)
-            .tryExecute(fixture.leaseTask(process));
+        var worker = fixture.transactionalLeaseWorker(new CurrentThreadExecutorService(), dispatchSignal);
+        try {
+            assertFalse(dispatchSignal.await(0));
 
-        assertEquals(1, completions.get());
+            assertTrue(worker.tryExecute(fixture.leaseTask(process)));
+
+            assertTrue(dispatchSignal.await(0));
+            assertEquals(worker.getSpec().maxConcurrency(), worker.getAvailableCapacity());
+            assertTrue(fixture.dao().findById(process.getId()).orElseThrow().isCompleted());
+            assertNull(storedOwner(process.getId()));
+        } finally {
+            worker.close();
+        }
     }
 
     private ProcessLease claim(WorkerTestFixture fixture, UUID processId) {
@@ -424,7 +434,8 @@ class LeaseAwareWorkerTest extends BaseTest {
         if (transactional) {
             fixture.transactionalWorker().tryExecute(task);
         } else {
-            fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(), () -> {}).tryExecute(task);
+            fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(), new ProcessDispatchSignal())
+                .tryExecute(task);
         }
 
         assertEquals(3, executions.get());
@@ -458,7 +469,8 @@ class LeaseAwareWorkerTest extends BaseTest {
         var process = fixture.insertNewProcess(type, "second-step-failure");
         var worker = transactional
                 ? fixture.transactionalWorker()
-                : fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(), () -> {});
+                : fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(),
+                        new ProcessDispatchSignal());
 
         worker.tryExecute(fixture.task(process));
 

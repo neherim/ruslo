@@ -1,6 +1,7 @@
 package io.github.neherim.ruslo.core.runtime.worker.impl;
 
 import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseLostException;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseReleaser;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
@@ -43,19 +44,21 @@ public class ProcessWorker implements Worker {
     private final StepErrorHandler stepErrorHandler;
     private final LeaseReleaser leaseReleaser;
     private final ProcessEngineMetrics metrics;
+    private final ExecutorService executorService;
+    private final boolean ownsExecutor;
     private final BoundedExecutor executor;
 
     public ProcessWorker(
             WorkerSpec spec,
             ExecutorService executorService,
-            boolean shutdownExecutor,
+            boolean ownsExecutor,
             Database database,
             ProcessInstanceDao processInstanceDao,
             StepExecutor stepExecutor,
             StepErrorHandler stepErrorHandler,
             ProcessEngineMetrics metrics,
             LeaseReleaser leaseReleaser,
-            Runnable completionHook
+            ProcessDispatchSignal dispatchSignal
     ) {
         this.spec = Objects.requireNonNull(spec);
         this.database = Objects.requireNonNull(database);
@@ -64,8 +67,10 @@ public class ProcessWorker implements Worker {
         this.stepErrorHandler = Objects.requireNonNull(stepErrorHandler);
         this.leaseReleaser = Objects.requireNonNull(leaseReleaser);
         this.metrics = Objects.requireNonNull(metrics);
-        this.executor = new BoundedExecutor(spec.maxConcurrency(), executorService, shutdownExecutor,
-                completionHook);
+        this.executorService = Objects.requireNonNull(executorService);
+        this.ownsExecutor = ownsExecutor;
+        this.executor = new BoundedExecutor(spec.maxConcurrency(), executorService,
+                dispatchSignal::wakeUp);
         metrics.registerWorkerMetrics(spec.workerId().name(), spec.maxConcurrency(), executor::getActiveTaskCount,
                 () -> processInstanceDao.countReadyForWorker(spec.workerId()),
                 () -> processInstanceDao.oldestReadyAgeForWorker(spec.workerId()));
@@ -87,9 +92,18 @@ public class ProcessWorker implements Worker {
         return executor.trySubmit(() -> execute(lease));
     }
 
+    /**
+     * Stops accepting leases, waits for accepted tasks and shuts down the executor if owned by this worker.
+     */
     @Override
     public void close() {
-        executor.close();
+        try {
+            executor.close();
+        } finally {
+            if (ownsExecutor) {
+                executorService.shutdownNow();
+            }
+        }
     }
 
     private void execute(ProcessLease lease) {
@@ -107,19 +121,25 @@ public class ProcessWorker implements Worker {
     }
 
     private void executeSteps(ProcessLease lease) {
-        if (spec.executionMode() == WorkerSpec.ExecutionMode.TRANSACTIONAL) {
-            while (database.doInTransactionWithResult(() -> executeClaimedStep(
-                    processInstanceDao.findClaimedWithLock(lease).orElseThrow(() -> leaseLost(lease))))) {
-                // The transition is committed and the process is ready on this worker: continue under the same lease.
-            }
-        } else {
-            while (executeClaimedStep(processInstanceDao.findClaimed(lease).orElseThrow(() -> leaseLost(lease)))) {
-                // The transition is committed and the process is ready on this worker: continue under the same lease.
-            }
+        while (executeNextStep(lease)) {
+            // The transition is committed and the process is ready on this worker: continue under the same lease.
         }
     }
 
-    /** Executes one handler and stores the process. Returns {@code true} if the lease is kept for the next step. */
+    private boolean executeNextStep(ProcessLease lease) {
+        if (spec.executionMode() == WorkerSpec.ExecutionMode.TRANSACTIONAL) {
+            return database.doInTransactionWithResult(() -> {
+                var claimed = processInstanceDao.findClaimedWithLock(lease).orElseThrow(() -> leaseLost(lease));
+                return executeClaimedStep(claimed);
+            });
+        }
+        var claimed = processInstanceDao.findClaimed(lease).orElseThrow(() -> leaseLost(lease));
+        return executeClaimedStep(claimed);
+    }
+
+    /**
+     * Executes one handler and stores the process. Returns {@code true} if the lease is kept for the next step.
+     */
     private boolean executeClaimedStep(ClaimedProcess claimed) {
         var process = claimed.process();
         var retainLease = isRunnableHere(process) && stepExecutor.executeNextProcessStep(process)

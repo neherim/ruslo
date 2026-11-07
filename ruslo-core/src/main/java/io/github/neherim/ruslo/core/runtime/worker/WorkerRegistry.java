@@ -6,7 +6,9 @@ import io.github.neherim.ruslo.core.api.exception.WorkerNotRegisteredException;
 
 import java.util.*;
 
-/** Registry of workers. */
+/**
+ * Registry of workers.
+ */
 public class WorkerRegistry {
     private final WorkerFactory workerFactory;
     private final Map<WorkerId, Worker> workers = new HashMap<>();
@@ -15,18 +17,24 @@ public class WorkerRegistry {
         this.workerFactory = workerFactory;
     }
 
-    /** Builds and registers a worker for each spec. */
+    /**
+     * Builds and registers a worker for each spec.
+     */
     public void registerAll(Collection<WorkerSpec> workerSpecs) {
         workerSpecs.forEach(this::register);
     }
 
-    /** Builds and registers a worker for the spec. */
+    /**
+     * Builds and registers a worker for the spec.
+     */
     public void register(WorkerSpec spec) {
         var worker = workerFactory.build(spec);
         this.workers.put(worker.getId(), worker);
     }
 
-    /** Returns the specs of all registered workers. */
+    /**
+     * Returns the specs of all registered workers.
+     */
     public Set<WorkerSpec> getAllWorkerSpecs() {
         var specs = new HashSet<WorkerSpec>();
         workers.values().forEach(worker -> specs.add(worker.getSpec()));
@@ -46,12 +54,16 @@ public class WorkerRegistry {
         return worker;
     }
 
-    /** Returns all registered workers. */
+    /**
+     * Returns all registered workers.
+     */
     public Collection<Worker> getAllWorkers() {
         return workers.values();
     }
 
-    /** Closes all registered workers. */
+    /**
+     * Closes all registered workers.
+     */
     public void close() {
         workers.values().forEach(Worker::close);
     }
