@@ -81,6 +81,7 @@ the related Spring properties in the starter.
 - Simplicity is the main value of this library, in the public API and in the implementation. Over-engineering is a defect, not a reserve for the future.
 - When choosing between solutions, prefer the one with fewer independent concepts, allowed combinations and special rules. The number of types or lines is not the goal: one class with nullable fields and many valid combinations is more complex than three small records.
 - Simplicity of execution rules matters most: how the engine selects events, commits transitions and handles errors. Every new rule or exception to a rule must be justified by a real requirement.
+- Always choose the simplest, most direct, and most maintainable solution that works. Do not add extra abstractions, wrapper classes, design patterns, or future-proofing unless explicitly asked.
 
 ### Exceptions vs. return values in the public API
 
