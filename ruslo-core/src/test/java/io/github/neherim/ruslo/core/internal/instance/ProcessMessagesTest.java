@@ -4,6 +4,7 @@ import io.github.neherim.ruslo.core.api.definition.MessageType;
 import io.github.neherim.ruslo.core.runtime.process.ProcessMessages;
 import io.github.neherim.ruslo.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectReader;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -14,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ProcessMessagesTest {
     private static final MessageType<String> FIRST = MessageType.of("FIRST", String.class);
     private static final MessageType<String> SECOND = MessageType.of("SECOND", String.class);
+    private static final ObjectReader READER = ProcessMessages.jsonReader(JsonUtils.DEFAULT_OBJECT_MAPPER);
 
     @Test
     void storesFifoAcrossTypesAndRoundTripsJson() {
@@ -25,7 +27,7 @@ class ProcessMessagesTest {
         messages.append(SECOND, "two", secondId, received.plusSeconds(1));
         var json = messages.serializeToString();
         assertTrue(json.startsWith("["));
-        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, json);
+        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, READER, json);
         assertEquals(firstId, restored.peekFirst().orElseThrow().id());
         assertEquals("one", restored.convert(restored.peekFirst().orElseThrow(), FIRST).payload());
         restored.removeFirst();
@@ -54,7 +56,7 @@ class ProcessMessagesTest {
         var smallerId = new UUID(0, 1);
         messages.append(FIRST, "first", largerId, received);
         messages.append(SECOND, "second", smallerId, received);
-        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER,
+        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, READER,
                 messages.serializeToString());
         assertEquals(largerId, restored.peekFirst().orElseThrow().id());
         restored.removeFirst();
@@ -68,7 +70,8 @@ class ProcessMessagesTest {
         var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
         messages.append(type, amount, UUID.randomUUID(), Instant.EPOCH);
 
-        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, messages.serializeToString());
+        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, READER,
+                messages.serializeToString());
 
         assertEquals(amount, restored.convert(restored.peekFirst().orElseThrow(), type).payload());
     }
@@ -80,7 +83,8 @@ class ProcessMessagesTest {
         var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
         messages.append(type, amount, UUID.randomUUID(), Instant.EPOCH);
 
-        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, messages.serializeToString());
+        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, READER,
+                messages.serializeToString());
 
         assertEquals(amount, restored.convert(restored.peekFirst().orElseThrow(), type).payload());
     }

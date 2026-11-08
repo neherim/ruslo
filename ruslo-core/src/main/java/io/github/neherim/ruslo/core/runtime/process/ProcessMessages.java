@@ -6,6 +6,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectReader;
 import tools.jackson.databind.cfg.JsonNodeFeature;
 
 import java.time.Instant;
@@ -32,13 +33,17 @@ public final class ProcessMessages {
         return new ProcessMessages(mapper, new ArrayList<>());
     }
 
-    /** Reads queued messages, preserving decimal precision and scale in payloads. */
-    public static ProcessMessages fromString(ObjectMapper mapper, String json) {
-        if (json == null || json.isBlank()) throw new IllegalArgumentException("Messages JSON cannot be blank");
-        List<PendingMessage> messages = mapper.readerFor(MESSAGE_LIST)
+    /** Creates a reusable reader that preserves decimal precision and scale in payloads. */
+    public static ObjectReader jsonReader(ObjectMapper mapper) {
+        return mapper.readerFor(MESSAGE_LIST)
             .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-            .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
-            .readValue(json);
+            .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES);
+    }
+
+    /** Reads queued messages with the reader created by {@link #jsonReader}. */
+    public static ProcessMessages fromString(ObjectMapper mapper, ObjectReader reader, String json) {
+        if (json == null || json.isBlank()) throw new IllegalArgumentException("Messages JSON cannot be blank");
+        List<PendingMessage> messages = reader.readValue(json);
         if (messages.stream().anyMatch(Objects::isNull)) throw new IllegalArgumentException("Null message entry");
         return new ProcessMessages(mapper, new ArrayList<>(messages));
     }

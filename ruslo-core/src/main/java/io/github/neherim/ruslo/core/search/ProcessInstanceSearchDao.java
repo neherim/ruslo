@@ -11,6 +11,7 @@ import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.utils.DateTimeUtils;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectReader;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -50,6 +51,7 @@ public class ProcessInstanceSearchDao {
 
     private final Database database;
     private final ObjectMapper objectMapper;
+    private final ObjectReader variablesReader;
     private final ProcessDefinitionRegistry processDefinitionRegistry;
 
     public ProcessInstanceSearchDao(
@@ -59,6 +61,7 @@ public class ProcessInstanceSearchDao {
     ) {
         this.database = database;
         this.objectMapper = objectMapper;
+        this.variablesReader = ProcessVariables.jsonReader(objectMapper);
         this.processDefinitionRegistry = processDefinitionRegistry;
     }
 
@@ -189,7 +192,8 @@ public class ProcessInstanceSearchDao {
                 rs.getInt("attempt"),
                 Optional.ofNullable(rs.getString("last_error")),
                 stateHistory,
-                new ProcessVariablesSnapshot(ProcessVariables.fromString(objectMapper, rs.getString("variables"))),
+                new ProcessVariablesSnapshot(ProcessVariables.fromString(objectMapper, variablesReader,
+                        rs.getString("variables"))),
                 ProcessTimers.fromString(objectMapper, rs.getString("timers")).asMap()
         );
     }

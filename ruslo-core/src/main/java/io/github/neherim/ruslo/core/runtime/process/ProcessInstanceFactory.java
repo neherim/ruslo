@@ -8,6 +8,7 @@ import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.utils.UUIDGenerator;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectReader;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -18,6 +19,8 @@ import java.util.UUID;
 public class ProcessInstanceFactory {
     private final Clock clock;
     private final ObjectMapper objectMapper;
+    private final ObjectReader variablesReader;
+    private final ObjectReader messagesReader;
     private final ProcessDefinitionRegistry processDefinitionRegistry;
 
     public ProcessInstanceFactory(
@@ -27,6 +30,8 @@ public class ProcessInstanceFactory {
     ) {
         this.clock = clock;
         this.objectMapper = objectMapper;
+        this.variablesReader = ProcessVariables.jsonReader(objectMapper);
+        this.messagesReader = ProcessMessages.jsonReader(objectMapper);
         this.processDefinitionRegistry = processDefinitionRegistry;
     }
 
@@ -51,9 +56,9 @@ public class ProcessInstanceFactory {
         var state = ProcessState.of(processState);
         var spec = processDefinitionRegistry.getProcessSpec(processType);
 
-        var variables = ProcessVariables.fromString(objectMapper, variablesStr);
+        var variables = ProcessVariables.fromString(objectMapper, variablesReader, variablesStr);
         var timers = ProcessTimers.fromString(objectMapper, timersStr);
-        var messages = ProcessMessages.fromString(objectMapper, messagesStr);
+        var messages = ProcessMessages.fromString(objectMapper, messagesReader, messagesStr);
 
         return ProcessInstance.loadFromStorage(id, businessKey, spec, state, status, variables, timers, messages,
                 correlationId, attempt, lastError, nextRunAt, everyDueAt, afterDueAt, clock);

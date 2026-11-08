@@ -29,14 +29,13 @@ public class ProcessVariables {
     }
 
     /**
-     * Reads variables from a JSON object. Decimals are read as {@code BigDecimal} without losing precision or scale,
-     * so {@link #getVariable} returns the stored value.
+     * Reads variables from a JSON object with the reader created by {@link #jsonReader}.
      */
-    public static ProcessVariables fromString(ObjectMapper objectMapper, String json) {
+    public static ProcessVariables fromString(ObjectMapper objectMapper, ObjectReader reader, String json) {
         if (json == null || json.isBlank()) {
             return empty(objectMapper);
         }
-        return new ProcessVariables(objectMapper, treeReader(objectMapper).readValue(json));
+        return new ProcessVariables(objectMapper, reader.readValue(json));
     }
 
     public static ProcessVariables fromMap(ObjectMapper objectMapper, Map<String, Object> variables) {
@@ -45,7 +44,8 @@ public class ProcessVariables {
         return processVariables;
     }
 
-    private static ObjectReader treeReader(ObjectMapper objectMapper) {
+    /** Creates a reusable reader that preserves decimal precision and scale in variables. */
+    public static ObjectReader jsonReader(ObjectMapper objectMapper) {
         return objectMapper.readerFor(VARIABLES_TYPE)
             .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES);

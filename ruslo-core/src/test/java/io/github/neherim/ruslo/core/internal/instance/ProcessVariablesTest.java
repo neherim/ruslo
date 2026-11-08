@@ -6,6 +6,7 @@ import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
 import io.github.neherim.ruslo.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectReader;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,13 +23,14 @@ class ProcessVariablesTest {
     private static final LocalDateTime DATE_TIME = LocalDateTime.parse("2026-05-10T10:15:30");
 
     private final ObjectMapper om = JsonUtils.DEFAULT_OBJECT_MAPPER;
+    private final ObjectReader reader = ProcessVariables.jsonReader(om);
 
     @Test
     void stringVariable() {
         var first = ProcessVariables.empty(om)
             .setVariable("varName", "Hello");
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(om, reader, first.serializeToString());
 
         assertEquals("Hello", first.getVariable("varName", String.class));
         assertEquals("Hello", second.getVariable("varName", String.class));
@@ -39,7 +41,7 @@ class ProcessVariablesTest {
         var first = ProcessVariables.empty(om)
             .setVariable("varName", true);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(om, reader, first.serializeToString());
 
         assertEquals(true, first.getVariable("varName", Boolean.class));
         assertEquals(true, second.getVariable("varName", Boolean.class));
@@ -50,7 +52,7 @@ class ProcessVariablesTest {
         var first = ProcessVariables.empty(om)
             .setVariable("varName", DATE_TIME);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(om, reader, first.serializeToString());
 
         assertEquals(DATE_TIME, first.getVariable("varName", LocalDateTime.class));
         assertEquals(DATE_TIME, second.getVariable("varName", LocalDateTime.class));
@@ -66,7 +68,7 @@ class ProcessVariablesTest {
         var first = ProcessVariables.empty(om)
             .setVariable("varName", recordVariable);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(om, reader, first.serializeToString());
 
         assertEquals(recordVariable, first.getVariable("varName", Rec.class));
         assertEquals(recordVariable, second.getVariable("varName", Rec.class));
@@ -82,7 +84,7 @@ class ProcessVariablesTest {
         var first = ProcessVariables.empty(om)
             .setVariable("varName", recordVariable);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(om, reader, first.serializeToString());
 
         assertEquals(recordVariable, first.getVariable("varName", Rec.class));
         assertEquals(recordVariable, second.getVariable("varName", Rec.class));
@@ -95,7 +97,7 @@ class ProcessVariablesTest {
         var first = ProcessVariables.empty(om)
             .setVariable("varName", list);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(om, reader, first.serializeToString());
 
         assertEquals(list, first.getVariable("varName", List.class));
         assertEquals(list, second.getVariable("varName", List.class));
@@ -108,7 +110,7 @@ class ProcessVariablesTest {
         var first = ProcessVariables.empty(om)
             .setVariable("varName", num);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(om, reader, first.serializeToString());
 
         assertEquals(num, first.getVariable("varName", BigDecimal.class));
         assertEquals(num, second.getVariable("varName", BigDecimal.class));
@@ -118,7 +120,7 @@ class ProcessVariablesTest {
     void bigDecimalVariableKeepsScale() {
         var num = new BigDecimal("1.10");
 
-        var second = ProcessVariables.fromString(om, ProcessVariables.empty(om)
+        var second = ProcessVariables.fromString(om, reader, ProcessVariables.empty(om)
             .setVariable("varName", num)
             .serializeToString());
 
