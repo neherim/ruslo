@@ -7,7 +7,6 @@ import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.utils.UUIDGenerator;
 import org.jspecify.annotations.Nullable;
-import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -17,16 +16,13 @@ import java.util.UUID;
 /** Creates new process instances and restores them from storage. */
 public class ProcessInstanceFactory {
     private final Clock clock;
-    private final ObjectMapper objectMapper;
     private final ProcessDefinitionRegistry processDefinitionRegistry;
 
     public ProcessInstanceFactory(
             Clock clock,
-            ObjectMapper objectMapper,
             ProcessDefinitionRegistry processDefinitionRegistry
     ) {
         this.clock = clock;
-        this.objectMapper = objectMapper;
         this.processDefinitionRegistry = processDefinitionRegistry;
     }
 
@@ -51,9 +47,9 @@ public class ProcessInstanceFactory {
         var state = ProcessState.of(processState);
         var spec = processDefinitionRegistry.getProcessSpec(processType);
 
-        var variables = ProcessVariables.fromString(objectMapper, variablesStr);
-        var timers = ProcessTimers.fromString(objectMapper, timersStr);
-        var messages = ProcessMessages.fromString(objectMapper, messagesStr);
+        var variables = ProcessVariables.fromString(variablesStr);
+        var timers = ProcessTimers.fromString(timersStr);
+        var messages = ProcessMessages.fromString(messagesStr);
 
         return ProcessInstance.loadFromStorage(id, businessKey, spec, state, status, variables, timers, messages,
                 correlationId, attempt, lastError, nextRunAt, everyDueAt, afterDueAt, clock);
@@ -74,15 +70,15 @@ public class ProcessInstanceFactory {
     ) {
         var id = UUIDGenerator.generate();
         var spec = processDefinitionRegistry.getProcessSpec(type);
-        var processVariables = ProcessVariables.fromMap(objectMapper, variables);
-        var processTimers = ProcessTimers.empty(objectMapper);
+        var processVariables = ProcessVariables.fromMap(variables);
+        var processTimers = ProcessTimers.empty();
         timers.forEach((timer, moment) -> {
             spec.checkTimerDeclared(timer);
             processTimers.set(timer.name(), moment);
         });
 
         return ProcessInstance.createNew(id, businessKey, spec,
-                processVariables, processTimers, ProcessMessages.empty(objectMapper),
+                processVariables, processTimers, ProcessMessages.empty(),
                 correlationId, startDate, clock);
     }
 }

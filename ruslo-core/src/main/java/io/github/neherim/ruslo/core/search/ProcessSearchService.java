@@ -4,7 +4,6 @@ import io.github.neherim.ruslo.core.api.view.ProcessQuery;
 import io.github.neherim.ruslo.core.api.view.ProcessTypeCounts;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.spi.Database;
-import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.List;
@@ -15,11 +14,9 @@ public class ProcessSearchService {
 
     public ProcessSearchService(
             Database database,
-            ObjectMapper objectMapper,
             ProcessDefinitionRegistry processDefinitionRegistry
     ) {
-        this.processInstanceSearchDao = new ProcessInstanceSearchDao(database, objectMapper,
-                processDefinitionRegistry);
+        this.processInstanceSearchDao = new ProcessInstanceSearchDao(database, processDefinitionRegistry);
     }
 
     /** Returns a new process search query. */

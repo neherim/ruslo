@@ -102,8 +102,9 @@ A handler receives a `ProcessContext`:
 
 Context changes are saved together with the transition of the process between states.
 
-Variables and message payloads are stored as JSON. Their class must be concrete: wrap a `List` or `Map` in a record
-(`record OrderItems(List<String> itemIds) {}`).
+Variables and message payloads are stored as JSON using ruslo's built-in Jackson configuration, shared by the engine
+and `TestProcessContext`. Use JSON-compatible DTOs, preferably records. Their class must be concrete: wrap a `List`
+or `Map` in a record (`record OrderItems(List<String> itemIds) {}`).
 
 ## Status
 

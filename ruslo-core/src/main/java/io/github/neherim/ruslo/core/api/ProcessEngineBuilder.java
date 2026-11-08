@@ -26,8 +26,6 @@ import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
 import io.github.neherim.ruslo.core.search.ProcessSearchService;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
-import io.github.neherim.ruslo.core.utils.*;
-import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -40,6 +38,7 @@ import java.util.Objects;
 
 /**
  * Configures and builds a {@link ProcessEngine}. A transactional {@link WorkerId#DEFAULT} worker is required.
+ * Variables and message payloads use the library's built-in JSON configuration.
  */
 public class ProcessEngineBuilder {
     private static final Duration DEFAULT_INSTANCE_HEARTBEAT_INTERVAL = Duration.ofSeconds(15);
@@ -48,7 +47,6 @@ public class ProcessEngineBuilder {
     private final Map<WorkerId, WorkerSpec> workerSpecs = new HashMap<>();
     private final List<ProcessDefinition> processDefinitions = new ArrayList<>();
     private Clock clock = Clock.systemDefaultZone();
-    private ObjectMapper objectMapper = JsonUtils.DEFAULT_OBJECT_MAPPER;
     private boolean databaseMigrationEnabled = true;
     private boolean dispatcherEnabled = true;
     private Duration maxProcessDispatchInterval = Duration.ofSeconds(10);
@@ -104,12 +102,6 @@ public class ProcessEngineBuilder {
     /** Sets the engine clock used for timers, retries and timestamps; system clock by default. */
     public ProcessEngineBuilder withClock(Clock clock) {
         this.clock = Objects.requireNonNull(clock, "Clock must not be null");
-        return this;
-    }
-
-    /** Sets the mapper for variables and message payloads. */
-    public ProcessEngineBuilder withJsonMapper(ObjectMapper objectMapper) {
-        this.objectMapper = Objects.requireNonNull(objectMapper, "ObjectMapper must not be null");
         return this;
     }
 
@@ -208,10 +200,10 @@ public class ProcessEngineBuilder {
         var processDefinitionRegistry = new ProcessDefinitionRegistry(registeredWorkerIds::contains);
         processDefinitionRegistry.registerAll(processDefinitions);
         var managementService = new ManagementService(database, databaseDialect);
-        var processInstanceFactory = new ProcessInstanceFactory(clock, objectMapper, processDefinitionRegistry);
+        var processInstanceFactory = new ProcessInstanceFactory(clock, processDefinitionRegistry);
         var processInstanceDao = new ProcessInstanceDao(database, clock, processInstanceFactory,
                 saveProcessHistory, effectiveMetrics);
-        var processSearchService = new ProcessSearchService(database, objectMapper, processDefinitionRegistry);
+        var processSearchService = new ProcessSearchService(database, processDefinitionRegistry);
         var processMdc = new ProcessMdc(new MdcKeys(correlationIdMdcKey, processIdMdcKey, processTypeMdcKey));
         var stepExecutor = new StepExecutor(processMdc, effectiveMetrics, clock);
         var stepErrorHandler = new StepErrorHandler(clock, database, processInstanceDao, processMdc,

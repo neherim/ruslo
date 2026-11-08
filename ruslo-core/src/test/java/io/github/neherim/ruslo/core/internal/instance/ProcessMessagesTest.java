@@ -2,9 +2,9 @@ package io.github.neherim.ruslo.core.internal.instance;
 
 import io.github.neherim.ruslo.core.api.definition.MessageType;
 import io.github.neherim.ruslo.core.runtime.process.ProcessMessages;
-import io.github.neherim.ruslo.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -16,7 +16,7 @@ class ProcessMessagesTest {
 
     @Test
     void storesFifoAcrossTypesAndRoundTripsJson() {
-        var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
+        var messages = ProcessMessages.empty();
         var firstId = UUID.randomUUID();
         var secondId = UUID.randomUUID();
         var received = Instant.parse("2026-09-24T10:15:00Z");
@@ -24,7 +24,7 @@ class ProcessMessagesTest {
         messages.append(SECOND, "two", secondId, received.plusSeconds(1));
         var json = messages.serializeToString();
         assertTrue(json.startsWith("["));
-        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, json);
+        var restored = ProcessMessages.fromString(json);
         assertEquals(firstId, restored.peekFirst().orElseThrow().id());
         assertEquals("one", restored.convert(restored.peekFirst().orElseThrow(), FIRST).payload());
         restored.removeFirst();
@@ -35,7 +35,7 @@ class ProcessMessagesTest {
 
     @Test
     void acceptsNullAndDuplicateSignals() {
-        var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
+        var messages = ProcessMessages.empty();
         var now = Instant.now();
         messages.append(FIRST, null, UUID.randomUUID(), now);
         messages.append(FIRST, null, UUID.randomUUID(), now);
@@ -47,16 +47,42 @@ class ProcessMessagesTest {
 
     @Test
     void equalReceptionTimesKeepAppendOrderAcrossReload() {
-        var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
+        var messages = ProcessMessages.empty();
         var received = Instant.parse("2026-09-24T10:15:00Z");
         var largerId = new UUID(0, 2);
         var smallerId = new UUID(0, 1);
         messages.append(FIRST, "first", largerId, received);
         messages.append(SECOND, "second", smallerId, received);
-        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER,
+        var restored = ProcessMessages.fromString(
                 messages.serializeToString());
         assertEquals(largerId, restored.peekFirst().orElseThrow().id());
         restored.removeFirst();
         assertEquals(smallerId, restored.peekFirst().orElseThrow().id());
+    }
+
+    @Test
+    void decimalPayloadKeepsPrecisionAcrossReload() {
+        var type = MessageType.of("AMOUNT", BigDecimal.class);
+        var amount = new BigDecimal("9.99999999999999999999999");
+        var messages = ProcessMessages.empty();
+        messages.append(type, amount, UUID.randomUUID(), Instant.EPOCH);
+
+        var restored = ProcessMessages.fromString(
+                messages.serializeToString());
+
+        assertEquals(amount, restored.convert(restored.peekFirst().orElseThrow(), type).payload());
+    }
+
+    @Test
+    void decimalPayloadKeepsScaleAcrossReload() {
+        var type = MessageType.of("AMOUNT", BigDecimal.class);
+        var amount = new BigDecimal("1.10");
+        var messages = ProcessMessages.empty();
+        messages.append(type, amount, UUID.randomUUID(), Instant.EPOCH);
+
+        var restored = ProcessMessages.fromString(
+                messages.serializeToString());
+
+        assertEquals(amount, restored.convert(restored.peekFirst().orElseThrow(), type).payload());
     }
 }

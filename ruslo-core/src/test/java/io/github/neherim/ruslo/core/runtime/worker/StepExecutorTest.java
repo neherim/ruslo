@@ -7,7 +7,6 @@ import io.github.neherim.ruslo.core.runtime.logging.MdcKeys;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.*;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
-import io.github.neherim.ruslo.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -129,9 +128,9 @@ class StepExecutorTest {
             .terminal(State.EXPIRED)
             .build();
         return ProcessInstance.createNew(UUID.randomUUID(), null, spec,
-                ProcessVariables.empty(JsonUtils.DEFAULT_OBJECT_MAPPER),
-                ProcessTimers.empty(JsonUtils.DEFAULT_OBJECT_MAPPER),
-                ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER), "correlation", NOW, clock);
+                ProcessVariables.empty(),
+                ProcessTimers.empty(),
+                ProcessMessages.empty(), "correlation", NOW, clock);
     }
 
     private static final class MutableClock extends Clock {

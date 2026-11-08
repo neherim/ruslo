@@ -38,7 +38,6 @@ A working example: [`ruslo-examples/standalone-core`](https://github.com/neherim
 | `withCorrelationIdMdcKey(String)` | `ruslo.logging.mdc.correlation-id-key` | `correlation_id` | MDC key for the correlation id |
 | `withProcessIdMdcKey(String)` | `ruslo.logging.mdc.process-id-key` | `process_id` | MDC key for the process id |
 | `withProcessTypeMdcKey(String)` | `ruslo.logging.mdc.process-type-key` | `process_type` | MDC key for the process type |
-| `withJsonMapper(ObjectMapper)` | none | | A custom `ObjectMapper` for variables and messages |
 | `withMetrics(ProcessEngineMetrics)` | none | no-op | In Spring, Micrometer is wired automatically: [metrics.md](metrics.md) |
 
 The Admin UI properties (`ruslo.admin-ui.*`) are described in its [module README](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md).
