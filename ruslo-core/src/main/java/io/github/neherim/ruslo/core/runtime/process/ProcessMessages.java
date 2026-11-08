@@ -3,11 +3,9 @@ package io.github.neherim.ruslo.core.runtime.process;
 import io.github.neherim.ruslo.core.api.definition.IncomingMessage;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
 import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.ObjectReader;
-import tools.jackson.databind.cfg.JsonNodeFeature;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -18,7 +16,8 @@ import java.util.UUID;
 
 /** Message queue of the current await; cleared on every state entry. */
 public final class ProcessMessages {
-    private static final TypeReference<List<PendingMessage>> MESSAGE_LIST = new TypeReference<>() {
+    /** Stored JSON type of the message queue. */
+    public static final TypeReference<List<PendingMessage>> JSON_TYPE = new TypeReference<>() {
     };
 
     private final ObjectMapper mapper;
@@ -33,14 +32,7 @@ public final class ProcessMessages {
         return new ProcessMessages(mapper, new ArrayList<>());
     }
 
-    /** Creates a reusable reader that preserves decimal precision and scale in payloads. */
-    public static ObjectReader jsonReader(ObjectMapper mapper) {
-        return mapper.readerFor(MESSAGE_LIST)
-            .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-            .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES);
-    }
-
-    /** Reads queued messages with the reader created by {@link #jsonReader}. */
+    /** Reads queued messages using a reader for {@link #JSON_TYPE}. */
     public static ProcessMessages fromString(ObjectMapper mapper, ObjectReader reader, String json) {
         if (json == null || json.isBlank()) throw new IllegalArgumentException("Messages JSON cannot be blank");
         List<PendingMessage> messages = reader.readValue(json);

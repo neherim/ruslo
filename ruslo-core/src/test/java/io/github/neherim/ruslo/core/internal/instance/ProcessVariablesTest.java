@@ -23,7 +23,7 @@ class ProcessVariablesTest {
     private static final LocalDateTime DATE_TIME = LocalDateTime.parse("2026-05-10T10:15:30");
 
     private final ObjectMapper om = JsonUtils.DEFAULT_OBJECT_MAPPER;
-    private final ObjectReader reader = ProcessVariables.jsonReader(om);
+    private final ObjectReader reader = JsonUtils.readerFor(om, ProcessVariables.JSON_TYPE);
 
     @Test
     void stringVariable() {

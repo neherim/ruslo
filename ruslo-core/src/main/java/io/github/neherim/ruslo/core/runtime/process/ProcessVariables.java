@@ -1,11 +1,9 @@
 package io.github.neherim.ruslo.core.runtime.process;
 
 import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.ObjectReader;
-import tools.jackson.databind.cfg.JsonNodeFeature;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -13,7 +11,8 @@ import java.util.Map;
 
 /** Stores process variables as one JSON object: variable name to its JSON value. */
 public class ProcessVariables {
-    private static final TypeReference<HashMap<String, JsonNode>> VARIABLES_TYPE = new TypeReference<>() {
+    /** Stored JSON type of process variables. */
+    public static final TypeReference<HashMap<String, JsonNode>> JSON_TYPE = new TypeReference<>() {
     };
 
     private final ObjectMapper objectMapper;
@@ -29,7 +28,7 @@ public class ProcessVariables {
     }
 
     /**
-     * Reads variables from a JSON object with the reader created by {@link #jsonReader}.
+     * Reads variables from a JSON object using a reader for {@link #JSON_TYPE}.
      */
     public static ProcessVariables fromString(ObjectMapper objectMapper, ObjectReader reader, String json) {
         if (json == null || json.isBlank()) {
@@ -42,13 +41,6 @@ public class ProcessVariables {
         var processVariables = ProcessVariables.empty(objectMapper);
         variables.forEach(processVariables::setVariable);
         return processVariables;
-    }
-
-    /** Creates a reusable reader that preserves decimal precision and scale in variables. */
-    public static ObjectReader jsonReader(ObjectMapper objectMapper) {
-        return objectMapper.readerFor(VARIABLES_TYPE)
-            .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-            .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES);
     }
 
     /** Serializes the variables; an empty set is stored as {@code null} (the {@code variables} column is nullable). */

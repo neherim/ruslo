@@ -10,6 +10,7 @@ import io.github.neherim.ruslo.core.runtime.process.ProcessTimers;
 import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.utils.DateTimeUtils;
+import io.github.neherim.ruslo.core.utils.JsonUtils;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.ObjectReader;
 
@@ -61,7 +62,7 @@ public class ProcessInstanceSearchDao {
     ) {
         this.database = database;
         this.objectMapper = objectMapper;
-        this.variablesReader = ProcessVariables.jsonReader(objectMapper);
+        this.variablesReader = JsonUtils.readerFor(objectMapper, ProcessVariables.JSON_TYPE);
         this.processDefinitionRegistry = processDefinitionRegistry;
     }
 

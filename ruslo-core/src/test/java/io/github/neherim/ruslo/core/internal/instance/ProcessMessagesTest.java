@@ -15,7 +15,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class ProcessMessagesTest {
     private static final MessageType<String> FIRST = MessageType.of("FIRST", String.class);
     private static final MessageType<String> SECOND = MessageType.of("SECOND", String.class);
-    private static final ObjectReader READER = ProcessMessages.jsonReader(JsonUtils.DEFAULT_OBJECT_MAPPER);
+    private static final ObjectReader READER = JsonUtils.readerFor(JsonUtils.DEFAULT_OBJECT_MAPPER,
+            ProcessMessages.JSON_TYPE);
 
     @Test
     void storesFifoAcrossTypesAndRoundTripsJson() {

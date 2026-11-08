@@ -5,6 +5,7 @@ import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
+import io.github.neherim.ruslo.core.utils.JsonUtils;
 import io.github.neherim.ruslo.core.utils.UUIDGenerator;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.ObjectMapper;
@@ -30,8 +31,8 @@ public class ProcessInstanceFactory {
     ) {
         this.clock = clock;
         this.objectMapper = objectMapper;
-        this.variablesReader = ProcessVariables.jsonReader(objectMapper);
-        this.messagesReader = ProcessMessages.jsonReader(objectMapper);
+        this.variablesReader = JsonUtils.readerFor(objectMapper, ProcessVariables.JSON_TYPE);
+        this.messagesReader = JsonUtils.readerFor(objectMapper, ProcessMessages.JSON_TYPE);
         this.processDefinitionRegistry = processDefinitionRegistry;
     }
 
