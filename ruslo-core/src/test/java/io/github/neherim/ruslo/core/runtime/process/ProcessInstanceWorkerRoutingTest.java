@@ -5,7 +5,6 @@ import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.test.MutableClock;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
-import io.github.neherim.ruslo.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -73,7 +72,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
                 .after(Duration.ofSeconds(2), State.DONE))
             .terminal(State.DONE)
             .build();
-        return new ProcessInstanceFactory(clock, JsonUtils.DEFAULT_OBJECT_MAPPER,
+        return new ProcessInstanceFactory(clock,
                 new ProcessDefinitionRegistry(List.of(definition)));
     }
 

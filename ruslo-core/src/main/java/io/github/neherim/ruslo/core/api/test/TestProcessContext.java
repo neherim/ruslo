@@ -7,8 +7,6 @@ import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.runtime.process.ProcessTimers;
 import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
-import io.github.neherim.ruslo.core.utils.JsonUtils;
-import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -22,7 +20,7 @@ import java.util.UUID;
 
 /**
  * {@link io.github.neherim.ruslo.core.api.definition.ProcessContext} for unit tests of handlers, without an engine
- * or database. Variables are stored as JSON like in the engine, so a test catches non-serializable values and
+ * or database. Variables use the engine's built-in JSON configuration, so a test catches non-serializable values and
  * object changes made without {@code setVariable}. Timer moments are truncated to microseconds like in the engine;
  * the context knows no definition, so timer names are not checked against its {@code at} events.
  */
@@ -45,8 +43,8 @@ public final class TestProcessContext implements ProcessContext {
         this.attempt = builder.attempt;
         this.businessKey = builder.businessKey;
         this.clock = builder.clock;
-        this.variables = ProcessVariables.fromMap(builder.jsonMapper, builder.variables);
-        this.timers = ProcessTimers.empty(builder.jsonMapper);
+        this.variables = ProcessVariables.fromMap(builder.variables);
+        this.timers = ProcessTimers.empty();
         builder.timers.forEach(timers::set);
     }
 
@@ -161,7 +159,6 @@ public final class TestProcessContext implements ProcessContext {
         private int attempt;
         private String businessKey;
         private Clock clock = Clock.systemUTC();
-        private ObjectMapper jsonMapper = JsonUtils.DEFAULT_OBJECT_MAPPER;
         private final Map<String, Object> variables = new LinkedHashMap<>();
         private final Map<String, Instant> timers = new LinkedHashMap<>();
 
@@ -205,15 +202,6 @@ public final class TestProcessContext implements ProcessContext {
         /** Fixes {@link #now()} at {@code now}. */
         public Builder now(Instant now) {
             this.clock = Clock.fixed(Objects.requireNonNull(now, "Now must not be null"), ZoneOffset.UTC);
-            return this;
-        }
-
-        /**
-         * Sets the variable mapper. Use the one passed to {@code ProcessEngineBuilder.withJsonMapper} so variables
-         * serialize as in the application.
-         */
-        public Builder jsonMapper(ObjectMapper jsonMapper) {
-            this.jsonMapper = Objects.requireNonNull(jsonMapper, "ObjectMapper must not be null");
             return this;
         }
 

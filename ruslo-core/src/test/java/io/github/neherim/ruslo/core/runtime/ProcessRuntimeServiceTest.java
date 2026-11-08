@@ -12,7 +12,6 @@ import io.github.neherim.ruslo.core.runtime.worker.StepErrorHandler;
 import io.github.neherim.ruslo.core.runtime.worker.StepExecutor;
 import io.github.neherim.ruslo.core.search.ProcessSearchService;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
-import io.github.neherim.ruslo.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -81,7 +80,7 @@ class ProcessRuntimeServiceTest extends BaseTest {
 
         runtime.moveToState(processId, SimpleProcessDefinition.State.FINISH);
 
-        var searchService = new ProcessSearchService(database, JsonUtils.DEFAULT_OBJECT_MAPPER,
+        var searchService = new ProcessSearchService(database,
                 new ProcessDefinitionRegistry(List.of(new SimpleProcessDefinition())));
         var states = searchService
             .processes()
@@ -112,7 +111,7 @@ class ProcessRuntimeServiceTest extends BaseTest {
 
     private ProcessRuntimeService runtime(ProcessDispatchSignal signal, Clock clock) {
         var registry = new ProcessDefinitionRegistry(List.of(new SimpleProcessDefinition()));
-        var factory = new ProcessInstanceFactory(clock, JsonUtils.DEFAULT_OBJECT_MAPPER, registry);
+        var factory = new ProcessInstanceFactory(clock, registry);
         var dao = new ProcessInstanceDao(database, clock, factory, true,
                 new io.github.neherim.ruslo.core.spi.ProcessEngineMetrics() {
                 });

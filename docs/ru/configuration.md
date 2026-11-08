@@ -38,7 +38,6 @@ engine.start();
 | `withCorrelationIdMdcKey(String)` | `ruslo.logging.mdc.correlation-id-key` | `correlation_id` | Ключ MDC для correlation id |
 | `withProcessIdMdcKey(String)` | `ruslo.logging.mdc.process-id-key` | `process_id` | Ключ MDC для id процесса |
 | `withProcessTypeMdcKey(String)` | `ruslo.logging.mdc.process-type-key` | `process_type` | Ключ MDC для типа процесса |
-| `withJsonMapper(ObjectMapper)` | нет | | Свой `ObjectMapper` для переменных и сообщений |
 | `withMetrics(ProcessEngineMetrics)` | нет | no-op | В Spring Micrometer подключается автоматически: [metrics.md](metrics.md) |
 
 Свойства Admin UI (`ruslo.admin-ui.*`) описаны в его [README модуля](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md).

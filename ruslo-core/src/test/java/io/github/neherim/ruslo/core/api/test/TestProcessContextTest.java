@@ -5,7 +5,6 @@ import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.definition.VariableType;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -125,11 +124,4 @@ class TestProcessContextTest {
         assertEquals(Set.of("paymentId"), context.variableNames());
     }
 
-    @Test
-    void usesCustomJsonMapper() {
-        var mapper = JsonMapper.builder().build();
-        var context = TestProcessContext.builder().jsonMapper(mapper).variable("n", 1).build();
-
-        assertEquals(1, context.getVariable("n", Integer.class));
-    }
 }

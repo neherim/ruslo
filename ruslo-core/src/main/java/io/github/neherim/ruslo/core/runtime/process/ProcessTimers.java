@@ -1,7 +1,7 @@
 package io.github.neherim.ruslo.core.runtime.process;
 
 import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectReader;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -10,32 +10,35 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static io.github.neherim.ruslo.core.utils.JsonUtils.DEFAULT_OBJECT_MAPPER;
+
 /**
  * Process timers stored as one JSON object: timer name to its moment, in the {@link Instant} format of the variables.
  * Moments are truncated to microseconds, the precision of {@code next_run_at}: a finer moment would make the process
  * runnable slightly before its timer is due.
  */
 public final class ProcessTimers {
-    private static final TypeReference<TreeMap<String, Instant>> TIMERS_TYPE = new TypeReference<>() {
-    };
+    private static final ObjectReader JSON_READER = DEFAULT_OBJECT_MAPPER.readerFor(
+            new TypeReference<TreeMap<String, Instant>>() {
+            });
 
-    private final ObjectMapper objectMapper;
     private final Map<String, Instant> timers;
 
-    private ProcessTimers(ObjectMapper objectMapper, Map<String, Instant> timers) {
-        this.objectMapper = Objects.requireNonNull(objectMapper);
+    private ProcessTimers(Map<String, Instant> timers) {
         this.timers = timers;
     }
 
-    public static ProcessTimers empty(ObjectMapper objectMapper) {
-        return new ProcessTimers(objectMapper, new TreeMap<>());
+    /** Creates an empty set of timers. */
+    public static ProcessTimers empty() {
+        return new ProcessTimers(new TreeMap<>());
     }
 
-    public static ProcessTimers fromString(ObjectMapper objectMapper, String json) {
+    /** Reads timers from a JSON object. */
+    public static ProcessTimers fromString(String json) {
         if (json == null || json.isBlank()) {
-            return empty(objectMapper);
+            return empty();
         }
-        return new ProcessTimers(objectMapper, objectMapper.readValue(json, TIMERS_TYPE));
+        return new ProcessTimers(JSON_READER.readValue(json));
     }
 
     /** Serializes the timers; an empty set is stored as {@code null} (the {@code timers} column is nullable). */
@@ -43,7 +46,7 @@ public final class ProcessTimers {
         if (timers.isEmpty()) {
             return null;
         }
-        return objectMapper.writeValueAsString(timers);
+        return DEFAULT_OBJECT_MAPPER.writeValueAsString(timers);
     }
 
     /** Sets the timer to {@code moment} truncated to microseconds. */

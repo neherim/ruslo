@@ -4,7 +4,6 @@ import io.github.neherim.ruslo.core.api.definition.IncomingMessage;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.ObjectReader;
 
 import java.time.Instant;
@@ -14,41 +13,42 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import static io.github.neherim.ruslo.core.utils.JsonUtils.DEFAULT_OBJECT_MAPPER;
+
 /** Message queue of the current await; cleared on every state entry. */
 public final class ProcessMessages {
-    /** Stored JSON type of the message queue. */
-    public static final TypeReference<List<PendingMessage>> JSON_TYPE = new TypeReference<>() {
-    };
+    private static final ObjectReader JSON_READER = DEFAULT_OBJECT_MAPPER.readerFor(
+            new TypeReference<List<PendingMessage>>() {
+            });
 
-    private final ObjectMapper mapper;
     private final List<PendingMessage> entries;
 
-    private ProcessMessages(ObjectMapper mapper, List<PendingMessage> entries) {
-        this.mapper = Objects.requireNonNull(mapper);
+    private ProcessMessages(List<PendingMessage> entries) {
         this.entries = entries;
     }
 
-    public static ProcessMessages empty(ObjectMapper mapper) {
-        return new ProcessMessages(mapper, new ArrayList<>());
+    /** Creates an empty message queue. */
+    public static ProcessMessages empty() {
+        return new ProcessMessages(new ArrayList<>());
     }
 
-    /** Reads queued messages using a reader for {@link #JSON_TYPE}. */
-    public static ProcessMessages fromString(ObjectMapper mapper, ObjectReader reader, String json) {
+    /** Reads queued messages, preserving decimal precision and scale in payloads. */
+    public static ProcessMessages fromString(String json) {
         if (json == null || json.isBlank()) throw new IllegalArgumentException("Messages JSON cannot be blank");
-        List<PendingMessage> messages = reader.readValue(json);
+        List<PendingMessage> messages = JSON_READER.readValue(json);
         if (messages.stream().anyMatch(Objects::isNull)) throw new IllegalArgumentException("Null message entry");
-        return new ProcessMessages(mapper, new ArrayList<>(messages));
+        return new ProcessMessages(new ArrayList<>(messages));
     }
 
     public String serializeToString() {
-        return mapper.writeValueAsString(entries);
+        return DEFAULT_OBJECT_MAPPER.writeValueAsString(entries);
     }
 
     public void append(MessageType<?> type, Object payload, UUID id, Instant receivedAt) {
         Objects.requireNonNull(type);
         Objects.requireNonNull(id);
         Objects.requireNonNull(receivedAt);
-        var tree = mapper.valueToTree(payload);
+        var tree = DEFAULT_OBJECT_MAPPER.valueToTree(payload);
         entries.add(new PendingMessage(id, type.name(), tree, receivedAt));
     }
 
@@ -77,13 +77,13 @@ public final class ProcessMessages {
         if (!entry.type().equals(type.name())) throw new IllegalArgumentException("Message type mismatch");
         T payload = entry.payload() == null || entry.payload().isNull()
                 ? null
-                : mapper.treeToValue(entry.payload(), type.clazz());
+                : DEFAULT_OBJECT_MAPPER.treeToValue(entry.payload(), type.clazz());
         return new IncomingMessage<>(entry.id(), type, payload, entry.receivedAt());
     }
 
     public Object normalizePayload(Object payload, Class<?> payloadClass) {
         if (payload == null) return null;
-        return mapper.treeToValue(mapper.valueToTree(payload), payloadClass);
+        return DEFAULT_OBJECT_MAPPER.treeToValue(DEFAULT_OBJECT_MAPPER.valueToTree(payload), payloadClass);
     }
 
     /** A stored message not yet handled by the current await. */
