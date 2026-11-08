@@ -22,8 +22,8 @@ class ProcessMessagesTest {
         var json = messages.serializeToString();
         assertTrue(json.startsWith("["));
         var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, json);
-        assertEquals("one", restored.convert(restored.peekFirst().orElseThrow(), FIRST).payload());
-        restored.removeFirst();
+        var first = restored.takeFirst();
+        assertEquals("one", restored.convert(first, FIRST).payload());
         assertEquals("two", restored.convert(restored.peekFirst().orElseThrow(), SECOND).payload());
         restored.clear();
         assertEquals("[]", restored.serializeToString());
@@ -37,7 +37,7 @@ class ProcessMessagesTest {
         messages.append(FIRST, null, now);
         var first = messages.peekFirst().orElseThrow();
         assertNull(messages.convert(first, FIRST).payload());
-        messages.removeFirst();
+        messages.takeFirst();
         assertFalse(messages.isEmpty());
     }
 
@@ -50,7 +50,7 @@ class ProcessMessagesTest {
         var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER,
                 messages.serializeToString());
         assertEquals("SECOND", restored.peekFirst().orElseThrow().type());
-        restored.removeFirst();
+        restored.takeFirst();
         assertEquals("FIRST", restored.peekFirst().orElseThrow().type());
     }
 }

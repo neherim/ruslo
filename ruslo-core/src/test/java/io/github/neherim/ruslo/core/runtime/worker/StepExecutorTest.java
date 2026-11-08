@@ -6,9 +6,12 @@ import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.runtime.logging.MdcKeys;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.*;
+import io.github.neherim.ruslo.core.runtime.process.ProcessInstance.AwaitEvent;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -110,6 +113,34 @@ class StepExecutorTest {
         clock.now = process.getNextRunAt().orElseThrow();
         executor.executeNextProcessStep(process);
         assertEquals(State.DONE.name(), process.getState().name());
+    }
+
+    @ParameterizedTest
+    @EnumSource(AwaitEvent.class)
+    void earliestFutureEventSchedulesNextRunAndExecutesOnlyWhenDue(AwaitEvent earliest) {
+        var timer = TimerType.of("DUE");
+        var messageDelay = Duration.ofSeconds(earliest == AwaitEvent.MESSAGE ? 1 : 2);
+        var everyDelay = Duration.ofSeconds(earliest == AwaitEvent.EVERY ? 1 : 2);
+        var afterDelay = Duration.ofSeconds(earliest == AwaitEvent.AFTER ? 1 : 2);
+        var atDelay = Duration.ofSeconds(earliest == AwaitEvent.AT ? 1 : 2);
+        var process = process(builder -> builder.step(State.START, context -> {}, State.WAIT)
+            .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {}, State.WAIT)
+                .every(everyDelay, context -> {}, State.WAIT)
+                .after(afterDelay, context -> {}, State.WAIT)
+                .at(timer, context -> {}, State.WAIT)));
+        executor.executeNextProcessStep(process);
+        process.setTimer(timer, NOW.plus(atDelay));
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "future", NOW.plus(messageDelay));
+
+        assertEquals(Optional.of(NOW.plusSeconds(1)), process.getNextRunAt());
+        assertFalse(executor.executeNextProcessStep(process));
+        assertEquals(Optional.of(NOW.plusSeconds(1)), process.getNextRunAt());
+
+        clock.now = NOW.plusSeconds(1);
+        assertEquals(Optional.of(earliest), process.dueAwaitEvent());
+        assertTrue(executor.executeNextProcessStep(process));
+        assertEquals(Optional.of(NOW.plusSeconds(2)), process.getNextRunAt());
+        assertEquals(earliest == AwaitEvent.MESSAGE, process.getMessages().isEmpty());
     }
 
     /** A process awaiting in WAIT with a deadline in one minute; the message leads to {@code messageTarget}. */

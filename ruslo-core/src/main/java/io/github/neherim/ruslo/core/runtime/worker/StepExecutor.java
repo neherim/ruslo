@@ -88,10 +88,8 @@ public class StepExecutor {
     }
 
     /**
-     * Executes the event selected by {@link ProcessInstance#dueAwaitEvent()}: the event is
-     * {@link ProcessInstance#takeAwaitEvent taken} before its handler, and the handler's target is entered. Without
-     * a due event, e.g. after a manual change of {@code next_run_at}, only the next run is recomputed: no attempt
-     * and no history row.
+     * Executes the selected due event and enters its target. Without a due event, recomputes the next run and clears
+     * the previous error, e.g. after a manual change of {@code next_run_at}.
      */
     private boolean executeAwait(ProcessInstance process, AwaitState spec) {
         var due = process.dueAwaitEvent();
@@ -99,14 +97,17 @@ public class StepExecutor {
             process.stayInAwait();
             return false;
         }
-        var event = due.get();
-        var message = process.getMessages().peekFirst();
-        process.takeAwaitEvent(event);
         var context = new DefaultProcessContext(process);
-        var target = switch (event) {
-            case MESSAGE -> executeQueuedMessage(process, context, message.orElseThrow());
-            case EVERY -> executeTimer(process, context, spec.every().handler(), spec.every().exit(), "every");
-            case AFTER -> executeTimer(process, context, spec.after().handler(), spec.after().exit(), "after");
+        var target = switch (due.get()) {
+            case MESSAGE -> executeQueuedMessage(process, context, process.getMessages().takeFirst());
+            case EVERY -> {
+                process.advanceEvery();
+                yield executeTimer(process, context, spec.every().handler(), spec.every().exit(), "every");
+            }
+            case AFTER -> {
+                process.disableAfter();
+                yield executeTimer(process, context, spec.after().handler(), spec.after().exit(), "after");
+            }
             case AT -> executeAt(process, context, spec.at());
         };
         process.enterState(target);
@@ -149,7 +150,6 @@ public class StepExecutor {
         return convertAndExecute(process, context, event, pending);
     }
 
-    /** Converts the stored message to the handler type {@code T} from the definition and executes it. */
     private <T> ProcessStateId convertAndExecute(
             ProcessInstance process,
             DefaultProcessContext context,

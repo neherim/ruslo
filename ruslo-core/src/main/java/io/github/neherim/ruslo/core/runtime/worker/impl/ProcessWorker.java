@@ -46,16 +46,16 @@ public class ProcessWorker implements Worker {
     private final BoundedExecutor executor;
 
     public ProcessWorker(
-        WorkerSpec spec,
-        ExecutorService executorService,
-        boolean ownsExecutor,
-        Database database,
-        ProcessInstanceDao processInstanceDao,
-        StepExecutor stepExecutor,
-        StepErrorHandler stepErrorHandler,
-        ProcessEngineMetrics metrics,
-        LeaseReleaser leaseReleaser,
-        ProcessDispatchSignal dispatchSignal
+            WorkerSpec spec,
+            ExecutorService executorService,
+            boolean ownsExecutor,
+            Database database,
+            ProcessInstanceDao processInstanceDao,
+            StepExecutor stepExecutor,
+            StepErrorHandler stepErrorHandler,
+            ProcessEngineMetrics metrics,
+            LeaseReleaser leaseReleaser,
+            ProcessDispatchSignal dispatchSignal
     ) {
         this.spec = Objects.requireNonNull(spec);
         this.database = Objects.requireNonNull(database);
@@ -67,10 +67,10 @@ public class ProcessWorker implements Worker {
         this.executorService = Objects.requireNonNull(executorService);
         this.ownsExecutor = ownsExecutor;
         this.executor = new BoundedExecutor(spec.maxConcurrency(), executorService,
-            dispatchSignal::wakeUp);
+                dispatchSignal::wakeUp);
         metrics.registerWorkerMetrics(spec.workerId().name(), spec.maxConcurrency(), executor::getActiveTaskCount,
-            () -> processInstanceDao.countReadyForWorker(spec.workerId()),
-            () -> processInstanceDao.oldestReadyAgeForWorker(spec.workerId()));
+                () -> processInstanceDao.countReadyForWorker(spec.workerId()),
+                () -> processInstanceDao.oldestReadyAgeForWorker(spec.workerId()));
     }
 
     @Override

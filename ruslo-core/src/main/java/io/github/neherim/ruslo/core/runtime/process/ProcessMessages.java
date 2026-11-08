@@ -54,8 +54,9 @@ public final class ProcessMessages {
         return entries.isEmpty() ? Optional.empty() : Optional.of(entries.getFirst());
     }
 
-    public void removeFirst() {
-        entries.removeFirst();
+    /** Returns and removes the first queued message. */
+    public PendingMessage takeFirst() {
+        return entries.removeFirst();
     }
 
     public void clear() {

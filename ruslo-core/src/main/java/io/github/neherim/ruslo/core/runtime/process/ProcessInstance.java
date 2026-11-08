@@ -9,7 +9,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.Stream;
 
 /**
  * Process instance and atomic operations on its execution state.
@@ -116,11 +115,7 @@ public final class ProcessInstance {
         var targetId = target.id();
         var behavior = spec.getStateSpec(targetId);
         if (state != null && state.equals(targetId)) {
-            status = ProcessStatus.ACTIVE;
-            resetAttemptsAndError();
-            if (behavior instanceof StepState) nextRunAt = now;
-            else
-                recomputeNextRun();
+            activateCurrentState(now);
             return;
         }
         messages.clear();
@@ -174,38 +169,27 @@ public final class ProcessInstance {
      */
     public Optional<AwaitEvent> dueAwaitEvent() {
         var now = clock.instant();
-        var times = new EnumMap<AwaitEvent, Instant>(AwaitEvent.class);
-        messages.peekFirst().ifPresent(message -> times.put(AwaitEvent.MESSAGE, message.receivedAt()));
-        times.putAll(timerMoments());
-        return times.entrySet()
-            .stream()
-            .filter(event -> !event.getValue().isAfter(now))
-            .min(Map.Entry.<AwaitEvent, Instant>comparingByValue().thenComparing(Map.Entry.comparingByKey()))
-            .map(Map.Entry::getKey);
+        return nextAwaitEvent()
+            .filter(event -> !event.dueAt().isAfter(now))
+            .map(ScheduledAwaitEvent::kind);
     }
 
     /**
-     * Takes the selected await event before its handler runs, without moving the next run: removes the first queued
-     * message, moves {@code every} to the first grid point after now (missed points are skipped), turns {@code after}
-     * off while the process stays in the await. The {@code at} timer is kept for its handler and cancelled after it
-     * by the caller, unless the handler changed it.
-     * <p>
-     * Leaving the await resets all of this anyway; a handler failure discards it, since the process is then neither
-     * stored nor committed.
+     * Moves the due {@code every} to the first grid point after now before its handler runs, without moving the
+     * next run; missed points are skipped. A handler failure discards the change with the process instance.
      */
-    public void takeAwaitEvent(AwaitEvent event) {
-        switch (event) {
-            case MESSAGE -> messages.removeFirst();
-            case EVERY -> {
-                var interval = awaitState().every().interval().period();
-                var missed = Duration.between(everyDueAt, clock.instant()).dividedBy(interval);
-                everyDueAt = everyDueAt.plus(interval.multipliedBy(missed + 1));
-            }
-            case AFTER -> afterDueAt = null;
-            case AT -> {
-                // kept for its handler, see the method Javadoc
-            }
-        }
+    public void advanceEvery() {
+        var interval = currentAwait().every().interval().period();
+        var missed = Duration.between(everyDueAt, clock.instant()).dividedBy(interval);
+        everyDueAt = everyDueAt.plus(interval.multipliedBy(missed + 1));
+    }
+
+    /**
+     * Disables {@code after} before its handler runs, without moving the next run; a handler failure discards the
+     * change with the process instance.
+     */
+    public void disableAfter() {
+        afterDueAt = null;
     }
 
     /**
@@ -216,6 +200,14 @@ public final class ProcessInstance {
     public void stayInAwait() {
         resetAttemptsAndError();
         recomputeNextRun();
+    }
+
+    private void activateCurrentState(Instant now) {
+        status = ProcessStatus.ACTIVE;
+        resetAttemptsAndError();
+        if (getStateSpec() instanceof StepState) nextRunAt = now;
+        else
+            recomputeNextRun();
     }
 
     /**
@@ -245,11 +237,7 @@ public final class ProcessInstance {
      */
     public boolean resume() {
         if (status != ProcessStatus.FAILED) return false;
-        status = ProcessStatus.ACTIVE;
-        resetAttemptsAndError();
-        if (getStateSpec() instanceof StepState) nextRunAt = clock.instant();
-        else
-            recomputeNextRun();
+        activateCurrentState(clock.instant());
         return true;
     }
 
@@ -257,23 +245,22 @@ public final class ProcessInstance {
      * Recomputes when the active await runs next: the earliest of its timers and the first queued message.
      */
     private void recomputeNextRun() {
-        nextRunAt = Stream.concat(timerMoments().values().stream(), messages.firstReceivedAt().stream())
-            .min(Comparator.naturalOrder())
-            .orElse(null);
+        nextRunAt = nextAwaitEvent().map(ScheduledAwaitEvent::dueAt).orElse(null);
     }
 
-    /**
-     * Returns the moments of the enabled timers of the current await; empty for a step or terminal state.
-     */
-    private Map<AwaitEvent, Instant> timerMoments() {
-        var moments = new EnumMap<AwaitEvent, Instant>(AwaitEvent.class);
-        if (everyDueAt != null) moments.put(AwaitEvent.EVERY, everyDueAt);
-        if (afterDueAt != null) moments.put(AwaitEvent.AFTER, afterDueAt);
+    private Optional<ScheduledAwaitEvent> nextAwaitEvent() {
+        var events = new ArrayList<ScheduledAwaitEvent>(4);
+        messages.firstReceivedAt().ifPresent(time -> events.add(new ScheduledAwaitEvent(AwaitEvent.MESSAGE, time)));
+        if (everyDueAt != null) events.add(new ScheduledAwaitEvent(AwaitEvent.EVERY, everyDueAt));
+        if (afterDueAt != null) events.add(new ScheduledAwaitEvent(AwaitEvent.AFTER, afterDueAt));
         var await = currentAwait();
         if (await != null && await.at() != null) {
-            timers.get(await.at().timer().name()).ifPresent(moment -> moments.put(AwaitEvent.AT, moment));
+            timers.get(await.at().timer().name())
+                .ifPresent(time -> events.add(new ScheduledAwaitEvent(AwaitEvent.AT, time)));
         }
-        return moments;
+        return events.stream()
+            .min(Comparator.comparing(ScheduledAwaitEvent::dueAt)
+                .thenComparing(ScheduledAwaitEvent::kind));
     }
 
     /**
@@ -284,10 +271,6 @@ public final class ProcessInstance {
         var await = currentAwait();
         if (await == null || await.at() == null || !await.at().timer().equals(timer)) return;
         if (status == ProcessStatus.ACTIVE && !hasRetryBackoff()) recomputeNextRun();
-    }
-
-    private AwaitState awaitState() {
-        return (AwaitState) getStateSpec();
     }
 
     /**
@@ -480,6 +463,9 @@ public final class ProcessInstance {
         EVERY,
         AFTER,
         AT
+    }
+
+    private record ScheduledAwaitEvent(AwaitEvent kind, Instant dueAt) {
     }
 
     @Override
