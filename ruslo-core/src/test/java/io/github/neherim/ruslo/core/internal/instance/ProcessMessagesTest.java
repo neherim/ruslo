@@ -5,6 +5,7 @@ import io.github.neherim.ruslo.core.runtime.process.ProcessMessages;
 import io.github.neherim.ruslo.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -58,5 +59,29 @@ class ProcessMessagesTest {
         assertEquals(largerId, restored.peekFirst().orElseThrow().id());
         restored.removeFirst();
         assertEquals(smallerId, restored.peekFirst().orElseThrow().id());
+    }
+
+    @Test
+    void decimalPayloadKeepsPrecisionAcrossReload() {
+        var type = MessageType.of("AMOUNT", BigDecimal.class);
+        var amount = new BigDecimal("9.99999999999999999999999");
+        var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
+        messages.append(type, amount, UUID.randomUUID(), Instant.EPOCH);
+
+        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, messages.serializeToString());
+
+        assertEquals(amount, restored.convert(restored.peekFirst().orElseThrow(), type).payload());
+    }
+
+    @Test
+    void decimalPayloadKeepsScaleAcrossReload() {
+        var type = MessageType.of("AMOUNT", BigDecimal.class);
+        var amount = new BigDecimal("1.10");
+        var messages = ProcessMessages.empty(JsonUtils.DEFAULT_OBJECT_MAPPER);
+        messages.append(type, amount, UUID.randomUUID(), Instant.EPOCH);
+
+        var restored = ProcessMessages.fromString(JsonUtils.DEFAULT_OBJECT_MAPPER, messages.serializeToString());
+
+        assertEquals(amount, restored.convert(restored.peekFirst().orElseThrow(), type).payload());
     }
 }

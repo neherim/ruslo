@@ -9,6 +9,7 @@ import io.github.neherim.ruslo.core.api.test.MutableClock;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -146,6 +147,34 @@ class ProcessStepExecutionTest extends BaseTest {
                     restartedEngine.processes().byId(id).singleDetails().orElseThrow().status());
         } finally {
             restartedEngine.close();
+        }
+    }
+
+    @Test
+    void queuedMessagesKeepNestedDecimalValuesAcrossQueueUpdates() {
+        record Payment(BigDecimal amount, List<BigDecimal> parts) {
+        }
+        var type = MessageType.of("PAYMENT", Payment.class);
+        var received = new ArrayList<Payment>();
+        var payments = List.of(
+                new Payment(new BigDecimal("9.99999999999999999999999"), List.of(new BigDecimal("1.10"))),
+                new Payment(new BigDecimal("2.00"), List.of(new BigDecimal("0.123456789012345678901234567890"))));
+        ProcessDefinition definition = builder -> builder.type("DECIMAL_QUEUE")
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.message(type, (context, message) -> {
+                received.add(message.payload());
+            }, State.WAIT).after(Duration.ofDays(1), State.DONE))
+            .terminal(State.DONE)
+            .build();
+
+        try (var engine = newProcessEngineWith(definition)) {
+            var id = engine.newProcess(ProcessType.of("DECIMAL_QUEUE")).start();
+            for (var payment : payments)
+                engine.sendMessage(id, type, payment);
+
+            emulator(engine).runUntilStop(id);
+
+            assertEquals(payments, received);
         }
     }
 
