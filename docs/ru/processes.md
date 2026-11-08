@@ -102,8 +102,9 @@ UUID processId = processEngine.newProcess(OrderDefinition.TYPE)
 
 Изменения контекста сохраняются вместе с переходом процесса между состояниями.
 
-Переменные и payload сообщений хранятся в JSON. Их класс должен быть конкретным: оберните `List` или `Map`
-в record (`record OrderItems(List<String> itemIds) {}`).
+Переменные и payload сообщений хранятся в JSON со встроенными настройками Jackson, общими для движка и
+`TestProcessContext`. Используйте совместимые с JSON DTO, предпочтительно records. Их класс должен быть конкретным:
+оберните `List` или `Map` в record (`record OrderItems(List<String> itemIds) {}`).
 
 ## Статус
 

@@ -1,55 +1,48 @@
 package io.github.neherim.ruslo.core.runtime.process;
 
 import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.ObjectReader;
-import tools.jackson.databind.cfg.JsonNodeFeature;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.github.neherim.ruslo.core.utils.JsonUtils.DEFAULT_OBJECT_MAPPER;
+
 /** Stores process variables as one JSON object: variable name to its JSON value. */
 public class ProcessVariables {
-    private static final TypeReference<HashMap<String, JsonNode>> VARIABLES_TYPE = new TypeReference<>() {
-    };
+    private static final ObjectReader JSON_READER = DEFAULT_OBJECT_MAPPER.readerFor(
+            new TypeReference<HashMap<String, JsonNode>>() {
+            });
 
-    private final ObjectMapper objectMapper;
     private final Map<String, JsonNode> variables;
 
-    private ProcessVariables(ObjectMapper objectMapper, Map<String, JsonNode> variables) {
-        this.objectMapper = objectMapper;
+    private ProcessVariables(Map<String, JsonNode> variables) {
         this.variables = variables;
     }
 
-    public static ProcessVariables empty(ObjectMapper objectMapper) {
-        return new ProcessVariables(objectMapper, new HashMap<>());
+    /** Creates an empty set of variables. */
+    public static ProcessVariables empty() {
+        return new ProcessVariables(new HashMap<>());
     }
 
     /**
-     * Reads variables from a JSON object. Decimals are read as {@code BigDecimal} without losing precision or scale,
-     * so {@link #findVariable} returns the stored value.
+     * Reads variables from a JSON object, preserving decimal precision and scale.
      */
-    public static ProcessVariables fromString(ObjectMapper objectMapper, String json) {
+    public static ProcessVariables fromString(String json) {
         if (json == null || json.isBlank()) {
-            return empty(objectMapper);
+            return empty();
         }
-        return new ProcessVariables(objectMapper, treeReader(objectMapper).readValue(json));
+        return new ProcessVariables(JSON_READER.readValue(json));
     }
 
-    public static ProcessVariables fromMap(ObjectMapper objectMapper, Map<String, Object> variables) {
-        var processVariables = ProcessVariables.empty(objectMapper);
+    /** Creates variables from their initial values. */
+    public static ProcessVariables fromMap(Map<String, Object> variables) {
+        var processVariables = ProcessVariables.empty();
         variables.forEach(processVariables::setVariable);
         return processVariables;
-    }
-
-    private static ObjectReader treeReader(ObjectMapper objectMapper) {
-        return objectMapper.readerFor(VARIABLES_TYPE)
-            .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-            .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES);
     }
 
     /** Serializes the variables; an empty set is stored as {@code null} (the {@code variables} column is nullable). */
@@ -57,11 +50,11 @@ public class ProcessVariables {
         if (variables.isEmpty()) {
             return null;
         }
-        return objectMapper.writeValueAsString(variables);
+        return DEFAULT_OBJECT_MAPPER.writeValueAsString(variables);
     }
 
     public ProcessVariables setVariable(String name, Object value) {
-        variables.put(name, objectMapper.valueToTree(value));
+        variables.put(name, DEFAULT_OBJECT_MAPPER.valueToTree(value));
         return this;
     }
 
@@ -80,13 +73,13 @@ public class ProcessVariables {
         if (jsonValue == null) {
             return Optional.empty();
         }
-        return Optional.ofNullable(objectMapper.treeToValue(jsonValue, clazz));
+        return Optional.ofNullable(DEFAULT_OBJECT_MAPPER.treeToValue(jsonValue, clazz));
     }
 
     /** Returns an immutable map of variable name to the JSON text of its value. */
     public Map<String, String> asMap() {
         var result = new LinkedHashMap<String, String>();
-        variables.forEach((name, value) -> result.put(name, objectMapper.writeValueAsString(value)));
+        variables.forEach((name, value) -> result.put(name, DEFAULT_OBJECT_MAPPER.writeValueAsString(value)));
         return Map.copyOf(result);
     }
 

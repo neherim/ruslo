@@ -150,7 +150,8 @@ variables), `setVariable(type, value)`, `removeVariable(type)`, `findTimer(timer
 - Take the time from `context.now()` (the engine clock), never `Instant.now()`: timers compare with the engine
   clock, and in tests the emulator controls it. A deadline for `at`:
   `context.setTimer(DUE, context.now().plus(Duration.ofMinutes(15)))`.
-- Variables and message payloads are stored as JSON (Jackson). Their class must be concrete and non-generic:
+- Variables and message payloads use ruslo's built-in Jackson configuration, shared by the engine and
+  `TestProcessContext`. Use JSON-compatible DTOs, preferably records. Their class must be concrete and non-generic:
   wrap a `List`/`Map` in a record (`record OrderItems(List<String> ids) {}`).
 - Mutating an object returned by `getVariable` without calling `setVariable` is lost.
 - Change variable classes compatibly: running processes will read old JSON with the new class.

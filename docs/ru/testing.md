@@ -72,8 +72,7 @@ assertEquals(Outcome.PAID, paymentStep.execute(context));
 assertEquals("p-1", context.getVariable(PAYMENT_ID));
 ```
 
-Builder также задаёт id, тип и состояние процесса, business key, `now()`, таймеры и `ObjectMapper`; используйте тот
-же mapper, что и движок.
+Builder также задаёт id, тип и состояние процесса, business key, `now()` и таймеры.
 
 ## Что эмулятор не проверяет
 

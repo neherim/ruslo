@@ -71,8 +71,7 @@ assertEquals(Outcome.PAID, paymentStep.execute(context));
 assertEquals("p-1", context.getVariable(PAYMENT_ID));
 ```
 
-The builder also sets the process id, type, state, business key, `now()`, timers and the `ObjectMapper`; use the same
-mapper as the engine.
+The builder also sets the process id, type, state, business key, `now()` and timers.
 
 ## What the emulator does not check
 

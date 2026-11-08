@@ -19,7 +19,6 @@ import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceFactory;
 import io.github.neherim.ruslo.core.runtime.worker.impl.ProcessWorker;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
-import io.github.neherim.ruslo.core.utils.JsonUtils;
 import io.github.neherim.ruslo.core.utils.thread.CurrentThreadExecutorService;
 
 import java.time.Clock;
@@ -45,7 +44,7 @@ public final class WorkerTestFixture {
     private WorkerTestFixture(Database database, ProcessDefinition... definitions) {
         this.database = database;
         var registry = new ProcessDefinitionRegistry(List.of(definitions));
-        this.processInstanceFactory = new ProcessInstanceFactory(clock, JsonUtils.DEFAULT_OBJECT_MAPPER, registry);
+        this.processInstanceFactory = new ProcessInstanceFactory(clock, registry);
         this.processInstanceDao = new ProcessInstanceDao(database, clock, processInstanceFactory, true, metrics);
         this.processMdc = new ProcessMdc(MdcKeys.defaults());
         this.leaseDao = new LeaseDao(database, TestDatabases.dialect());

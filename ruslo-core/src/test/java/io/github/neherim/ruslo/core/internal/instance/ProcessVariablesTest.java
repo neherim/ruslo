@@ -3,9 +3,7 @@ package io.github.neherim.ruslo.core.internal.instance;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
-import io.github.neherim.ruslo.core.utils.JsonUtils;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -14,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY;
+import static io.github.neherim.ruslo.core.utils.JsonUtils.DEFAULT_OBJECT_MAPPER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -21,14 +20,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class ProcessVariablesTest {
     private static final LocalDateTime DATE_TIME = LocalDateTime.parse("2026-05-10T10:15:30");
 
-    private final ObjectMapper om = JsonUtils.DEFAULT_OBJECT_MAPPER;
-
     @Test
     void stringVariable() {
-        var first = ProcessVariables.empty(om)
+        var first = ProcessVariables.empty()
             .setVariable("varName", "Hello");
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(first.serializeToString());
 
         assertEquals("Hello", first.findVariable("varName", String.class).orElseThrow());
         assertEquals("Hello", second.findVariable("varName", String.class).orElseThrow());
@@ -36,10 +33,10 @@ class ProcessVariablesTest {
 
     @Test
     void booleanVariable() {
-        var first = ProcessVariables.empty(om)
+        var first = ProcessVariables.empty()
             .setVariable("varName", true);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(first.serializeToString());
 
         assertEquals(true, first.findVariable("varName", Boolean.class).orElseThrow());
         assertEquals(true, second.findVariable("varName", Boolean.class).orElseThrow());
@@ -47,10 +44,10 @@ class ProcessVariablesTest {
 
     @Test
     void localDateTimeVariable() {
-        var first = ProcessVariables.empty(om)
+        var first = ProcessVariables.empty()
             .setVariable("varName", DATE_TIME);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(first.serializeToString());
 
         assertEquals(DATE_TIME, first.findVariable("varName", LocalDateTime.class).orElseThrow());
         assertEquals(DATE_TIME, second.findVariable("varName", LocalDateTime.class).orElseThrow());
@@ -63,10 +60,10 @@ class ProcessVariablesTest {
 
         var recordVariable = new Rec("Hello!", 42);
 
-        var first = ProcessVariables.empty(om)
+        var first = ProcessVariables.empty()
             .setVariable("varName", recordVariable);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(first.serializeToString());
 
         assertEquals(recordVariable, first.findVariable("varName", Rec.class).orElseThrow());
         assertEquals(recordVariable, second.findVariable("varName", Rec.class).orElseThrow());
@@ -79,10 +76,10 @@ class ProcessVariablesTest {
 
         var recordVariable = new Rec(Optional.empty(), Optional.of(42));
 
-        var first = ProcessVariables.empty(om)
+        var first = ProcessVariables.empty()
             .setVariable("varName", recordVariable);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(first.serializeToString());
 
         assertEquals(recordVariable, first.findVariable("varName", Rec.class).orElseThrow());
         assertEquals(recordVariable, second.findVariable("varName", Rec.class).orElseThrow());
@@ -92,10 +89,10 @@ class ProcessVariablesTest {
     void listVariable() {
         var list = List.of("Hello", "World!");
 
-        var first = ProcessVariables.empty(om)
+        var first = ProcessVariables.empty()
             .setVariable("varName", list);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(first.serializeToString());
 
         assertEquals(list, first.findVariable("varName", List.class).orElseThrow());
         assertEquals(list, second.findVariable("varName", List.class).orElseThrow());
@@ -105,10 +102,10 @@ class ProcessVariablesTest {
     void bigDecimalVariable() {
         var num = new BigDecimal("9.99999999999999999999999");
 
-        var first = ProcessVariables.empty(om)
+        var first = ProcessVariables.empty()
             .setVariable("varName", num);
 
-        var second = ProcessVariables.fromString(om, first.serializeToString());
+        var second = ProcessVariables.fromString(first.serializeToString());
 
         assertEquals(num, first.findVariable("varName", BigDecimal.class).orElseThrow());
         assertEquals(num, second.findVariable("varName", BigDecimal.class).orElseThrow());
@@ -118,7 +115,7 @@ class ProcessVariablesTest {
     void bigDecimalVariableKeepsScale() {
         var num = new BigDecimal("1.10");
 
-        var second = ProcessVariables.fromString(om, ProcessVariables.empty(om)
+        var second = ProcessVariables.fromString(ProcessVariables.empty()
             .setVariable("varName", num)
             .serializeToString());
 
@@ -127,17 +124,18 @@ class ProcessVariablesTest {
 
     @Test
     void variablesAreSerializedAsSingleJsonObject() {
-        var json = ProcessVariables.empty(om)
+        var json = ProcessVariables.empty()
             .setVariable("orderId", "A-1")
             .setVariable("customer", Map.of("name", "Bob"))
             .serializeToString();
 
-        assertEquals(om.readTree("{\"orderId\":\"A-1\",\"customer\":{\"name\":\"Bob\"}}"), om.readTree(json));
+        assertEquals(DEFAULT_OBJECT_MAPPER.readTree("{\"orderId\":\"A-1\",\"customer\":{\"name\":\"Bob\"}}"),
+                DEFAULT_OBJECT_MAPPER.readTree(json));
     }
 
     @Test
     void rewriteVariableValue() {
-        var variables = ProcessVariables.empty(om)
+        var variables = ProcessVariables.empty()
             .setVariable("var1", "Hello")
             .setVariable("var1", 42);
 
@@ -147,7 +145,7 @@ class ProcessVariablesTest {
     @Test
     void classWithJsonCreatorConstructorWithoutJsonPropertyAnnotations() {
         var context = new Context("string", 10, 6.3);
-        var first = ProcessVariables.empty(om)
+        var first = ProcessVariables.empty()
             .setVariable("varName", context);
 
         var firstContext = first.findVariable("varName", Context.class).orElseThrow();
@@ -159,7 +157,7 @@ class ProcessVariablesTest {
 
     @Test
     void asMapShouldReturnRawJsonAndBeImmutable() {
-        var variables = ProcessVariables.empty(om)
+        var variables = ProcessVariables.empty()
             .setVariable("var1", "Hello")
             .setVariable("var2", 42);
 

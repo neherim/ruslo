@@ -7,7 +7,7 @@ import java.util.Optional;
 
 /**
  * Snapshot of process variables taken when {@link ProcessInstanceDetails} was read. Values are deserialized with
- * the engine's {@code ObjectMapper}.
+ * the library's built-in JSON configuration.
  */
 public interface ProcessVariablesView {
 
