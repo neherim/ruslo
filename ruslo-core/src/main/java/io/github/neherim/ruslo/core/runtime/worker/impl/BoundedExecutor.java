@@ -31,10 +31,10 @@ final class BoundedExecutor implements AutoCloseable {
     }
 
     BoundedExecutor(
-        int maxConcurrency,
-        Executor executor,
-        Runnable completionHook,
-        Duration shutdownTimeout
+            int maxConcurrency,
+            Executor executor,
+            Runnable completionHook,
+            Duration shutdownTimeout
     ) {
         this.executor = Objects.requireNonNull(executor, "Executor must not be null");
         this.completionHook = Objects.requireNonNull(completionHook, "Completion hook must not be null");

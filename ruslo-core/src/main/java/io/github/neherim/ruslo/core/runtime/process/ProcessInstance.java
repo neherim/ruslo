@@ -8,17 +8,12 @@ import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Stream;
 
-/** Process instance and atomic operations on its execution state. */
+/**
+ * Process instance and atomic operations on its execution state.
+ */
 public final class ProcessInstance {
     private final UUID id;
     private final String businessKey;
@@ -57,7 +52,9 @@ public final class ProcessInstance {
         this.clock = Objects.requireNonNull(clock);
     }
 
-    /** Creates a process in the initial state. */
+    /**
+     * Creates a process in the initial state.
+     */
     public static ProcessInstance createNew(
             UUID id,
             String businessKey,
@@ -231,7 +228,9 @@ public final class ProcessInstance {
         lastError = Objects.requireNonNull(error);
     }
 
-    /** Stops the process in {@code FAILED} after an error, keeping the failed step or event. */
+    /**
+     * Stops the process in {@code FAILED} after an error, keeping the failed step or event.
+     */
     public void markFailed(String error) {
         attempt++;
         lastError = Objects.requireNonNull(error);
@@ -254,14 +253,18 @@ public final class ProcessInstance {
         return true;
     }
 
-    /** Recomputes when the active await runs next: the earliest of its timers and the first queued message. */
+    /**
+     * Recomputes when the active await runs next: the earliest of its timers and the first queued message.
+     */
     private void recomputeNextRun() {
         nextRunAt = Stream.concat(timerMoments().values().stream(), messages.firstReceivedAt().stream())
             .min(Comparator.naturalOrder())
             .orElse(null);
     }
 
-    /** Returns the moments of the enabled timers of the current await; empty for a step or terminal state. */
+    /**
+     * Returns the moments of the enabled timers of the current await; empty for a step or terminal state.
+     */
     private Map<AwaitEvent, Instant> timerMoments() {
         var moments = new EnumMap<AwaitEvent, Instant>(AwaitEvent.class);
         if (everyDueAt != null) moments.put(AwaitEvent.EVERY, everyDueAt);
@@ -287,7 +290,9 @@ public final class ProcessInstance {
         return (AwaitState) getStateSpec();
     }
 
-    /** Returns the current await; {@code null} for another or a removed state. */
+    /**
+     * Returns the current await; {@code null} for another or a removed state.
+     */
     private AwaitState currentAwait() {
         return spec.findStateSpec(state)
             .filter(AwaitState.class::isInstance)
@@ -295,7 +300,9 @@ public final class ProcessInstance {
             .orElse(null);
     }
 
-    /** Clears the previous error. */
+    /**
+     * Clears the previous error.
+     */
     private void resetAttemptsAndError() {
         attempt = 0;
         lastError = null;
@@ -346,12 +353,16 @@ public final class ProcessInstance {
         return state;
     }
 
-    /** Returns the current state as declared in the definition, for the public API. */
+    /**
+     * Returns the current state as declared in the definition, for the public API.
+     */
     public ProcessState getDeclaredState() {
         return spec.declaredState(state.name());
     }
 
-    /** Returns the type as declared in the definition, for the public API. */
+    /**
+     * Returns the type as declared in the definition, for the public API.
+     */
     public ProcessType getDeclaredType() {
         return spec.declaredType();
     }
@@ -364,7 +375,9 @@ public final class ProcessInstance {
         return status == ProcessStatus.COMPLETED;
     }
 
-    /** Returns the current time of the engine clock. */
+    /**
+     * Returns the current time of the engine clock.
+     */
     public Instant now() {
         return clock.instant();
     }
@@ -438,7 +451,9 @@ public final class ProcessInstance {
         return Optional.ofNullable(afterDueAt);
     }
 
-    /** Returns the worker of the current state; empty for a terminal or removed state. */
+    /**
+     * Returns the worker of the current state; empty for a terminal or removed state.
+     */
     public Optional<WorkerId> getWorkerId() {
         return spec.findStateSpec(state).flatMap(stateSpec -> switch (stateSpec) {
             case StepState step -> Optional.of(step.worker());
@@ -447,13 +462,19 @@ public final class ProcessInstance {
         });
     }
 
+    public boolean hasWorker(WorkerId workerId) {
+        return getWorkerId().filter(w -> w.equals(workerId)).isPresent();
+    }
+
     List<ProcessStateHist> drainPendingHistoryEntries() {
         var entries = List.copyOf(pendingHistory);
         pendingHistory.clear();
         return entries;
     }
 
-    /** Await event kinds in tie order. */
+    /**
+     * Await event kinds in tie order.
+     */
     public enum AwaitEvent {
         MESSAGE,
         EVERY,

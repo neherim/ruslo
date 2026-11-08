@@ -124,15 +124,21 @@ public class ProcessWorker implements Worker {
 
     private boolean executeNextStep(ProcessLease lease) {
         return switch (spec.executionMode()) {
-            case TRANSACTIONAL -> database.doInTransactionWithResult(() -> {
-                var claimed = processInstanceDao.findClaimedWithLock(lease);
-                return executeClaimedStep(claimed);
-            });
-            case NON_TRANSACTIONAL -> {
-                var claimed = processInstanceDao.findClaimed(lease);
-                yield executeClaimedStep(claimed);
-            }
+            case TRANSACTIONAL -> executeTransactionalStep(lease);
+            case NON_TRANSACTIONAL -> executeNonTransactionalStep(lease);
         };
+    }
+
+    private boolean executeTransactionalStep(ProcessLease lease) {
+        return database.doInTransactionWithResult(() -> {
+            var claimed = processInstanceDao.findClaimedWithLock(lease);
+            return executeClaimedStep(claimed);
+        });
+    }
+
+    private boolean executeNonTransactionalStep(ProcessLease lease) {
+        var claimed = processInstanceDao.findClaimed(lease);
+        return executeClaimedStep(claimed);
     }
 
     /**
@@ -140,10 +146,12 @@ public class ProcessWorker implements Worker {
      */
     private boolean executeClaimedStep(ClaimedProcess claimed) {
         var process = claimed.process();
-        boolean retainLease;
+        boolean retainLease = false;
         try {
-            retainLease = isRunnableHere(process) && stepExecutor.executeNextProcessStep(process)
-                && isRunnableHere(process);
+            if (isRunnableHere(process)) {
+                var executed = stepExecutor.executeNextProcessStep(process);
+                retainLease = executed && isRunnableHere(process);
+            }
         } catch (HandlerException ex) {
             throw new WorkerHandlerException(ex.getCause(), claimed.lease(), claimed.expectedRowVersion());
         }
@@ -156,14 +164,12 @@ public class ProcessWorker implements Worker {
     }
 
     private boolean isRunnableHere(ProcessInstance process) {
-        return process.isTimeToExecute() && process.getWorkerId().filter(spec.workerId()::equals).isPresent();
+        return process.isTimeToExecute() && process.hasWorker(spec.workerId());
     }
 
     private void recoverFromSystemError(RuntimeException ex, ProcessLease lease) {
         try {
             stepErrorHandler.handleSystemError(ex, lease);
-        } catch (LeaseLostException lost) {
-            onLeaseLost(lost, lease);
         } catch (RuntimeException recoveryError) {
             log.error("Unable to postpone process {} after system error", lease.processId(), recoveryError);
             leaseReleaser.release(lease);

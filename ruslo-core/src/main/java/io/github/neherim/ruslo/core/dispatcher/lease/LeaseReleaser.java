@@ -45,7 +45,9 @@ public final class LeaseReleaser {
     private boolean tryRelease(ProcessLease lease) {
         try {
             if (!leaseDao.release(lease)) {
-                log.warn("Lease release failed for process {} owner {}", lease.processId(), lease.ownerId());
+                log.warn("Lease release skipped for process {}: owner {} no longer holds the lease "
+                        + "(lease already released or reassigned, or process deleted)",
+                        lease.processId(), lease.ownerId());
             }
             return true;
         } catch (RuntimeException ex) {

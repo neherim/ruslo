@@ -62,7 +62,7 @@ public class ProcessInstanceDao {
               lease_owner = null,
               row_version = row_version + 1,
               updated_at = ?
-            where id = ? and lease_owner = ?
+            where id = ? and lease_owner = ? and status = 'ACTIVE'
             """;
 
     private static final String COUNT_UNCOMPLETED_PROCESSES_SQL = """
@@ -212,7 +212,7 @@ public class ProcessInstanceDao {
     }
 
     /**
-     * Postpones the claimed process after a system error and releases its lease without loading the process,
+     * Postpones the active claimed process after a system error and releases its lease without loading the process,
      * so the error is handled even if the process cannot be read (e.g. an unknown type).
      *
      * @throws LeaseLostException if the lease is lost

@@ -47,9 +47,7 @@ public class StepErrorHandler {
     }
 
     /**
-     * Postpones the process by {@link #SYSTEM_RETRY_DELAY} after a system error and releases its lease.
-     * The process is not loaded, so the error is handled even for a process that cannot be read.
-     * A lost lease is a normal concurrent outcome and leaves the process state unchanged.
+     * Postpones the active process by {@link #SYSTEM_RETRY_DELAY} after a system error without loading it.
      *
      * @throws LeaseLostException if the lease is lost
      */
