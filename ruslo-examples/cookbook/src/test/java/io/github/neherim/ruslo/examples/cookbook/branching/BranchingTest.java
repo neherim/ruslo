@@ -36,7 +36,7 @@ class BranchingTest {
 
         assertEquals(LoanApplicationDefinition.State.REJECTED, rejected.state());
         assertEquals("Amount exceeds 100000",
-                rejected.variables().get(LoanApplicationDefinition.REJECTION_REASON).orElseThrow());
+                rejected.variables().find(LoanApplicationDefinition.REJECTION_REASON).orElseThrow());
     }
 
     @Test
@@ -61,7 +61,7 @@ class BranchingTest {
 
         assertEquals(LoanApplicationDefinition.State.REJECTED, rejected.state());
         assertEquals("Insufficient income",
-                rejected.variables().get(LoanApplicationDefinition.REJECTION_REASON).orElseThrow());
+                rejected.variables().find(LoanApplicationDefinition.REJECTION_REASON).orElseThrow());
     }
 
     private UUID startApplication(long amount) {

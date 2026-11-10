@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.core.api.definition;
 
 /**
- * Await timer handler for {@code every} or {@code timeout}; on success the process moves to the state declared
- * in the definition. To choose the target state of {@code every}, use {@link BranchingTimerHandler}.
+ * Timer handler of an {@code every}, {@code after} or {@code at} event; on success the process moves to the state
+ * declared in the definition. To choose the target state, use {@link BranchingTimerHandler}.
  */
 @FunctionalInterface
 public interface ProcessTimerHandler {

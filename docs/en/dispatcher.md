@@ -26,8 +26,9 @@ The dispatcher picks up ready processes as follows:
 
 - after a process is started or a message is sent, the dispatcher of **the same node** wakes up right away;
 - the dispatcher also wakes up at the time of the nearest timer or retry that this node knows about;
-- the rest of the time it polls the process table: every `ruslo.dispatcher.min-interval` (100 ms) while there is
-  work, and less and less often, up to `ruslo.dispatcher.max-interval` (10 s), while there is none.
+- successful polling cycles continue immediately. After an empty cycle, it waits for
+  `ruslo.dispatcher.min-interval` (100 ms), doubling the delay after each empty cycle up to
+  `ruslo.dispatcher.max-interval` (10 s). A successful cycle resets this backoff.
 
 ## Timer accuracy
 

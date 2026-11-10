@@ -6,6 +6,7 @@ import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
+import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
 import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceDao;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseDao;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseReleaser;
@@ -102,47 +103,50 @@ public final class WorkerTestFixture {
         return new StepErrorHandler(clock, database, processInstanceDao, processMdc, metrics);
     }
 
-    public ProcessWorker transactionalLeaseWorker(ExecutorService executorService, Runnable completionHook) {
+    public ProcessWorker transactionalLeaseWorker(
+            ExecutorService executorService,
+            ProcessDispatchSignal dispatchSignal
+    ) {
         return worker(WorkerSpec.builder(WorkerId.DEFAULT).transactional().maxConcurrency(10).build(),
-                true, executorService, completionHook);
+                true, executorService, dispatchSignal);
     }
 
     public ProcessWorker transactionalWorker() {
-        return transactionalLeaseWorker(new CurrentThreadExecutorService(), () -> {});
+        return transactionalLeaseWorker(new CurrentThreadExecutorService(), new ProcessDispatchSignal());
     }
 
     public ProcessWorker nonTransactionalLeaseWorker(
             int maxConcurrency,
             ExecutorService executorService,
-            Runnable completionHook
+            ProcessDispatchSignal dispatchSignal
     ) {
-        return nonTransactionalLeaseWorker(maxConcurrency, true, executorService, completionHook);
+        return nonTransactionalLeaseWorker(maxConcurrency, true, executorService, dispatchSignal);
     }
 
     public ProcessWorker nonTransactionalLeaseWorker(
             int maxConcurrency,
-            boolean shutdownExecutor,
+            boolean ownsExecutor,
             ExecutorService executorService,
-            Runnable completionHook
+            ProcessDispatchSignal dispatchSignal
     ) {
         return worker(WorkerSpec.builder(WorkerId.DEFAULT).nonTransactional().maxConcurrency(maxConcurrency).build(),
-                shutdownExecutor, executorService, completionHook);
+                ownsExecutor, executorService, dispatchSignal);
     }
 
     private ProcessWorker worker(
             WorkerSpec spec,
-            boolean shutdownExecutor,
+            boolean ownsExecutor,
             ExecutorService executorService,
-            Runnable completionHook
+            ProcessDispatchSignal dispatchSignal
     ) {
-        return new ProcessWorker(spec, executorService, shutdownExecutor, database, processInstanceDao,
+        return new ProcessWorker(spec, executorService, ownsExecutor, database, processInstanceDao,
                 new StepExecutor(processMdc, metrics, clock), stepErrorHandler(), metrics,
-                new LeaseReleaser(leaseDao, metrics), completionHook);
+                new LeaseReleaser(leaseDao, metrics), dispatchSignal);
     }
 
     public WorkerFactory workerFactory() {
         return new WorkerFactory(database, processInstanceDao, new StepExecutor(processMdc, metrics, clock),
-                stepErrorHandler(), metrics, new LeaseReleaser(leaseDao, metrics), () -> {});
+                stepErrorHandler(), metrics, new LeaseReleaser(leaseDao, metrics), new ProcessDispatchSignal());
     }
 
     private Instant now() {

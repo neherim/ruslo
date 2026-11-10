@@ -15,7 +15,7 @@ public sealed interface ErrorResult permits ErrorResult.RetryAfter, ErrorResult.
     }
 
     /**
-     * Stops the process in {@code FAILED} in its current state until it is resumed manually.
+     * Stops the process in {@code FAILED} status in its current state until it is resumed manually.
      */
     static ErrorResult fail() {
         return new Fail();
@@ -24,7 +24,7 @@ public sealed interface ErrorResult permits ErrorResult.RetryAfter, ErrorResult.
     /**
      * Gives up and lets the definition decide: moves to the state declared with
      * {@link ProcessSpecBuilder.TypedBuilder#onGiveUp(ProcessState) onGiveUp}, or stops in {@code FAILED} like
-     * {@link #fail()} if none is declared or the process is already in it.
+     * {@link #fail()} if none is declared or the process is already in the give-up state.
      */
     static ErrorResult giveUp() {
         return new GiveUp();

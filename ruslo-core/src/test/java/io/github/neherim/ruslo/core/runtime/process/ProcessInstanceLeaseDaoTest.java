@@ -39,30 +39,60 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
         var process = fixture.insertNewProcess(new SimpleOneStepProcessDefinition().processType(), "fenced-success");
         var claim = claim(process);
 
-        var claimed = processDao.findClaimedWithLock(claim).orElseThrow();
+        var claimed = processDao.findClaimedWithLock(claim);
         claimed.process().setVariable("result", "saved");
 
         processDao.updateAndReleaseLease(claimed);
         var stored = processDao.findById(process.getId()).orElseThrow();
-        assertEquals("saved", stored.getVariable("result", String.class));
+        assertEquals("saved", stored.findVariable("result", String.class).orElseThrow());
         assertEquals(1L, rowVersion(process.getId()));
         assertNull(leaseOwner(process.getId()));
+    }
+
+    @Test
+    void claimedReadsRejectReleasedLease() {
+        var process = fixture.insertNewProcess(new SimpleOneStepProcessDefinition().processType(), "released-read");
+        var lease = claim(process);
+        database.update("update xs_process_instance set lease_owner = null where id = ?", process.getId());
+
+        assertThrows(LeaseLostException.class, () -> processDao.findClaimed(lease));
+        assertThrows(LeaseLostException.class, () -> processDao.findClaimedWithLock(lease));
+    }
+
+    @Test
+    void claimedReadsRejectReplacedOwner() {
+        var process = fixture.insertNewProcess(new SimpleOneStepProcessDefinition().processType(), "replaced-read");
+        var lease = claim(process);
+        database.update("update xs_process_instance set lease_owner = null where id = ?", process.getId());
+        var replacement = claim(process, registerOwner());
+
+        assertThrows(LeaseLostException.class, () -> processDao.findClaimed(lease));
+        assertThrows(LeaseLostException.class, () -> processDao.findClaimedWithLock(lease));
+        assertEquals(replacement.ownerId(), leaseOwner(process.getId()));
+    }
+
+    @Test
+    void claimedReadsRejectMissingProcess() {
+        var lease = new ProcessLease(UUID.randomUUID(), ownerId);
+
+        assertThrows(LeaseLostException.class, () -> processDao.findClaimed(lease));
+        assertThrows(LeaseLostException.class, () -> processDao.findClaimedWithLock(lease));
     }
 
     @Test
     void shouldPersistClaimedProcessWithoutReleasingLease() {
         var process = fixture.insertNewProcess(new SimpleOneStepProcessDefinition().processType(), "retained-lease");
         var claim = claim(process);
-        var claimed = processDao.findClaimedWithLock(claim).orElseThrow();
+        var claimed = processDao.findClaimedWithLock(claim);
         claimed.process().setVariable("checkpoint", "saved");
 
         processDao.updateClaimed(claimed);
-        var reloadedClaimed = processDao.findClaimedWithLock(claim).orElseThrow();
+        var reloadedClaimed = processDao.findClaimedWithLock(claim);
         reloadedClaimed.process().setVariable("secondCheckpoint", "saved");
         processDao.updateClaimed(reloadedClaimed);
 
         var stored = processDao.findById(process.getId()).orElseThrow();
-        assertEquals("saved", stored.getVariable("checkpoint", String.class));
+        assertEquals("saved", stored.findVariable("checkpoint", String.class).orElseThrow());
         assertEquals(2L, rowVersion(process.getId()));
         assertEquals(claim.ownerId(), leaseOwner(process.getId()));
     }
@@ -71,22 +101,23 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
     void retainingLeaseUpdateRejectsVersionConflict() {
         var process = fixture.insertNewProcess(new SimpleOneStepProcessDefinition().processType(), "retained-conflict");
         var claim = claim(process);
-        var claimed = processDao.findClaimedWithLock(claim).orElseThrow();
+        var claimed = processDao.findClaimedWithLock(claim);
         claimed.process().setVariable("stale", true);
         var concurrent = processDao.findById(process.getId()).orElseThrow();
         concurrent.setVariable("fresh", true);
         processDao.update(concurrent);
 
         assertThrows(LeaseLostException.class, () -> processDao.updateClaimed(claimed));
-        assertNull(processDao.findById(process.getId()).orElseThrow().getVariable("stale", Boolean.class));
-        assertTrue(processDao.findById(process.getId()).orElseThrow().getVariable("fresh", Boolean.class));
+        assertTrue(processDao.findById(process.getId()).orElseThrow().findVariable("stale", Boolean.class).isEmpty());
+        assertTrue(
+                processDao.findById(process.getId()).orElseThrow().findVariable("fresh", Boolean.class).orElseThrow());
     }
 
     @Test
     void retainingLeaseUpdateRejectsReplacedOwner() {
         var process = fixture.insertNewProcess(new SimpleOneStepProcessDefinition().processType(), "retained-stale");
         var claim = claim(process);
-        var claimed = processDao.findClaimedWithLock(claim).orElseThrow();
+        var claimed = processDao.findClaimedWithLock(claim);
         claimed.process().setVariable("stale", true);
         database.update("update xs_process_instance set lease_owner = null where id = ?",
                 process.getId());
@@ -94,7 +125,7 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
         var replacement = claim(process, replacementOwner);
 
         assertThrows(LeaseLostException.class, () -> processDao.updateClaimed(claimed));
-        assertNull(processDao.findById(process.getId()).orElseThrow().getVariable("stale", Boolean.class));
+        assertTrue(processDao.findById(process.getId()).orElseThrow().findVariable("stale", Boolean.class).isEmpty());
         assertEquals(replacement.ownerId(), leaseOwner(process.getId()));
     }
 
@@ -102,15 +133,16 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
     void shouldRejectStaleBusinessStateAfterVersionConflict() {
         var process = fixture.insertNewProcess(new SimpleOneStepProcessDefinition().processType(), "version-conflict");
         var claim = claim(process);
-        var claimed = processDao.findClaimedWithLock(claim).orElseThrow();
+        var claimed = processDao.findClaimedWithLock(claim);
         claimed.process().setVariable("stale", true);
         var concurrentProcess = processDao.findById(process.getId()).orElseThrow();
         concurrentProcess.setVariable("fresh", true);
         processDao.update(concurrentProcess);
 
         assertThrows(LeaseLostException.class, () -> processDao.updateAndReleaseLease(claimed));
-        assertNull(processDao.findById(process.getId()).orElseThrow().getVariable("stale", Boolean.class));
-        assertTrue(processDao.findById(process.getId()).orElseThrow().getVariable("fresh", Boolean.class));
+        assertTrue(processDao.findById(process.getId()).orElseThrow().findVariable("stale", Boolean.class).isEmpty());
+        assertTrue(
+                processDao.findById(process.getId()).orElseThrow().findVariable("fresh", Boolean.class).orElseThrow());
         assertEquals(claim.ownerId(), leaseOwner(process.getId()));
     }
 
@@ -118,7 +150,7 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
     void shouldRejectOldOwnerAfterLeaseWasReclaimed() {
         var process = fixture.insertNewProcess(new SimpleOneStepProcessDefinition().processType(), "lease-lost");
         var oldClaim = claim(process);
-        var staleProcess = processDao.findClaimedWithLock(oldClaim).orElseThrow();
+        var staleProcess = processDao.findClaimedWithLock(oldClaim);
         staleProcess.process().setVariable("stale", true);
         database.update("update xs_process_instance set lease_owner = null where id = ?",
                 process.getId());
@@ -126,7 +158,7 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
         var newClaim = claim(process, replacementOwner);
 
         assertThrows(LeaseLostException.class, () -> processDao.updateAndReleaseLease(staleProcess));
-        assertNull(processDao.findById(process.getId()).orElseThrow().getVariable("stale", Boolean.class));
+        assertTrue(processDao.findById(process.getId()).orElseThrow().findVariable("stale", Boolean.class).isEmpty());
         assertEquals(newClaim.ownerId(), leaseOwner(process.getId()));
     }
 
@@ -137,7 +169,11 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
 
         processDao.update(process);
 
-        assertEquals(true, processDao.findById(process.getId()).orElseThrow().getVariable("updated", Boolean.class));
+        assertEquals(true,
+                processDao.findById(process.getId())
+                    .orElseThrow()
+                    .findVariable("updated", Boolean.class)
+                    .orElseThrow());
         assertEquals(1L, rowVersion(process.getId()));
     }
 
@@ -151,7 +187,8 @@ class ProcessInstanceLeaseDaoTest extends BaseTest {
         processDao.update(ordinary);
         assertTrue(processDao.findById(process.getId())
             .orElseThrow()
-            .getVariable("ordinary", Boolean.class));
+            .findVariable("ordinary", Boolean.class)
+            .orElseThrow());
         assertEquals(claim.ownerId(), leaseOwner(process.getId()));
     }
 

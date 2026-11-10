@@ -12,11 +12,11 @@ import java.util.Optional;
 public interface ProcessVariablesView {
 
     /**
-     * Returns the variable, or empty if it is not set.
+     * Returns the variable, empty if it is not set or holds {@code null}.
      *
      * @throws tools.jackson.core.JacksonException if the stored value cannot be read as the variable's class
      */
-    <T> Optional<T> get(VariableType<T> type);
+    <T> Optional<T> find(VariableType<T> type);
 
     /** Returns an immutable map of variable names to JSON text. */
     Map<String, String> asJsonMap();

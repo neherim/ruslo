@@ -18,11 +18,13 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestProcessContextTest {
     private static final VariableType<Order> ORDER = VariableType.of("order", Order.class);
+    private static final VariableType<Integer> AMOUNT = VariableType.of("amount", Integer.class);
+    private static final VariableType<String> PAYMENT_ID = VariableType.of("paymentId", String.class);
 
     record Order(String product, BigDecimal amount, List<String> tags) {
     }
@@ -45,7 +47,7 @@ class TestProcessContextTest {
             .timer(due, Instant.parse("2026-10-07T10:00:00.123456789Z"))
             .build();
 
-        assertEquals(Optional.of(Instant.parse("2026-10-07T10:00:00.123456Z")), context.getTimer(due));
+        assertEquals(Optional.of(Instant.parse("2026-10-07T10:00:00.123456Z")), context.findTimer(due));
         context.setTimer(next, Instant.parse("2026-10-08T10:00:00.000000999Z"));
         assertTrue(context.cancelTimer(due));
         assertFalse(context.cancelTimer(due));
@@ -90,12 +92,12 @@ class TestProcessContextTest {
         var order = new Order("PS5", new BigDecimal("500.00"), List.of("gift"));
         var context = TestProcessContext.builder()
             .variable(ORDER, order)
-            .variable("amount", 100)
+            .variable(AMOUNT, 100)
             .build();
 
         assertEquals(order, context.getVariable(ORDER));
         assertEquals(new BigDecimal("500.00"), context.getVariable(ORDER).amount());
-        assertEquals(100, context.getVariable("amount", Integer.class));
+        assertEquals(100, context.getVariable(AMOUNT));
         assertEquals(Set.of("order", "amount"), context.variableNames());
     }
 
@@ -114,14 +116,30 @@ class TestProcessContextTest {
     void setAndRemoveVariables() {
         var context = TestProcessContext.create();
 
-        context.setVariable("paymentId", "p-1");
+        context.setVariable(PAYMENT_ID, "p-1");
         context.setVariable(ORDER, new Order("PS5", BigDecimal.TEN, List.of()));
 
-        assertEquals("p-1", context.getVariable("paymentId", String.class));
+        assertEquals("p-1", context.getVariable(PAYMENT_ID));
         assertTrue(context.removeVariable(ORDER));
         assertFalse(context.removeVariable(ORDER));
-        assertNull(context.getVariable(ORDER));
+        assertEquals(Optional.empty(), context.findVariable(ORDER));
         assertEquals(Set.of("paymentId"), context.variableNames());
     }
 
+    @Test
+    void getVariableThrowsWithNameWhenVariableIsNotSet() {
+        var context = TestProcessContext.create();
+
+        var error = assertThrows(IllegalStateException.class, () -> context.getVariable(PAYMENT_ID));
+
+        assertEquals("Variable 'paymentId' is not set", error.getMessage());
+    }
+
+    @Test
+    void variableHoldingNullIsNotFound() {
+        var context = TestProcessContext.builder().variable(PAYMENT_ID, null).build();
+
+        assertEquals(Optional.empty(), context.findVariable(PAYMENT_ID));
+        assertThrows(IllegalStateException.class, () -> context.getVariable(PAYMENT_ID));
+    }
 }

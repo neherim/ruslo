@@ -1,8 +1,9 @@
 package io.github.neherim.ruslo.core.internal;
 
 import io.github.neherim.ruslo.core.api.definition.ErrorResult;
-import io.github.neherim.ruslo.core.api.definition.ProcessError;
+import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
+import io.github.neherim.ruslo.core.api.test.TestProcessContext;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -30,7 +31,7 @@ class ProcessErrorHandlerTest {
         var handler = ProcessErrorHandler.exponential(
                 3, Duration.ofSeconds(1), Duration.ofMinutes(1));
 
-        var result = handler.handle(null, error(3));
+        var result = handler.handle(context(3), new RuntimeException("test"));
 
         assertInstanceOf(ErrorResult.GiveUp.class, result);
     }
@@ -40,14 +41,15 @@ class ProcessErrorHandlerTest {
         var handler = ProcessErrorHandler.fixed(2, Duration.ofSeconds(1));
 
         assertEquals(Duration.ofSeconds(1), assertInstanceOf(ErrorResult.RetryAfter.class,
-                handler.handle(null, error(1)))
+                handler.handle(context(1), new RuntimeException("test")))
             .delay());
-        assertInstanceOf(ErrorResult.GiveUp.class, handler.handle(null, error(2)));
+        assertInstanceOf(ErrorResult.GiveUp.class, handler.handle(context(2), new RuntimeException("test")));
     }
 
     @Test
     void noRetryGivesUpImmediately() {
-        assertInstanceOf(ErrorResult.GiveUp.class, ProcessErrorHandler.noRetry().handle(null, error(0)));
+        assertInstanceOf(ErrorResult.GiveUp.class,
+                ProcessErrorHandler.noRetry().handle(context(0), new RuntimeException("test")));
     }
 
     @Test
@@ -69,12 +71,12 @@ class ProcessErrorHandlerTest {
     private Duration retryDelay(int attempt, Duration initialDelay, Duration maxDelay) {
         var handler = ProcessErrorHandler.exponential(10, initialDelay, maxDelay);
 
-        var result = handler.handle(null, error(attempt));
+        var result = handler.handle(context(attempt), new RuntimeException("test"));
 
         return assertInstanceOf(ErrorResult.RetryAfter.class, result).delay();
     }
 
-    private ProcessError error(int attempt) {
-        return new ProcessError(new RuntimeException("test"), attempt);
+    private ProcessContext context(int attempt) {
+        return TestProcessContext.builder().attempt(attempt).build();
     }
 }

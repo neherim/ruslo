@@ -34,33 +34,18 @@ public class DefaultProcessContext implements ProcessContext {
     }
 
     @Override
-    public <T> T getVariable(String name, Class<T> clazz) {
-        return processInstance.getVariable(name, clazz);
-    }
-
-    @Override
-    public <T> T getVariable(VariableType<T> type) {
-        return getVariable(type.name(), type.clazz());
-    }
-
-    @Override
-    public void setVariable(String name, Object value) {
-        processInstance.setVariable(name, value);
+    public <T> Optional<T> findVariable(VariableType<T> type) {
+        return processInstance.findVariable(type.name(), type.clazz());
     }
 
     @Override
     public <T> void setVariable(VariableType<T> type, T value) {
-        setVariable(type.name(), value);
-    }
-
-    @Override
-    public boolean removeVariable(String name) {
-        return processInstance.removeVariable(name);
+        processInstance.setVariable(type.name(), value);
     }
 
     @Override
     public <T> boolean removeVariable(VariableType<T> type) {
-        return removeVariable(type.name());
+        return processInstance.removeVariable(type.name());
     }
 
     @Override
@@ -76,7 +61,7 @@ public class DefaultProcessContext implements ProcessContext {
     }
 
     @Override
-    public Optional<Instant> getTimer(TimerType timer) {
+    public Optional<Instant> findTimer(TimerType timer) {
         processInstance.getProcessSpec().checkTimerDeclared(timer);
         return processInstance.getTimer(timer);
     }

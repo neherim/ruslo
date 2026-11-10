@@ -26,7 +26,10 @@ public record VariableType<T>(String name, Class<T> clazz) {
         return (Class<T>) array.getClass().getComponentType();
     }
 
-    /** Creates a type with the value class inferred from the type argument: {@code VariableType.<Foo>of("foo")}. */
+    /**
+     * Creates a type with the value class inferred from the type argument: {@code VariableType.<Foo>of("foo")}.
+     * Pass no {@code reified} arguments: the parameter only captures the class.
+     */
     @SafeVarargs
     public static <T> VariableType<T> of(String name, T... reified) {
         return of(name, getClassOf(reified));

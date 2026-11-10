@@ -6,8 +6,11 @@ import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.runtime.logging.MdcKeys;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.*;
+import io.github.neherim.ruslo.core.runtime.process.ProcessInstance.AwaitEvent;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -71,22 +74,21 @@ class StepExecutorTest {
     @Test
     void selfTargetMessageIsConsumedWithoutReentry() {
         var process = awaitProcess(State.WAIT);
-        var first = UUID.randomUUID();
-        var second = UUID.randomUUID();
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", first, NOW);
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", second, NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", NOW);
         var deadline = process.getAfterDueAt().orElseThrow();
         assertTrue(executor.executeNextProcessStep(process));
         assertEquals(State.WAIT.name(), process.getState().name());
-        assertEquals(second, process.getMessages().peekFirst().orElseThrow().id());
+        var queued = process.getMessages().peekFirst().orElseThrow();
+        assertEquals("b", process.getMessages().convert(queued, SIGNAL).payload());
         assertEquals(deadline, process.getAfterDueAt().orElseThrow());
     }
 
     @Test
     void otherTargetMessageEntersStateAndClosesQueue() {
         var process = awaitProcess(State.DONE);
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", UUID.randomUUID(), NOW);
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", UUID.randomUUID(), NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", NOW);
         assertTrue(executor.executeNextProcessStep(process));
         assertTrue(process.getMessages().isEmpty());
         assertEquals(ProcessStatus.COMPLETED, process.getStatus());
@@ -95,7 +97,7 @@ class StepExecutorTest {
     @Test
     void messageReceivedBeforeDeadlineWinsWithoutBackoff() {
         var process = awaitProcess(State.DONE);
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", UUID.randomUUID(), NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
         clock.now = NOW.plus(Duration.ofMinutes(2));
         executor.executeNextProcessStep(process);
         assertEquals(State.DONE.name(), process.getState().name());
@@ -104,12 +106,40 @@ class StepExecutorTest {
     @Test
     void retryBackoffKeepsOrderOfEvents() {
         var process = awaitProcess(State.DONE);
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", UUID.randomUUID(), NOW);
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
         process.scheduleRetryAfter(Duration.ofMinutes(10), "boom");
         assertEquals(Optional.of(NOW.plus(Duration.ofMinutes(10))), process.getNextRunAt());
         clock.now = process.getNextRunAt().orElseThrow();
         executor.executeNextProcessStep(process);
         assertEquals(State.DONE.name(), process.getState().name());
+    }
+
+    @ParameterizedTest
+    @EnumSource(AwaitEvent.class)
+    void earliestFutureEventSchedulesNextRunAndExecutesOnlyWhenDue(AwaitEvent earliest) {
+        var timer = TimerType.of("DUE");
+        var messageDelay = Duration.ofSeconds(earliest == AwaitEvent.MESSAGE ? 1 : 2);
+        var everyDelay = Duration.ofSeconds(earliest == AwaitEvent.EVERY ? 1 : 2);
+        var afterDelay = Duration.ofSeconds(earliest == AwaitEvent.AFTER ? 1 : 2);
+        var atDelay = Duration.ofSeconds(earliest == AwaitEvent.AT ? 1 : 2);
+        var process = process(builder -> builder.step(State.START, context -> {}, State.WAIT)
+            .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {}, State.WAIT)
+                .every(everyDelay, context -> {}, State.WAIT)
+                .after(afterDelay, context -> {}, State.WAIT)
+                .at(timer, context -> {}, State.WAIT)));
+        executor.executeNextProcessStep(process);
+        process.setTimer(timer, NOW.plus(atDelay));
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "future", NOW.plus(messageDelay));
+
+        assertEquals(Optional.of(NOW.plusSeconds(1)), process.getNextRunAt());
+        assertFalse(executor.executeNextProcessStep(process));
+        assertEquals(Optional.of(NOW.plusSeconds(1)), process.getNextRunAt());
+
+        clock.now = NOW.plusSeconds(1);
+        assertEquals(Optional.of(earliest), process.dueAwaitEvent());
+        assertTrue(executor.executeNextProcessStep(process));
+        assertEquals(Optional.of(NOW.plusSeconds(2)), process.getNextRunAt());
+        assertEquals(earliest == AwaitEvent.MESSAGE, process.getMessages().isEmpty());
     }
 
     /** A process awaiting in WAIT with a deadline in one minute; the message leads to {@code messageTarget}. */

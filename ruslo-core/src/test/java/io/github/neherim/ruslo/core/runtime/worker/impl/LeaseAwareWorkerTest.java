@@ -1,15 +1,21 @@
 package io.github.neherim.ruslo.core.runtime.worker.impl;
 
 import io.github.neherim.ruslo.core.BaseTest;
+import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
+import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
+import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
 import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceDao;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerTestFixture;
 import io.github.neherim.ruslo.core.utils.thread.CurrentThreadExecutorService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -26,6 +32,9 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LeaseAwareWorkerTest extends BaseTest {
+    private static final VariableType<Boolean> STALE = VariableType.of("stale", Boolean.class);
+    private static final VariableType<String> FIRST = VariableType.of("first", String.class);
+
     @Test
     void transactionalFailureRollsBackUserDatabaseChangesAndCanBeRetried() {
         database.update("CREATE TABLE tx_lease_effect (effect_value INTEGER NOT NULL)");
@@ -68,7 +77,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var staleLease = claim(fixture, process.getId());
         var currentLease = replaceLease(fixture, process.getId());
 
-        fixture.transactionalLeaseWorker(new CurrentThreadExecutorService(), () -> {})
+        fixture.transactionalLeaseWorker(new CurrentThreadExecutorService(), new ProcessDispatchSignal())
             .tryExecute(fixture.leaseTask(staleLease));
 
         assertEquals(0, executions.get());
@@ -87,7 +96,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var task = fixture.leaseTask(process);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            fixture.transactionalLeaseWorker(executor, () -> {}).tryExecute(task);
+            fixture.transactionalLeaseWorker(executor, new ProcessDispatchSignal()).tryExecute(task);
             awaitLatch(entered, "Transactional lease worker should enter user code");
             var replacementOwner = registerOwner();
             assertTrue(fixture.leaseDao()
@@ -116,7 +125,7 @@ class LeaseAwareWorkerTest extends BaseTest {
             .step(TestState.INIT, context -> {
                 entered.countDown();
                 awaitLatch(release, "Test should release non-transactional step");
-                context.setVariable("stale", true);
+                context.setVariable(STALE, true);
             }, TestState.DONE)
             .terminal(TestState.DONE)
             .build();
@@ -124,7 +133,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var process = fixture.insertNewProcess(type, "version-conflict");
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(1, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(1, executor, new ProcessDispatchSignal());
             worker.tryExecute(fixture.leaseTask(process));
             awaitLatch(entered, "Non-transactional step should start");
             var concurrent = fixture.dao().findById(process.getId()).orElseThrow();
@@ -138,8 +147,8 @@ class LeaseAwareWorkerTest extends BaseTest {
         }
 
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
-        assertTrue(stored.getVariable("fresh", Boolean.class));
-        assertNull(stored.getVariable("stale", Boolean.class));
+        assertTrue(stored.findVariable("fresh", Boolean.class).orElseThrow());
+        assertTrue(stored.findVariable("stale", Boolean.class).isEmpty());
         assertFalse(stored.isCompleted());
     }
 
@@ -153,7 +162,7 @@ class LeaseAwareWorkerTest extends BaseTest {
             .step(TestState.INIT, context -> {
                 entered.countDown();
                 awaitLatch(release, "Test should release non-transactional message step");
-                context.setVariable("stale", true);
+                context.setVariable(STALE, true);
             }, TestState.DONE)
             .terminal(TestState.DONE)
             .build();
@@ -161,7 +170,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var process = fixture.insertNewProcess(type, "message-conflict");
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(1, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(1, executor, new ProcessDispatchSignal());
             worker.tryExecute(fixture.leaseTask(process));
             awaitLatch(entered, "Non-transactional message step should start");
             var concurrent = fixture.dao().findById(process.getId()).orElseThrow();
@@ -177,7 +186,7 @@ class LeaseAwareWorkerTest extends BaseTest {
 
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
         assertTrue(stored.getMessages().isEmpty());
-        assertTrue(stored.getVariable("stale", Boolean.class));
+        assertTrue(stored.findVariable("stale", Boolean.class).orElseThrow());
         assertTrue(stored.isCompleted());
     }
 
@@ -193,7 +202,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var staleTask = fixture.leaseTask(process);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(1, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(1, executor, new ProcessDispatchSignal());
             worker.tryExecute(staleTask);
             awaitLatch(entered, "Non-transactional step should start before lease replacement");
             var currentLease = replaceLease(fixture, process.getId());
@@ -251,7 +260,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         ProcessDefinition definition = builder -> builder.type(type)
             .initialState(TransitionState.INIT)
             .step(TransitionState.INIT, context -> {
-                context.setVariable("stale", true);
+                context.setVariable(STALE, true);
                 var concurrent = fixtureRef.get().dao().findById(context.processId()).orElseThrow();
                 concurrent.setVariable("fresh", true);
                 fixtureRef.get().dao().update(concurrent);
@@ -265,12 +274,12 @@ class LeaseAwareWorkerTest extends BaseTest {
         fixtureRef.set(fixture);
         var process = fixture.insertNewProcess(type, "transition-conflict");
 
-        fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(), () -> {})
+        fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(), new ProcessDispatchSignal())
             .tryExecute(fixture.task(process));
 
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
-        assertTrue(stored.getVariable("fresh", Boolean.class));
-        assertNull(stored.getVariable("stale", Boolean.class));
+        assertTrue(stored.findVariable("fresh", Boolean.class).orElseThrow());
+        assertTrue(stored.findVariable("stale", Boolean.class).isEmpty());
         assertEquals(TransitionState.INIT.name(), stored.getState().name());
         assertEquals(0, nextExecutions.get());
         assertNull(storedOwner(process.getId()));
@@ -297,7 +306,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var staleTask = fixture.leaseTask(process);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(1, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(1, executor, new ProcessDispatchSignal());
             worker.tryExecute(staleTask);
             awaitLatch(entered, "Failing step should start");
             var currentLease = replaceLease(fixture, process.getId());
@@ -313,6 +322,61 @@ class LeaseAwareWorkerTest extends BaseTest {
         assertTrue(stored.getLastError().isEmpty());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void handlerFailureDoesNotMutateConcurrentlyChangedProcess(boolean completeProcess) {
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var errorHandlerCalls = new AtomicInteger();
+        var type = ProcessType.of("LEASE_ERROR_VERSION_CONFLICT");
+        ProcessDefinition definition = builder -> builder.type(type)
+            .onError((context, cause) -> {
+                errorHandlerCalls.incrementAndGet();
+                return ErrorResult.fail();
+            })
+            .initialState(TestState.INIT)
+            .step(TestState.INIT, context -> {
+                context.setVariable(STALE, true);
+                entered.countDown();
+                awaitLatch(release, "Test should release the failing step");
+                throw new IllegalStateException("Failure of the old process version");
+            }, TestState.DONE)
+            .terminal(TestState.DONE)
+            .build();
+        var fixture = WorkerTestFixture.with(database, definition);
+        var process = fixture.insertNewProcess(type, "error-version-conflict");
+        var lease = fixture.leaseTask(process);
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var worker = fixture.nonTransactionalLeaseWorker(1, executor, new ProcessDispatchSignal());
+            try {
+                assertTrue(worker.tryExecute(lease));
+                awaitLatch(entered, "Failing step should start before the process changes");
+                database.doInTransaction(() -> {
+                    var changed = fixture.dao().findWithLockById(process.getId()).orElseThrow();
+                    changed.setVariable("fresh", true);
+                    if (completeProcess) changed.enterState(TestState.DONE);
+                    fixture.dao().update(changed);
+                });
+                assertEquals(lease.ownerId(), storedOwner(process.getId()));
+            } finally {
+                release.countDown();
+                worker.close();
+            }
+        }
+
+        var stored = fixture.dao().findById(process.getId()).orElseThrow();
+        assertEquals(0, errorHandlerCalls.get());
+        assertEquals(completeProcess ? ProcessStatus.COMPLETED : ProcessStatus.ACTIVE, stored.getStatus());
+        assertEquals((completeProcess ? TestState.DONE : TestState.INIT).name(), stored.getState().name());
+        assertTrue(stored.findVariable("fresh", Boolean.class).orElseThrow());
+        assertTrue(stored.findVariable("stale", Boolean.class).isEmpty());
+        assertEquals(0, stored.getAttempt());
+        assertTrue(stored.getLastError().isEmpty());
+        assertEquals(1L, storedVersion(process.getId()));
+        assertNull(storedOwner(process.getId()));
+    }
+
     @Test
     void workerAcceptsEveryLeaseWithoutProcessDeduplication() {
         var entered = new CountDownLatch(1);
@@ -324,7 +388,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var process = fixture.insertNewProcess(type, "no-local-dedup");
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(2, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(2, executor, new ProcessDispatchSignal());
             assertTrue(worker.tryExecute(fixture.leaseTask(process)));
             awaitLatch(entered, "First lease task should enter user code");
             var replacement = replaceLease(fixture, process.getId());
@@ -353,7 +417,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         var rejected = fixture.insertNewProcess(type, "rejected");
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var worker = fixture.nonTransactionalLeaseWorker(1, false, executor, () -> {});
+            var worker = fixture.nonTransactionalLeaseWorker(1, false, executor, new ProcessDispatchSignal());
             assertTrue(worker.tryExecute(fixture.leaseTask(running)));
             awaitLatch(entered, "First task should occupy worker capacity");
             var rejectedLease = fixture.leaseTask(rejected);
@@ -372,16 +436,25 @@ class LeaseAwareWorkerTest extends BaseTest {
     }
 
     @Test
-    void completionHookRunsAfterLeaseTaskFinishes() {
-        var completions = new AtomicInteger();
-        var type = ProcessType.of("LEASE_COMPLETION_HOOK");
+    void dispatchSignalIsSentAfterLeaseTaskFinishes() throws InterruptedException {
+        var dispatchSignal = new ProcessDispatchSignal();
+        var type = ProcessType.of("LEASE_DISPATCH_SIGNAL");
         var fixture = WorkerTestFixture.with(database, completingDefinition(type, new AtomicInteger()));
-        var process = fixture.insertNewProcess(type, "completion-hook");
+        var process = fixture.insertNewProcess(type, "dispatch-signal");
 
-        fixture.transactionalLeaseWorker(new CurrentThreadExecutorService(), completions::incrementAndGet)
-            .tryExecute(fixture.leaseTask(process));
+        var worker = fixture.transactionalLeaseWorker(new CurrentThreadExecutorService(), dispatchSignal);
+        try {
+            assertFalse(dispatchSignal.await(0));
 
-        assertEquals(1, completions.get());
+            assertTrue(worker.tryExecute(fixture.leaseTask(process)));
+
+            assertTrue(dispatchSignal.await(0));
+            assertEquals(worker.getSpec().maxConcurrency(), worker.getAvailableCapacity());
+            assertTrue(fixture.dao().findById(process.getId()).orElseThrow().isCompleted());
+            assertNull(storedOwner(process.getId()));
+        } finally {
+            worker.close();
+        }
     }
 
     private ProcessLease claim(WorkerTestFixture fixture, UUID processId) {
@@ -396,7 +469,7 @@ class LeaseAwareWorkerTest extends BaseTest {
             .initialState(CheckpointState.FIRST)
             .step(CheckpointState.FIRST, context -> {
                 executions.incrementAndGet();
-                context.setVariable("first", "saved");
+                context.setVariable(FIRST, "saved");
             }, CheckpointState.SECOND)
             .step(CheckpointState.SECOND, context -> {
                 executions.incrementAndGet();
@@ -420,7 +493,8 @@ class LeaseAwareWorkerTest extends BaseTest {
         if (transactional) {
             fixture.transactionalWorker().tryExecute(task);
         } else {
-            fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(), () -> {}).tryExecute(task);
+            fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(), new ProcessDispatchSignal())
+                .tryExecute(task);
         }
 
         assertEquals(3, executions.get());
@@ -441,7 +515,7 @@ class LeaseAwareWorkerTest extends BaseTest {
             .initialState(CheckpointState.FIRST)
             .step(CheckpointState.FIRST, context -> {
                 firstExecutions.incrementAndGet();
-                context.setVariable("first", "saved");
+                context.setVariable(FIRST, "saved");
             }, CheckpointState.SECOND)
             .step(CheckpointState.SECOND, context -> {
                 if (shouldFail.getAndSet(false)) {
@@ -454,13 +528,14 @@ class LeaseAwareWorkerTest extends BaseTest {
         var process = fixture.insertNewProcess(type, "second-step-failure");
         var worker = transactional
                 ? fixture.transactionalWorker()
-                : fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(), () -> {});
+                : fixture.nonTransactionalLeaseWorker(1, new CurrentThreadExecutorService(),
+                        new ProcessDispatchSignal());
 
         worker.tryExecute(fixture.task(process));
 
         var failed = fixture.dao().findById(process.getId()).orElseThrow();
         assertEquals(CheckpointState.SECOND.name(), failed.getState().name());
-        assertEquals("saved", failed.getVariable("first", String.class));
+        assertEquals("saved", failed.findVariable("first", String.class).orElseThrow());
         assertFalse(failed.isCompleted());
         failed.resume();
         fixture.dao().update(failed);

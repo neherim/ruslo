@@ -7,6 +7,7 @@ import tools.jackson.databind.ObjectReader;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.github.neherim.ruslo.core.utils.JsonUtils.DEFAULT_OBJECT_MAPPER;
 
@@ -66,12 +67,13 @@ public class ProcessVariables {
         return variables.remove(name) != null;
     }
 
-    public <T> T getVariable(String name, Class<T> clazz) {
+    /** Returns the variable, empty if it is not set or holds JSON {@code null}. */
+    public <T> Optional<T> findVariable(String name, Class<T> clazz) {
         var jsonValue = variables.get(name);
         if (jsonValue == null) {
-            return null;
+            return Optional.empty();
         }
-        return DEFAULT_OBJECT_MAPPER.treeToValue(jsonValue, clazz);
+        return Optional.ofNullable(DEFAULT_OBJECT_MAPPER.treeToValue(jsonValue, clazz));
     }
 
     /** Returns an immutable map of variable name to the JSON text of its value. */

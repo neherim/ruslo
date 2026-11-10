@@ -26,11 +26,13 @@ class BatchTest {
             .start();
 
         // Each batch is a separate transition: the cursor moves by the batch size
-        assertEquals(100L, emulator.runOneStep(processId).variables().get(BonusAccrualDefinition.CURSOR).orElseThrow());
-        assertEquals(200L, emulator.runOneStep(processId).variables().get(BonusAccrualDefinition.CURSOR).orElseThrow());
+        assertEquals(100L,
+                emulator.runOneStep(processId).variables().find(BonusAccrualDefinition.CURSOR).orElseThrow());
+        assertEquals(200L,
+                emulator.runOneStep(processId).variables().find(BonusAccrualDefinition.CURSOR).orElseThrow());
         var completed = emulator.runOneStep(processId);
 
         assertEquals(BonusAccrualDefinition.State.COMPLETED, completed.state());
-        assertEquals(250L, completed.variables().get(BonusAccrualDefinition.CURSOR).orElseThrow());
+        assertEquals(250L, completed.variables().find(BonusAccrualDefinition.CURSOR).orElseThrow());
     }
 }

@@ -8,7 +8,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -36,6 +35,9 @@ class ProcessSpecBuilderTest {
         assertInstanceOf(StepState.class, spec.getStateSpec(State.START));
         assertInstanceOf(AwaitState.class, spec.getStateSpec(State.WAIT));
         assertInstanceOf(TerminalState.class, spec.getStateSpec(State.DONE));
+        assertSame(State.START, spec.getStateSpec(State.START).declaration());
+        assertTrue(spec.findStateSpec(State.START).isPresent());
+        assertTrue(spec.findStateSpec(ProcessState.of("MISSING")).isEmpty());
         assertEquals(new WorkerId("DEFAULT_WORKER"), spec.getWorkerId(State.START));
         assertEquals(new WorkerId("OWN_WORKER"), spec.getWorkerId(State.OTHER));
         assertEquals(WorkerId.DEFAULT, spec.getWorkerId(State.WAIT));
@@ -43,6 +45,8 @@ class ProcessSpecBuilderTest {
         assertEquals(MESSAGE, spec.getMessageEvent(MESSAGE, State.WAIT).orElseThrow().type());
         assertEquals(Set.of("MESSAGE"), spec.getApplicableMessageTypeNames(State.WAIT));
         var await = (AwaitState) spec.getStateSpec(State.WAIT);
+        assertEquals(MESSAGE, await.message("MESSAGE").orElseThrow().type());
+        assertEquals(Set.of("MESSAGE"), await.messageTypeNames());
         assertEquals(Interval.of(Duration.ofSeconds(1)), await.every().interval());
         assertEquals(Duration.ofSeconds(1), await.every().interval().firstAfter());
         assertEquals(Duration.ofSeconds(2), await.after().delay());
@@ -140,6 +144,68 @@ class ProcessSpecBuilderTest {
     }
 
     @Test
+    void buildsMessageAwaitWithoutExit() {
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.message(MESSAGE, ON_MESSAGE, State.WAIT))
+            .build();
+        var await = assertInstanceOf(AwaitState.class, spec.getStateSpec(State.WAIT));
+        assertEquals(1, spec.getAllStateSpecs().size());
+        assertEquals(new Target(State.WAIT.id()), await.messages().getFirst().exit());
+    }
+
+    @Test
+    void buildsBranchingPeriodicAwaitWithoutExit() {
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.every(Duration.ofSeconds(1), context -> Outcome.A, routes -> routes
+                .on(Outcome.A, State.WAIT)
+                .on(Outcome.B, State.WAIT)))
+            .build();
+        var await = assertInstanceOf(AwaitState.class, spec.getStateSpec(State.WAIT));
+        var routes = assertInstanceOf(ProcessSpec.Routes.class, await.every().exit());
+        assertEquals(Set.of(Outcome.A, Outcome.B), routes.routes().keySet());
+        assertTrue(routes.routes().values().stream().allMatch(State.WAIT.id()::equals));
+    }
+
+    @Test
+    void buildsOneTimeTimersAwaitWithoutExit() {
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.after(Duration.ofSeconds(1), ON_TIMER, State.WAIT)
+                .at(DUE_DATE, context -> Outcome.A, routes -> routes
+                    .on(Outcome.A, State.WAIT)
+                    .on(Outcome.B, State.WAIT)))
+            .build();
+        var await = assertInstanceOf(AwaitState.class, spec.getStateSpec(State.WAIT));
+        assertEquals(new Target(State.WAIT.id()), await.after().exit());
+        assertInstanceOf(ProcessSpec.Routes.class, await.at().exit());
+    }
+
+    @Test
+    void rejectsIncompleteRoutesWhenTheirDeclarationEnds() {
+        assertRejected("do not cover all constants", () -> start().step(State.START, BRANCHING,
+                routes -> routes.on(Outcome.A, State.DONE)));
+        assertRejected("do not cover all constants", () -> start().await(State.WAIT,
+                await -> await.message(MESSAGE, (context, message) -> Outcome.A,
+                        routes -> routes.on(Outcome.A, State.DONE))));
+        assertRejected("do not cover all constants", () -> start().await(State.WAIT,
+                await -> await.every(Duration.ofSeconds(1), context -> Outcome.A,
+                        routes -> routes.on(Outcome.A, State.DONE))));
+        assertRejected("do not cover all constants", () -> start().await(State.WAIT,
+                await -> await.after(Duration.ofSeconds(1), context -> Outcome.A,
+                        routes -> routes.on(Outcome.A, State.DONE))));
+        assertRejected("do not cover all constants", () -> start().await(State.WAIT,
+                await -> await.at(DUE_DATE, context -> Outcome.A,
+                        routes -> routes.on(Outcome.A, State.DONE))));
+    }
+
+    @Test
+    void rejectsEmptyAwaitWhenItsDeclarationEnds() {
+        assertRejected("no message, every, after or at", () -> start().await(State.WAIT, await -> {}));
+    }
+
+    @Test
     void rejectsInvalidDefinitions() {
         assertRejected("already defined", () -> new ProcessSpecBuilder().type(TYPE)
             .initialState(State.START)
@@ -161,10 +227,6 @@ class ProcessSpecBuilderTest {
         assertRejected("Duplicate outcome", () -> start().step(State.START, BRANCHING, routes -> routes
             .on(Outcome.A, State.DONE)
             .on(Outcome.A, State.DONE)));
-        assertRejected("do not cover all constants", () -> start().step(State.START, BRANCHING,
-                routes -> routes.on(Outcome.A, State.DONE))
-            .terminal(State.DONE)
-            .build());
         assertRejected("is a process state",
                 () -> start().step(State.START, (BranchingStep<StateOutcome>) context -> StateOutcome.X,
                         routes -> routes.on(StateOutcome.X, State.DONE)));
@@ -179,34 +241,10 @@ class ProcessSpecBuilderTest {
         assertRejected("Duplicate at", () -> startWithStep().await(State.WAIT, await -> await
             .at(DUE_DATE, State.DONE)
             .at(DUE_DATE, ON_TIMER, State.DONE)));
-        assertRejected("no message, every, after or at", () -> startWithStep().await(State.WAIT, await -> {})
-            .terminal(State.DONE)
-            .build());
-        assertRejected("no event leading to another state", () -> startWithStep().await(State.WAIT,
-                await -> await.message(MESSAGE, ON_MESSAGE, State.WAIT))
-            .terminal(State.DONE)
-            .build());
-        assertRejected("no event leading to another state", () -> startWithStep().await(State.WAIT,
-                await -> await.every(Duration.ofSeconds(1), context -> Outcome.A, routes -> routes
-                    .on(Outcome.A, State.WAIT)
-                    .on(Outcome.B, State.WAIT)))
-            .terminal(State.DONE)
-            .build());
-        assertRejected("no event leading to another state", () -> startWithStep().await(State.WAIT,
-                await -> await.after(Duration.ofSeconds(1), ON_TIMER, State.WAIT)
-                    .at(DUE_DATE, context -> Outcome.A, routes -> routes
-                        .on(Outcome.A, State.WAIT)
-                        .on(Outcome.B, State.WAIT)))
-            .terminal(State.DONE)
-            .build());
         assertRejected("cannot target its own await state", () -> startWithStep().await(State.WAIT,
                 await -> await.after(Duration.ofSeconds(1), State.WAIT)));
         assertRejected("cannot target its own await state", () -> startWithStep().await(State.WAIT,
                 await -> await.at(DUE_DATE, State.WAIT)));
-        assertRejected("do not cover all constants", () -> startWithStep().await(State.WAIT,
-                await -> await.at(DUE_DATE, context -> Outcome.A, routes -> routes.on(Outcome.A, State.DONE)))
-            .terminal(State.DONE)
-            .build());
         assertRejected("must be positive", () -> startWithStep().await(State.WAIT,
                 await -> await.after(Duration.ZERO, State.DONE)));
         assertRejected("must be positive", () -> startWithStep().await(State.WAIT,
@@ -304,7 +342,7 @@ class ProcessSpecBuilderTest {
         @SuppressWarnings("unchecked")
         var typed = (MessageEvent<T>) event;
         return typed.handler()
-            .apply(null, new IncomingMessage<>(UUID.randomUUID(), type, payload,
+            .apply(null, new IncomingMessage<>(type, payload,
                     java.time.Instant.now()));
     }
 

@@ -11,10 +11,14 @@ import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.metrics.InMemoryProcessEngineMetrics;
 import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.sql.DataSource;
 import java.time.Duration;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,6 +27,87 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ProcessEngineBuilderTest extends BaseTest {
+
+    @Test
+    void dispatchIntervalsShouldRejectNullImmediately() {
+        var builder = new ProcessEngineBuilder(database);
+
+        assertEquals("Minimum process dispatch interval must not be null",
+                assertThrows(NullPointerException.class, () -> builder.withMinProcessDispatchInterval(null))
+                    .getMessage());
+        assertEquals("Maximum process dispatch interval must not be null",
+                assertThrows(NullPointerException.class, () -> builder.withMaxProcessDispatchInterval(null))
+                    .getMessage());
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidDispatchIntervals")
+    void dispatchIntervalsShouldRejectUnsafeValuesImmediately(Duration interval) {
+        var builder = new ProcessEngineBuilder(database);
+
+        assertEquals("Minimum process dispatch interval must be between 1 and " + Long.MAX_VALUE / 2 + " milliseconds",
+                assertThrows(IllegalArgumentException.class, () -> builder.withMinProcessDispatchInterval(interval))
+                    .getMessage());
+        assertEquals("Maximum process dispatch interval must be between 1 and " + Long.MAX_VALUE / 2 + " milliseconds",
+                assertThrows(IllegalArgumentException.class, () -> builder.withMaxProcessDispatchInterval(interval))
+                    .getMessage());
+    }
+
+    private static Stream<Duration> invalidDispatchIntervals() {
+        return Stream.of(Duration.ZERO, Duration.ofMillis(-1), Duration.ofNanos(-1),
+                Duration.ofNanos(1), Duration.ofNanos(999_999),
+                Duration.ofMillis(Long.MAX_VALUE / 2 + 1), Duration.ofMillis(Long.MAX_VALUE),
+                Duration.ofSeconds(Long.MAX_VALUE), Duration.ofSeconds(Long.MIN_VALUE));
+    }
+
+    @ParameterizedTest
+    @MethodSource("validDispatchIntervals")
+    void dispatchIntervalsShouldAcceptSupportedRange(Duration interval) {
+        try (
+                var engine = new ProcessEngineBuilder(database)
+                    .withMinProcessDispatchInterval(interval)
+                    .withMaxProcessDispatchInterval(interval)
+                    .build()
+        ) {
+            assertNotNull(engine);
+        }
+    }
+
+    private static Stream<Duration> validDispatchIntervals() {
+        return Stream.of(Duration.ofMillis(1), Duration.ofNanos(1_999_999),
+                Duration.ofMillis(Long.MAX_VALUE / 2));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void dispatchIntervalsShouldAllowConfigurationInEitherOrder(boolean minFirst) {
+        var builder = new ProcessEngineBuilder(database);
+        if (minFirst) {
+            builder.withMinProcessDispatchInterval(Duration.ofSeconds(30))
+                .withMaxProcessDispatchInterval(Duration.ofSeconds(60));
+        } else {
+            builder.withMaxProcessDispatchInterval(Duration.ofMillis(10))
+                .withMinProcessDispatchInterval(Duration.ofMillis(1));
+        }
+
+        try (var engine = builder.build()) {
+            assertNotNull(engine);
+        }
+    }
+
+    @Test
+    void buildShouldRejectInvertedDispatchIntervalsBeforeAccessingDatabase() {
+        var countingDatabase = new CountingDatabase(database.getDataSource());
+        var builder = new ProcessEngineBuilder(countingDatabase)
+            .withDispatcherEnabled(false)
+            .withMinProcessDispatchInterval(Duration.ofSeconds(11));
+
+        var exception = assertThrows(IllegalArgumentException.class, builder::build);
+
+        assertEquals("Minimum process dispatch interval must not exceed maximum process dispatch interval",
+                exception.getMessage());
+        assertEquals(0, countingDatabase.dataSourceAccesses);
+    }
 
     @Test
     void builderRuntimeShouldExecuteProcessThroughLeaseDispatcher() {

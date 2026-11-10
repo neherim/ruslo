@@ -30,7 +30,7 @@ class ApprovalTest {
                 new Decision("alice", true));
 
         assertEquals(ExpenseApprovalDefinition.State.APPROVED, approved.state());
-        assertEquals("alice", approved.variables().get(ExpenseApprovalDefinition.DECIDED_BY).orElseThrow());
+        assertEquals("alice", approved.variables().find(ExpenseApprovalDefinition.DECIDED_BY).orElseThrow());
     }
 
     @Test
@@ -42,7 +42,7 @@ class ApprovalTest {
         var escalated = emulator.runUntilStop(processId);
 
         assertEquals(ExpenseApprovalDefinition.State.WAITING_FOR_DECISION, escalated.state());
-        assertEquals("bob", escalated.variables().get(ExpenseApprovalDefinition.APPROVER).orElseThrow());
+        assertEquals("bob", escalated.variables().find(ExpenseApprovalDefinition.APPROVER).orElseThrow());
 
         var rejected = emulator.sendMessageAndRunUntilStop(processId, ExpenseApprovalDefinition.DECISION,
                 new Decision("bob", false));

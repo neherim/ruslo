@@ -44,7 +44,7 @@ class StandaloneCoreExampleTest {
         var waiting = emulator.runUntilStop(processId);
         assertEquals(ApprovalState.WAITING_FOR_APPROVAL, waiting.state());
         assertEquals("manager",
-                waiting.variables().get(Constants.APPROVER_ROLE).orElseThrow());
+                waiting.variables().find(Constants.APPROVER_ROLE).orElseThrow());
 
         example.approve(processId, "manager-1");
 
@@ -52,7 +52,7 @@ class StandaloneCoreExampleTest {
         assertEquals(ApprovalState.APPROVED, approved.state());
         assertEquals(ProcessStatus.COMPLETED, approved.status());
         assertEquals("manager-1",
-                approved.variables().get(Constants.APPROVED_BY).orElseThrow());
+                approved.variables().find(Constants.APPROVED_BY).orElseThrow());
     }
 
     @Test
@@ -62,14 +62,14 @@ class StandaloneCoreExampleTest {
         var waiting = emulator.runUntilStop(processId);
         assertEquals(ApprovalState.WAITING_FOR_APPROVAL, waiting.state());
         assertEquals("cfo",
-                waiting.variables().get(Constants.APPROVER_ROLE).orElseThrow());
+                waiting.variables().find(Constants.APPROVER_ROLE).orElseThrow());
 
         example.reject(processId, "Budget exceeded");
 
         var rejected = emulator.runUntilStop(processId);
         assertEquals(ApprovalState.REJECTED, rejected.state());
         assertEquals("Budget exceeded",
-                rejected.variables().get(Constants.REJECTION_REASON).orElseThrow());
+                rejected.variables().find(Constants.REJECTION_REASON).orElseThrow());
     }
 
     private static JdbcDataSource newDataSource() {

@@ -4,7 +4,6 @@ import io.github.neherim.ruslo.core.BaseTest;
 import io.github.neherim.ruslo.core.api.definition.ErrorResult;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
-import io.github.neherim.ruslo.core.api.definition.ProcessError;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
@@ -91,10 +90,12 @@ class ProcessMdcTest extends BaseTest {
         var definition = new ErrorDefinition(observedMdc);
         var fixture = WorkerTestFixture.with(database, definition);
         var process = fixture.insertNewProcess(ErrorDefinition.TYPE, "error-correlation");
+        var lease = fixture.task(process);
+        var claimed = fixture.dao().findClaimed(lease);
 
         fixture.stepErrorHandler()
-            .handleHandlerError(
-                    new IllegalStateException("boom"), fixture.task(process));
+            .handleWorkerError(
+                    new WorkerHandlerException(new IllegalStateException("boom"), lease, claimed.expectedRowVersion()));
 
         assertEquals("error-correlation", observedMdc.get().get("correlation_id"));
         assertEquals(process.getId().toString(), observedMdc.get().get("process_id"));
@@ -157,7 +158,7 @@ class ProcessMdcTest extends BaseTest {
         }
 
         private ProcessErrorHandler errorHandler() {
-            return (ProcessContext context, ProcessError error) -> {
+            return (ProcessContext context, Throwable cause) -> {
                 observedMdc.set(Map.of(
                         "correlation_id", MDC.get("correlation_id"),
                         "process_id", MDC.get("process_id"),

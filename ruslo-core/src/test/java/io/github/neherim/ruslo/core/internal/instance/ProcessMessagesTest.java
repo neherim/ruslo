@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -17,18 +16,15 @@ class ProcessMessagesTest {
     @Test
     void storesFifoAcrossTypesAndRoundTripsJson() {
         var messages = ProcessMessages.empty();
-        var firstId = UUID.randomUUID();
-        var secondId = UUID.randomUUID();
         var received = Instant.parse("2026-09-24T10:15:00Z");
-        messages.append(FIRST, "one", firstId, received);
-        messages.append(SECOND, "two", secondId, received.plusSeconds(1));
+        messages.append(FIRST, "one", received);
+        messages.append(SECOND, "two", received.plusSeconds(1));
         var json = messages.serializeToString();
         assertTrue(json.startsWith("["));
         var restored = ProcessMessages.fromString(json);
-        assertEquals(firstId, restored.peekFirst().orElseThrow().id());
-        assertEquals("one", restored.convert(restored.peekFirst().orElseThrow(), FIRST).payload());
-        restored.removeFirst();
-        assertEquals(secondId, restored.peekFirst().orElseThrow().id());
+        var first = restored.takeFirst();
+        assertEquals("one", restored.convert(first, FIRST).payload());
+        assertEquals("two", restored.convert(restored.peekFirst().orElseThrow(), SECOND).payload());
         restored.clear();
         assertEquals("[]", restored.serializeToString());
     }
@@ -37,11 +33,11 @@ class ProcessMessagesTest {
     void acceptsNullAndDuplicateSignals() {
         var messages = ProcessMessages.empty();
         var now = Instant.now();
-        messages.append(FIRST, null, UUID.randomUUID(), now);
-        messages.append(FIRST, null, UUID.randomUUID(), now);
+        messages.append(FIRST, null, now);
+        messages.append(FIRST, null, now);
         var first = messages.peekFirst().orElseThrow();
         assertNull(messages.convert(first, FIRST).payload());
-        messages.removeFirst();
+        messages.takeFirst();
         assertFalse(messages.isEmpty());
     }
 
@@ -49,15 +45,13 @@ class ProcessMessagesTest {
     void equalReceptionTimesKeepAppendOrderAcrossReload() {
         var messages = ProcessMessages.empty();
         var received = Instant.parse("2026-09-24T10:15:00Z");
-        var largerId = new UUID(0, 2);
-        var smallerId = new UUID(0, 1);
-        messages.append(FIRST, "first", largerId, received);
-        messages.append(SECOND, "second", smallerId, received);
+        messages.append(SECOND, "second", received);
+        messages.append(FIRST, "first", received);
         var restored = ProcessMessages.fromString(
                 messages.serializeToString());
-        assertEquals(largerId, restored.peekFirst().orElseThrow().id());
-        restored.removeFirst();
-        assertEquals(smallerId, restored.peekFirst().orElseThrow().id());
+        assertEquals("SECOND", restored.peekFirst().orElseThrow().type());
+        restored.takeFirst();
+        assertEquals("FIRST", restored.peekFirst().orElseThrow().type());
     }
 
     @Test
@@ -65,7 +59,7 @@ class ProcessMessagesTest {
         var type = MessageType.of("AMOUNT", BigDecimal.class);
         var amount = new BigDecimal("9.99999999999999999999999");
         var messages = ProcessMessages.empty();
-        messages.append(type, amount, UUID.randomUUID(), Instant.EPOCH);
+        messages.append(type, amount, Instant.EPOCH);
 
         var restored = ProcessMessages.fromString(
                 messages.serializeToString());
@@ -78,7 +72,7 @@ class ProcessMessagesTest {
         var type = MessageType.of("AMOUNT", BigDecimal.class);
         var amount = new BigDecimal("1.10");
         var messages = ProcessMessages.empty();
-        messages.append(type, amount, UUID.randomUUID(), Instant.EPOCH);
+        messages.append(type, amount, Instant.EPOCH);
 
         var restored = ProcessMessages.fromString(
                 messages.serializeToString());

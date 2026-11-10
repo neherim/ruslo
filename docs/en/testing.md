@@ -25,7 +25,7 @@ assertEquals(OrderState.COMPLETED, details.state(), details::toString);
 ```
 
 On a mismatch the message shows the actual state, and `details::toString` adds the status, `lastError`, recent
-history, variables and timers. Read variables with `details.variables().get(AMOUNT)`.
+history, variables and timers. Read variables with `details.variables().find(AMOUNT)`.
 
 `runAll()` sees every process in the database, also those left by previous tests that share the Spring context.
 

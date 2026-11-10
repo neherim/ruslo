@@ -139,9 +139,9 @@ class ErrorGiveUpTest extends BaseTest {
 
     /** Retries the first error, gives up on the second; an {@code IllegalArgumentException} fails the process. */
     private ProcessDefinition customDefinition() {
-        ProcessErrorHandler handler = (context, error) -> {
-            if (error.cause() instanceof IllegalArgumentException) return ErrorResult.fail();
-            return error.attempt() < 1 ? ErrorResult.retryAfter(Duration.ZERO) : ErrorResult.giveUp();
+        ProcessErrorHandler handler = (context, cause) -> {
+            if (cause instanceof IllegalArgumentException) return ErrorResult.fail();
+            return context.attempt() < 1 ? ErrorResult.retryAfter(Duration.ZERO) : ErrorResult.giveUp();
         };
         return builder -> builder.type("CUSTOM_ERRORS")
             .onError(handler)

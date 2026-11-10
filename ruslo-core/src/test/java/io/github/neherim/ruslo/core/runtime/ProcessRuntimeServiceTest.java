@@ -15,7 +15,6 @@ import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -129,7 +128,7 @@ class ProcessRuntimeServiceTest extends BaseTest {
 
     private static boolean awaitSignal(ProcessDispatchSignal signal) {
         try {
-            return signal.await(Duration.ZERO);
+            return signal.await(0);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new AssertionError("Interrupted while awaiting process dispatch signal", ex);

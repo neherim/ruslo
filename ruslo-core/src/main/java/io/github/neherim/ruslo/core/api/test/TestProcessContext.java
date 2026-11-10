@@ -92,33 +92,18 @@ public final class TestProcessContext implements ProcessContext {
     }
 
     @Override
-    public <T> T getVariable(String name, Class<T> clazz) {
-        return variables.getVariable(name, clazz);
-    }
-
-    @Override
-    public <T> T getVariable(VariableType<T> type) {
-        return getVariable(type.name(), type.clazz());
-    }
-
-    @Override
-    public void setVariable(String name, Object value) {
-        variables.setVariable(name, value);
+    public <T> Optional<T> findVariable(VariableType<T> type) {
+        return variables.findVariable(type.name(), type.clazz());
     }
 
     @Override
     public <T> void setVariable(VariableType<T> type, T value) {
-        setVariable(type.name(), value);
-    }
-
-    @Override
-    public boolean removeVariable(String name) {
-        return variables.removeVariable(name);
+        variables.setVariable(type.name(), value);
     }
 
     @Override
     public <T> boolean removeVariable(VariableType<T> type) {
-        return removeVariable(type.name());
+        return variables.removeVariable(type.name());
     }
 
     @Override
@@ -132,7 +117,7 @@ public final class TestProcessContext implements ProcessContext {
     }
 
     @Override
-    public Optional<Instant> getTimer(TimerType timer) {
+    public Optional<Instant> findTimer(TimerType timer) {
         return timers.get(timer.name());
     }
 
@@ -206,14 +191,9 @@ public final class TestProcessContext implements ProcessContext {
         }
 
         /** Adds an initial variable, serialized to JSON by {@link #build()}. */
-        public Builder variable(String name, Object value) {
-            this.variables.put(Objects.requireNonNull(name, "Variable name must not be null"), value);
-            return this;
-        }
-
-        /** Adds an initial variable, serialized to JSON by {@link #build()}. */
         public <T> Builder variable(VariableType<T> type, T value) {
-            return variable(type.name(), value);
+            this.variables.put(Objects.requireNonNull(type, "Variable type must not be null").name(), value);
+            return this;
         }
 
         /** Sets an initial timer, truncated to microseconds by {@link #build()}. */

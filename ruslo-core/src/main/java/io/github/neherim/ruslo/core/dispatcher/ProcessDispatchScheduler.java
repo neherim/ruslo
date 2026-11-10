@@ -10,16 +10,16 @@ import java.time.Instant;
 /**
  * Background thread that polls the database by calling {@link ProcessDispatcher#dispatch()}.
  *
- * <p>The poll interval adapts: it shrinks towards {@code minInterval} while processes are ready and grows towards
- * {@code maxInterval} while none are. If the nearest process becomes ready earlier, the scheduler wakes up by then,
+ * <p>Successful cycles continue immediately and reset the polling backoff to {@code minInterval}. Empty cycles
+ * double it up to {@code maxInterval}. If the nearest process becomes ready earlier, the scheduler wakes up by then,
  * so timers fire on time on an idle node too. {@link ProcessDispatchSignal} interrupts the wait early.
  */
 public class ProcessDispatchScheduler {
     private static final Logger log = LoggerFactory.getLogger(ProcessDispatchScheduler.class);
     private static final Duration STOP_TIMEOUT = Duration.ofSeconds(10);
 
-    private final Duration minInterval;
-    private final Duration maxInterval;
+    private final long minIntervalMs;
+    private final long maxIntervalMs;
     private final ProcessDispatcher processDispatcher;
     private final ProcessDispatchSignal dispatchSignal;
     private final Clock clock;
@@ -41,8 +41,8 @@ public class ProcessDispatchScheduler {
             Clock clock
     ) {
         this.processDispatcher = processDispatcher;
-        this.minInterval = minInterval;
-        this.maxInterval = maxInterval;
+        this.minIntervalMs = minInterval.toMillis();
+        this.maxIntervalMs = maxInterval.toMillis();
         this.dispatchSignal = dispatchSignal;
         this.clock = clock;
     }
@@ -61,7 +61,7 @@ public class ProcessDispatchScheduler {
     }
 
     private void dispatchLoop() {
-        long currentDelayMs = minInterval.toMillis();
+        long currentDelayMs = minIntervalMs;
         while (running) {
             boolean dispatched = false;
             Instant nextRunAt = null;
@@ -74,15 +74,16 @@ public class ProcessDispatchScheduler {
                 log.error("Unexpected error in dispatch loop", ex);
             }
             if (dispatched) {
-                currentDelayMs = minInterval.toMillis();
+                currentDelayMs = minIntervalMs;
                 continue;
             }
             try {
-                dispatchSignal.await(Duration.ofMillis(delayMs(currentDelayMs, nextRunAt)));
+                long delayMs = calculateNextDelayMs(currentDelayMs, nextRunAt);
+                dispatchSignal.await(delayMs);
             } catch (InterruptedException e) {
                 return;
             }
-            currentDelayMs = Math.min(maxInterval.toMillis(), currentDelayMs * 2);
+            currentDelayMs = Math.min(maxIntervalMs, currentDelayMs * 2);
         }
     }
 
@@ -90,7 +91,7 @@ public class ProcessDispatchScheduler {
      * Shortens the pause to the nearest process due time. A due time already passed means a ready process could not
      * be claimed just now, so the pause stays the same to avoid polling the database in a loop.
      */
-    private long delayMs(long backoffMs, Instant nextRunAt) {
+    private long calculateNextDelayMs(long backoffMs, Instant nextRunAt) {
         if (nextRunAt == null) {
             return backoffMs;
         }

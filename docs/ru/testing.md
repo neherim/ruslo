@@ -26,7 +26,7 @@ assertEquals(OrderState.COMPLETED, details.state(), details::toString);
 ```
 
 При несовпадении сообщение покажет фактическое состояние, а `details::toString` добавит статус, `lastError`,
-последнюю историю, переменные и таймеры. Переменные читаются через `details.variables().get(AMOUNT)`.
+последнюю историю, переменные и таймеры. Переменные читаются через `details.variables().find(AMOUNT)`.
 
 `runAll()` видит все процессы в базе, в том числе оставшиеся от предыдущих тестов с тем же Spring-контекстом.
 

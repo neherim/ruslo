@@ -15,13 +15,18 @@ import java.util.function.Function;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Builds a {@link ProcessSpec}: process settings first, then states.
+ * Builds a {@link ProcessSpec}; the engine passes a builder to {@link ProcessDefinition#define}. Calls go in order:
+ * {@link #type(ProcessType)}, process settings, {@link TypedBuilder#initialState(ProcessState)}, states,
+ * {@link StatesBuilder#build()}.
  * <p>
  * A handler reports a result, the definition declares the target state. A target equal to the current state is not
  * a state change: the message queue, the {@code every} and {@code after} timers and the state history are kept. A
  * step runs again; an await keeps waiting for its events.
  * <p>
- * References to a state match it by name.
+ * States are matched by name, see {@link ProcessState}.
+ * <p>
+ * Methods throw {@link IllegalArgumentException} for an invalid declaration, immediately or in
+ * {@link StatesBuilder#build()}.
  */
 public class ProcessSpecBuilder {
     public ProcessSpecBuilder() {
@@ -51,7 +56,7 @@ public class ProcessSpecBuilder {
             return this;
         }
 
-        /** Sets the worker for steps that do not set their own. */
+        /** Sets the worker for steps that do not set their own; the default is {@link WorkerId#DEFAULT}. */
         public TypedBuilder defaultWorker(WorkerId workerId) {
             draft.defaultWorker = requireNonNull(workerId, "Worker id cannot be null");
             return this;
@@ -68,13 +73,13 @@ public class ProcessSpecBuilder {
          * {@code giveUp()} stops the process in {@code FAILED}.
          */
         public TypedBuilder onGiveUp(ProcessState state) {
-            draft.giveUpState = Draft.id(state);
+            draft.giveUpState = state.id();
             return this;
         }
 
         /** Sets the initial state (a step or an await) and starts declaring states. */
         public StatesBuilder initialState(ProcessState state) {
-            draft.initial = Draft.id(state);
+            draft.initial = state.id();
             return new StatesBuilder(draft);
         }
     }
@@ -88,8 +93,8 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Declares a step that moves to {@code next} on success. The step runs on the process worker, see
-         * {@link TypedBuilder#defaultWorker(WorkerId)}.
+         * Declares a step that moves to {@code next} on success. The step runs on the default worker of the process,
+         * see {@link TypedBuilder#defaultWorker(WorkerId)}.
          */
         public StatesBuilder step(ProcessState state, ProcessStep step, ProcessState next) {
             return step(state, draft.defaultWorker, step, next);
@@ -101,13 +106,13 @@ public class ProcessSpecBuilder {
             draft.addStep(state, worker, context -> {
                 step.execute(context);
                 return null;
-            }, new Target(Draft.id(next)));
+            }, new Target(next.id()));
             return this;
         }
 
         /**
-         * Declares a step whose outcome selects the target in {@code routes}. The step runs on the process worker,
-         * see {@link TypedBuilder#defaultWorker(WorkerId)}.
+         * Declares a step whose outcome selects the target in {@code routes}. The step runs on the default worker of
+         * the process, see {@link TypedBuilder#defaultWorker(WorkerId)}.
          */
         public <O extends Enum<O>> StatesBuilder step(
                 ProcessState state,
@@ -125,29 +130,33 @@ public class ProcessSpecBuilder {
                 Consumer<Routes<O>> routes
         ) {
             requireNonNull(step, "Process step cannot be null");
-            draft.addStep(state, worker, step::execute, draft.routes(routes, "step " + Draft.id(state).name()));
+            draft.addStep(state, worker, step::execute, draft.routes(routes, "step " + state.name()));
             return this;
         }
 
-        /** Declares an await and its events. */
+        /**
+         * Declares an await and its events.
+         *
+         * @throws IllegalArgumentException if the await has no events
+         */
         public StatesBuilder await(ProcessState state, Consumer<AwaitBuilder> definition) {
-            var id = Draft.id(state);
-            var events = new AwaitBuilder(id, draft);
+            var events = new AwaitBuilder(state, draft);
             requireNonNull(definition, "Await definition cannot be null").accept(events);
-            draft.add(state, new AwaitState(id, events.messages, events.every, events.after, events.at));
+            draft.add(state, events.build());
             return this;
         }
 
-        /** Declares a terminal state. */
+        /** Declares a terminal state: entering it completes the process. */
         public StatesBuilder terminal(ProcessState state) {
-            draft.add(state, new TerminalState(Draft.id(state)));
+            draft.add(state, new TerminalState(state));
             return this;
         }
 
         /**
          * Validates the declarations and builds the spec.
          *
-         * @throws IllegalArgumentException if the definition is inconsistent
+         * @throws IllegalArgumentException if a target state is not declared, the initial state is not a step or an
+         *         await, or one message name has different payload classes
          */
         public ProcessSpec build() {
             return draft.build();
@@ -155,9 +164,8 @@ public class ProcessSpecBuilder {
     }
 
     /**
-     * Outcome-to-target routes of a branching step or event.
-     *
-     * @param <O> outcome enum
+     * Outcome-to-target routes of a branching step or event; must route every constant of {@code O}. Completeness is
+     * checked when the routes callback returns.
      */
     public static class Routes<O extends Enum<O>> {
         private final String where;
@@ -170,7 +178,6 @@ public class ProcessSpecBuilder {
         /** Routes {@code outcome} to {@code target}. */
         public Routes<O> on(O outcome, ProcessState target) {
             requireNonNull(outcome, "Outcome cannot be null");
-            requireNonNull(target, "Target state cannot be null");
             if (outcome instanceof ProcessState) {
                 throw new IllegalArgumentException("Outcome " + outcome + " in " + where
                         + " is a process state: the target state is the second argument of on(...)");
@@ -182,36 +189,46 @@ public class ProcessSpecBuilder {
         }
     }
 
-    /** Events of one await. */
+    /**
+     * Events of one await: any number of messages with distinct names and at most one {@code every}, {@code after}
+     * and {@code at}. At least one event is required; all events may target this await.
+     */
     public static class AwaitBuilder {
         private static final Function<ProcessContext, Enum<?>> NO_HANDLER = context -> null;
-        private final ProcessStateId state;
+        private final ProcessState state;
         private final Draft draft;
         private final List<MessageEvent<?>> messages = new ArrayList<>();
         private EveryEvent every;
         private AfterEvent after;
         private AtEvent at;
 
-        private AwaitBuilder(ProcessStateId state, Draft draft) {
+        private AwaitBuilder(ProcessState state, Draft draft) {
             this.state = state;
             this.draft = draft;
         }
 
+        private AwaitState build() {
+            if (messages.isEmpty() && every == null && after == null && at == null) {
+                throw new IllegalArgumentException(where() + " has no message, every, after or at");
+            }
+            return new AwaitState(state, messages, every, after, at);
+        }
+
         /**
-         * Handles the message and moves to {@code next}. If {@code next} is this await, the process keeps waiting
-         * and {@code every} and {@code after} are not restarted (see {@link ProcessSpecBuilder}).
+         * Declares a message event: calls {@code handler} and moves to {@code next}. If {@code next} is this await,
+         * the process keeps waiting.
          */
         public <T> AwaitBuilder message(MessageType<T> type, ProcessMessageHandler<T> handler, ProcessState next) {
             requireNonNull(handler, "Message handler cannot be null");
             return addMessage(type, (context, message) -> {
                 handler.handle(context, message);
                 return null;
-            }, new Target(Draft.id(next)));
+            }, new Target(next.id()));
         }
 
         /**
-         * Handles the message; its outcome selects the target in {@code routes}. A target equal to this await
-         * keeps waiting and does not restart {@code every} and {@code after} (see {@link ProcessSpecBuilder}).
+         * Declares a message event: calls {@code handler}; its outcome selects the target in {@code routes}. A
+         * target equal to this await keeps waiting.
          */
         public <T, O extends Enum<O>> AwaitBuilder message(
                 MessageType<T> type,
@@ -241,8 +258,8 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Calls {@code handler} on the {@code interval} schedule and moves to {@code next}. If {@code next} is this
-         * await, the process keeps waiting until the next check.
+         * Declares a periodic event: calls {@code handler} on the {@code interval} schedule and moves to
+         * {@code next}. If {@code next} is this await, the process keeps waiting until the next check.
          * <p>
          * Checks follow a grid: entering the await from another state plus {@code firstAfter} plus
          * {@code k * period}. An event that targets this await, this one included, does not restart the grid. A
@@ -251,11 +268,7 @@ public class ProcessSpecBuilder {
          * due at 12:10, 12:20 and so on; if the 12:10 check starts at 12:25, the next one is due at 12:30.
          */
         public AwaitBuilder every(Interval interval, ProcessTimerHandler handler, ProcessState next) {
-            requireNonNull(handler, "Timer handler cannot be null");
-            return addEvery(interval, context -> {
-                handler.handle(context);
-                return null;
-            }, new Target(Draft.id(next)));
+            return addEvery(interval, linear(handler), new Target(next.id()));
         }
 
         /** Same as {@link #every(Interval, BranchingTimerHandler, Consumer)} with {@link Interval#of(Duration)}. */
@@ -268,9 +281,9 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Calls {@code handler} on the {@code interval} schedule; its outcome selects the target in {@code routes}.
-         * A target equal to this await keeps waiting until the next check. Checks follow the grid described in
-         * {@link #every(Interval, ProcessTimerHandler, ProcessState)}.
+         * Declares a periodic event: calls {@code handler} on the {@code interval} schedule; its outcome selects the
+         * target in {@code routes}. A target equal to this await keeps waiting until the next check. Checks follow
+         * the grid described in {@link #every(Interval, ProcessTimerHandler, ProcessState)}.
          */
         public <O extends Enum<O>> AwaitBuilder every(
                 Interval interval,
@@ -289,31 +302,27 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Moves to {@code next} {@code delay} after entering the await from another state. An event that targets
-         * this await does not restart the delay; to restart it, go through a step that leads back to the await.
-         * {@code next} must not be this await: without a handler the event would do nothing.
+         * Declares a one-time event: moves to {@code next} a positive {@code delay} after entering the await from
+         * another state. To restart the delay, go through a step that leads back to the await. {@code next} must not
+         * be this await: without a handler the event would do nothing.
          */
         public AwaitBuilder after(Duration delay, ProcessState next) {
             return addAfter(delay, NO_HANDLER, withoutHandler(next, "after"));
         }
 
         /**
-         * Calls {@code handler} {@code delay} after entering the await from another state, then moves to
-         * {@code next}. An event that targets this await does not restart the delay; to restart it, go through a
-         * step that leads back to the await. If {@code next} is this await, the process keeps waiting for the other
-         * events and the timer does not fire again.
+         * Declares a one-time event: calls {@code handler} a positive {@code delay} after entering the await from
+         * another state, then moves to {@code next}. To restart the delay, go through a step that leads back to the
+         * await. If {@code next} is this await, the process keeps waiting for the other events and the timer does
+         * not fire again.
          */
         public AwaitBuilder after(Duration delay, ProcessTimerHandler handler, ProcessState next) {
-            requireNonNull(handler, "Timer handler cannot be null");
-            return addAfter(delay, context -> {
-                handler.handle(context);
-                return null;
-            }, new Target(Draft.id(next)));
+            return addAfter(delay, linear(handler), new Target(next.id()));
         }
 
         /**
-         * Calls {@code handler} {@code delay} after entering the await; its outcome selects the target in
-         * {@code routes}, as in {@link #after(Duration, ProcessTimerHandler, ProcessState)}.
+         * Declares a one-time event: calls {@code handler} {@code delay} after entering the await; its outcome
+         * selects the target in {@code routes}, as in {@link #after(Duration, ProcessTimerHandler, ProcessState)}.
          */
         public <O extends Enum<O>> AwaitBuilder after(
                 Duration delay,
@@ -332,30 +341,28 @@ public class ProcessSpecBuilder {
         }
 
         /**
-         * Moves to {@code next} when {@code timer} is due. The code sets the timer, and it outlives the await: see
-         * {@link TimerType}. {@code next} must not be this await: without a handler the event would do nothing.
+         * Declares a timer event: moves to {@code next} when {@code timer} is due. The application sets the timer,
+         * and it outlives the await: see {@link TimerType}. {@code next} must not be this await: without a handler
+         * the event would do nothing.
          */
         public AwaitBuilder at(TimerType timer, ProcessState next) {
             return addAt(timer, NO_HANDLER, withoutHandler(next, "at"));
         }
 
         /**
-         * Calls {@code handler} when {@code timer} is due, then moves to {@code next}. The code sets the timer, and it
-         * outlives the await: see {@link TimerType}. The handler reads the fired moment from the timer; a timer it
-         * left unchanged is cancelled after it. If {@code next} is this await, the process waits for the other events
-         * and for the timer the handler moved.
+         * Declares a timer event: calls {@code handler} when {@code timer} is due, then moves to {@code next}. The
+         * application sets the timer, and it outlives the await: see {@link TimerType}. The handler reads the fired
+         * moment from the timer and may move it; if the handler leaves the timer unchanged, the engine cancels it
+         * after the handler. If {@code next} is this await, the process keeps waiting for the other events and for
+         * the new moment of the timer, if the handler set one.
          */
         public AwaitBuilder at(TimerType timer, ProcessTimerHandler handler, ProcessState next) {
-            requireNonNull(handler, "Timer handler cannot be null");
-            return addAt(timer, context -> {
-                handler.handle(context);
-                return null;
-            }, new Target(Draft.id(next)));
+            return addAt(timer, linear(handler), new Target(next.id()));
         }
 
         /**
-         * Calls {@code handler} when {@code timer} is due; its outcome selects the target in {@code routes}, as in
-         * {@link #at(TimerType, ProcessTimerHandler, ProcessState)}.
+         * Declares a timer event: calls {@code handler} when {@code timer} is due; its outcome selects the target in
+         * {@code routes}, as in {@link #at(TimerType, ProcessTimerHandler, ProcessState)}.
          */
         public <O extends Enum<O>> AwaitBuilder at(
                 TimerType timer,
@@ -373,9 +380,17 @@ public class ProcessSpecBuilder {
             return this;
         }
 
+        private static Function<ProcessContext, Enum<?>> linear(ProcessTimerHandler handler) {
+            requireNonNull(handler, "Timer handler cannot be null");
+            return context -> {
+                handler.handle(context);
+                return null;
+            };
+        }
+
         private Target withoutHandler(ProcessState next, String event) {
-            var target = Draft.id(next);
-            if (state.equals(target)) {
+            var target = next.id();
+            if (state.id().equals(target)) {
                 throw new IllegalArgumentException(where(event) + " without a handler cannot target its own await "
                         + "state: it would do nothing");
             }
@@ -401,8 +416,7 @@ public class ProcessSpecBuilder {
     private static final class Draft {
         private final ProcessType declaredType;
         private final ProcessTypeId type;
-        private final Map<String, StateSpec> states = new LinkedHashMap<>();
-        private final Map<String, ProcessState> declaredStates = new HashMap<>();
+        private final Map<ProcessStateId, StateSpec> states = new LinkedHashMap<>();
         private String description;
         private WorkerId defaultWorker = WorkerId.DEFAULT;
         private ProcessErrorHandler errorHandler = ProcessErrorHandler.noRetry();
@@ -414,13 +428,10 @@ public class ProcessSpecBuilder {
             this.type = declaredType.id();
         }
 
-        private static ProcessStateId id(ProcessState state) {
-            return requireNonNull(state, "Process state cannot be null").id();
-        }
-
         private void add(ProcessState state, StateSpec spec) {
-            var name = spec.state().name();
-            if (states.putIfAbsent(name, spec) != null) {
+            var id = state.id();
+            var name = id.name();
+            if (states.putIfAbsent(id, spec) != null) {
                 throw new IllegalArgumentException("State " + name + " is already defined in process " + type.name());
             }
             var stateDescription = state.description();
@@ -428,7 +439,6 @@ public class ProcessSpecBuilder {
                 throw new IllegalArgumentException("Description of state " + name + " of process " + type.name()
                         + " cannot be blank");
             }
-            declaredStates.put(name, state);
         }
 
         private void addStep(
@@ -438,7 +448,7 @@ public class ProcessSpecBuilder {
                 Exit exit
         ) {
             requireNonNull(worker, "Worker id cannot be null");
-            add(state, new StepState(id(state), step, worker, exit));
+            add(state, new StepState(state, step, worker, exit));
         }
 
         private <O extends Enum<O>> ProcessSpec.Routes routes(Consumer<Routes<O>> definition, String where) {
@@ -447,12 +457,17 @@ public class ProcessSpecBuilder {
             if (result.routes.isEmpty()) {
                 throw new IllegalArgumentException("Routes of " + result.where + " must contain at least one on(...)");
             }
+            var outcomes = result.routes.keySet().iterator().next().getDeclaringClass();
+            if (result.routes.size() != outcomes.getEnumConstants().length) {
+                throw new IllegalArgumentException("Routes of " + result.where
+                        + " do not cover all constants of " + outcomes.getSimpleName());
+            }
             return new ProcessSpec.Routes(result.routes);
         }
 
         private ProcessSpec build() {
-            if (!(states.get(initial.name()) instanceof StepState)
-                    && !(states.get(initial.name()) instanceof AwaitState)) {
+            if (!(states.get(initial) instanceof StepState)
+                    && !(states.get(initial) instanceof AwaitState)) {
                 throw new IllegalArgumentException("Initial state " + initial.name() + " of process " + type.name()
                         + " must be a declared step or await");
             }
@@ -467,17 +482,11 @@ public class ProcessSpecBuilder {
                 }
             }
             if (giveUpState != null) checkDeclared(giveUpState, "onGiveUp state");
-            return new ProcessSpec(type, declaredType, description, initial, states, declaredStates, errorHandler,
-                    giveUpState);
+            return new ProcessSpec(declaredType, description, initial, states, errorHandler, giveUpState);
         }
 
         private void checkAwait(AwaitState await, Map<String, Class<?>> payloads) {
             var where = "await state " + await.state().name();
-            if (await.messages().isEmpty() && await.every() == null && await.after() == null && await.at() == null) {
-                throw new IllegalArgumentException(where + " of process " + type.name()
-                        + " has no message, every, after or at");
-            }
-            var hasExit = false;
             for (var message : await.messages()) {
                 var existing = payloads.putIfAbsent(message.type().name(), message.type().clazz());
                 if (existing != null && !existing.equals(message.type().clazz())) {
@@ -485,49 +494,28 @@ public class ProcessSpecBuilder {
                             + message.type().name());
                 }
                 checkExit(message.exit(), "message " + message.type().name() + " in " + where);
-                hasExit |= leaves(message.exit(), await.state());
             }
             if (await.every() != null) {
                 checkExit(await.every().exit(), "every in " + where);
-                hasExit |= leaves(await.every().exit(), await.state());
             }
             if (await.after() != null) {
                 checkExit(await.after().exit(), "after in " + where);
-                hasExit |= leaves(await.after().exit(), await.state());
             }
             if (await.at() != null) {
                 checkExit(await.at().exit(), "at in " + where);
-                hasExit |= leaves(await.at().exit(), await.state());
             }
-            if (!hasExit) {
-                throw new IllegalArgumentException(where + " of process " + type.name()
-                        + " has no event leading to another state");
-            }
-        }
-
-        private static boolean leaves(Exit exit, ProcessStateId state) {
-            return switch (exit) {
-                case Target target -> !target.state().equals(state);
-                case ProcessSpec.Routes routes -> routes.routes().values().stream().anyMatch(t -> !t.equals(state));
-            };
         }
 
         private void checkExit(Exit exit, String where) {
             switch (exit) {
                 case Target target -> checkDeclared(target.state(), where);
-                case ProcessSpec.Routes routes -> {
+                case ProcessSpec.Routes routes ->
                     routes.routes().values().forEach(target -> checkDeclared(target, where));
-                    var outcomes = routes.routes().keySet().iterator().next().getDeclaringClass();
-                    if (routes.routes().size() != outcomes.getEnumConstants().length) {
-                        throw new IllegalArgumentException("Routes of " + where + " of process " + type.name()
-                                + " do not cover all constants of " + outcomes.getSimpleName());
-                    }
-                }
             }
         }
 
         private void checkDeclared(ProcessStateId target, String where) {
-            if (!states.containsKey(target.name())) {
+            if (!states.containsKey(target)) {
                 throw new IllegalArgumentException("Target state " + target.name() + " of " + where + " of process "
                         + type.name() + " is not declared");
             }

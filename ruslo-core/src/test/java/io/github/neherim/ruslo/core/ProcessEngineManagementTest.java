@@ -61,8 +61,8 @@ class ProcessEngineManagementTest extends BaseTest {
             var priority = VariableType.of("priority", String.class);
             new ProcessEngineAdmin(engine).setProcessVariable(id, priority, "high");
             var variables = engine.processes().byId(id).singleDetails().orElseThrow().variables();
-            assertEquals(Optional.of("high"), variables.get(priority));
-            assertEquals(Optional.empty(), variables.get(VariableType.of("missing", String.class)));
+            assertEquals(Optional.of("high"), variables.find(priority));
+            assertEquals(Optional.empty(), variables.find(VariableType.of("missing", String.class)));
             new ProcessEngineAdmin(engine).moveProcessToState(id, State.WAIT);
             var waiting = engine.processes().byId(id).singleDetails().orElseThrow();
             assertEquals(ProcessStatus.ACTIVE, waiting.status());

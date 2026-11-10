@@ -76,7 +76,7 @@ class ProcessEngineEmulatorClockTest extends BaseTest {
 
             var done = emulator.runUntilStop(id);
 
-            assertEquals(Instant.parse("2030-01-01T00:00:00Z"), done.variables().get(seen).orElseThrow());
+            assertEquals(Instant.parse("2030-01-01T00:00:00Z"), done.variables().find(seen).orElseThrow());
         }
     }
 

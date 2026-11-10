@@ -14,8 +14,8 @@ import java.util.Optional;
 record ProcessVariablesSnapshot(ProcessVariables variables) implements ProcessVariablesView {
 
     @Override
-    public <T> Optional<T> get(VariableType<T> type) {
-        return Optional.ofNullable(variables.getVariable(type.name(), type.clazz()));
+    public <T> Optional<T> find(VariableType<T> type) {
+        return variables.findVariable(type.name(), type.clazz());
     }
 
     @Override

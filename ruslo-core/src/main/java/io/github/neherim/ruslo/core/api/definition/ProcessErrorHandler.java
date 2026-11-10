@@ -14,13 +14,13 @@ public interface ProcessErrorHandler {
      * Returns the decision for the failed step or event. If this method throws or returns {@code null},
      * the engine retries the step or event after 60 seconds.
      */
-    ErrorResult handle(ProcessContext context, ProcessError error);
+    ErrorResult handle(ProcessContext context, Throwable cause);
 
     /**
      * Returns a handler that never retries: always {@link ErrorResult#giveUp()}.
      */
     static ProcessErrorHandler noRetry() {
-        return (context, error) -> ErrorResult.giveUp();
+        return (context, cause) -> ErrorResult.giveUp();
     }
 
     /**
@@ -28,8 +28,8 @@ public interface ProcessErrorHandler {
      * then returns {@link ErrorResult#giveUp()}.
      */
     static ProcessErrorHandler fixed(int maxRetries, Duration delay) {
-        return (context, error) -> {
-            if (error.attempt() < maxRetries) {
+        return (context, cause) -> {
+            if (context.attempt() < maxRetries) {
                 return ErrorResult.retryAfter(delay);
             }
             return ErrorResult.giveUp();

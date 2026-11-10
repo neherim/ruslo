@@ -20,7 +20,12 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Reads and writes process instances and their state history. */
+/**
+ * Reads and writes process instances and their state history.
+ *
+ * <p>Saving a claimed snapshot checks both {@code lease_owner} and {@code row_version} to reject results from stale
+ * owners or concurrent process state changes.
+ */
 public class ProcessInstanceDao {
     private static final String STATE_COLUMNS = """
             state, worker_id, status, variables, timers, messages, attempt, last_error,
@@ -57,7 +62,7 @@ public class ProcessInstanceDao {
               lease_owner = null,
               row_version = row_version + 1,
               updated_at = ?
-            where id = ? and lease_owner = ?
+            where id = ? and lease_owner = ? and status = 'ACTIVE'
             """;
 
     private static final String COUNT_UNCOMPLETED_PROCESSES_SQL = """
@@ -113,9 +118,9 @@ public class ProcessInstanceDao {
     /**
      * Loads the process and locks its row if {@code lease} still owns it.
      *
-     * @return the claimed snapshot, or empty if the lease is lost
+     * @throws LeaseLostException if the lease is lost
      */
-    public Optional<ClaimedProcess> findClaimedWithLock(ProcessLease lease) {
+    public ClaimedProcess findClaimedWithLock(ProcessLease lease) {
         return findClaimed(SELECT_CLAIMED_PROCESS_SQL + FOR_UPDATE, lease);
     }
 
@@ -123,15 +128,16 @@ public class ProcessInstanceDao {
      * Loads the process without a row lock if {@code lease} still owns it. Used by the non-transactional worker,
      * which holds no transaction while user code runs.
      *
-     * @return the claimed snapshot, or empty if the lease is lost
+     * @throws LeaseLostException if the lease is lost
      */
-    public Optional<ClaimedProcess> findClaimed(ProcessLease lease) {
+    public ClaimedProcess findClaimed(ProcessLease lease) {
         return findClaimed(SELECT_CLAIMED_PROCESS_SQL, lease);
     }
 
-    private Optional<ClaimedProcess> findClaimed(String sql, ProcessLease lease) {
+    private ClaimedProcess findClaimed(String sql, ProcessLease lease) {
         return database.queryForObject(sql, rs -> mapClaimedProcessRow(rs, lease),
-                lease.processId(), lease.ownerId());
+                lease.processId(), lease.ownerId())
+            .orElseThrow(() -> new LeaseLostException(lease.processId()));
     }
 
     private ProcessInstance mapProcessRow(ResultSet rs) throws SQLException {
@@ -206,7 +212,7 @@ public class ProcessInstanceDao {
     }
 
     /**
-     * Postpones the claimed process after a system error and releases its lease without loading the process,
+     * Postpones the active claimed process after a system error and releases its lease without loading the process,
      * so the error is handled even if the process cannot be read (e.g. an unknown type).
      *
      * @throws LeaseLostException if the lease is lost

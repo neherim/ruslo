@@ -3,45 +3,40 @@ package io.github.neherim.ruslo.core.api.definition;
 import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
 
 import java.time.Duration;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Validated states and handlers of a process type. Created only by {@link ProcessSpecBuilder}.
+ * Immutable model of a process type: its state graph with handlers, transitions and error policy. A definition
+ * builds it with {@link ProcessSpecBuilder}, which validates the graph, and returns it from
+ * {@link ProcessDefinition#define}; the engine runs every process of the type by this model.
+ * <p>
+ * Methods taking a {@link ProcessState}, except {@link #hasState} and {@link #findStateSpec}, throw
+ * {@link UnsupportedProcessStateException} if the process has no such state.
  */
 public class ProcessSpec {
-    private final ProcessTypeId type;
     private final ProcessType declaredType;
     private final String description;
     private final ProcessStateId initialState;
-    private final Map<String, StateSpec> stateSpecs;
-    private final Map<String, ProcessState> declaredStates;
+    private final Map<ProcessStateId, StateSpec> stateSpecs;
     private final ProcessErrorHandler processErrorHandler;
     private final ProcessStateId giveUpState;
     private final Set<String> timerNames;
 
     ProcessSpec(
-            ProcessTypeId type,
             ProcessType declaredType,
             String description,
             ProcessStateId initialState,
-            Map<String, StateSpec> stateSpecs,
-            Map<String, ProcessState> declaredStates,
+            Map<ProcessStateId, StateSpec> stateSpecs,
             ProcessErrorHandler processErrorHandler,
             ProcessStateId giveUpState
     ) {
-        this.type = type;
         this.declaredType = declaredType;
         this.description = description;
         this.initialState = initialState;
         this.stateSpecs = Map.copyOf(stateSpecs);
-        this.declaredStates = Map.copyOf(declaredStates);
         this.processErrorHandler = processErrorHandler;
         this.giveUpState = giveUpState;
         this.timerNames = stateSpecs.values()
@@ -52,28 +47,33 @@ public class ProcessSpec {
     }
 
     public ProcessTypeId getType() {
-        return type;
+        return declaredType.id();
     }
 
-    /** Returns the type object passed to {@link ProcessSpecBuilder#type(ProcessType)}. */
+    /**
+     * Returns the type object passed to {@link ProcessSpecBuilder#type(ProcessType)}.
+     */
     public ProcessType declaredType() {
         return declaredType;
     }
 
-    /** Returns the declared state object, or {@link ProcessState#of(String)} if the process does not declare it. */
+    /**
+     * Returns the declared state object, or {@link ProcessState#of(String)} if the process does not declare it.
+     */
     public ProcessState declaredState(String name) {
-        var state = declaredStates.get(name);
-        return state != null ? state : ProcessState.of(name);
+        var state = stateSpecs.get(ProcessState.of(name));
+        return state != null ? state.declaration() : ProcessState.of(name);
     }
 
     public Optional<String> getDescription() {
         return Optional.ofNullable(description);
     }
 
-    /** Returns the state description given in its declaration. */
+    /**
+     * Returns {@link ProcessState#description()} of the declared state.
+     */
     public String getStateDescription(ProcessState state) {
-        getStateSpec(state);
-        return declaredStates.get(state.name()).description();
+        return getStateSpec(state).declaration().description();
     }
 
     public ProcessStateId getInitialState() {
@@ -84,14 +84,23 @@ public class ProcessSpec {
         return stateSpecs.values();
     }
 
-    /** @throws UnsupportedProcessStateException if the process has no such state */
     public StateSpec getStateSpec(ProcessState state) {
-        var spec = stateSpecs.get(state.name());
-        if (spec == null) throw new UnsupportedProcessStateException(type.name(), state.name());
-        return spec;
+        return findStateSpec(state)
+            .orElseThrow(() -> new UnsupportedProcessStateException(getType().name(), state.name()));
     }
 
-    /** Returns the worker of a step; awaits always run on {@link WorkerId#DEFAULT}. */
+    /**
+     * Returns the state's specification, or empty if the process does not declare the state.
+     */
+    public Optional<StateSpec> findStateSpec(ProcessState state) {
+        return Optional.ofNullable(stateSpecs.get(state.id()));
+    }
+
+    /**
+     * Returns the worker of a step; awaits always run on {@link WorkerId#DEFAULT}.
+     *
+     * @throws IllegalStateException for a terminal state
+     */
     public WorkerId getWorkerId(ProcessState state) {
         return switch (getStateSpec(state)) {
             case StepState step -> step.worker();
@@ -101,20 +110,27 @@ public class ProcessSpec {
         };
     }
 
-    /** Returns the state's event for this message type, matching both name and payload class. */
+    /**
+     * Returns the state's event for this message type, matching both name and payload class; empty for non-await
+     * states.
+     */
     public Optional<MessageEvent<?>> getMessageEvent(MessageType<?> type, ProcessState state) {
         return getMessageEvent(type.name(), state).filter(e -> e.type().clazz().equals(type.clazz()));
     }
 
-    /** Returns the state's event for a stored message name. */
+    /**
+     * Returns the state's event for this message name, ignoring the payload class; empty for non-await states.
+     */
     public Optional<MessageEvent<?>> getMessageEvent(String name, ProcessState state) {
         if (getStateSpec(state) instanceof AwaitState await) {
-            return await.messages().stream().filter(e -> e.type().name().equals(name)).findFirst();
+            return await.message(name);
         }
         return Optional.empty();
     }
 
-    /** Returns {@code true} if any await of the process declares this message type. */
+    /**
+     * Returns {@code true} if any await of the process declares this message type.
+     */
     public boolean declaresMessage(MessageType<?> type) {
         return stateSpecs.values()
             .stream()
@@ -122,23 +138,23 @@ public class ProcessSpec {
                     && await.messages().stream().anyMatch(event -> event.type().equals(type)));
     }
 
-    /** Returns the message names the state accepts; empty for non-await states. */
+    /**
+     * Returns the message names the state accepts; empty for non-await states.
+     */
     public Set<String> getApplicableMessageTypeNames(ProcessState state) {
         if (getStateSpec(state) instanceof AwaitState await) {
-            return await.messages().stream().map(e -> e.type().name()).collect(Collectors.toUnmodifiableSet());
+            return await.messageTypeNames();
         }
         return Set.of();
     }
 
     /**
-     * Checks that an {@code at} of some await of the process waits for the timer.
-     *
-     * @throws IllegalArgumentException if no {@code at} of the process uses the timer
+     * @throws IllegalArgumentException if no await of the process has an {@code at} for the timer
      */
     public void checkTimerDeclared(TimerType timer) {
         if (!timerNames.contains(timer.name())) {
             throw new IllegalArgumentException("Timer " + timer.name() + " is not used by any at of process "
-                    + type.name());
+                    + getType().name());
         }
     }
 
@@ -146,28 +162,46 @@ public class ProcessSpec {
         return processErrorHandler;
     }
 
-    /** Returns the state entered on {@link ErrorResult#giveUp()}. */
+    /**
+     * Returns the state entered on {@link ErrorResult#giveUp()}.
+     */
     public Optional<ProcessStateId> getGiveUpState() {
         return Optional.ofNullable(giveUpState);
     }
 
     public boolean hasState(ProcessState state) {
-        return stateSpecs.containsKey(state.name());
+        return findStateSpec(state).isPresent();
     }
 
-    /** Engine model of a state. */
+    /**
+     * Engine model of a state.
+     */
     public sealed interface StateSpec permits StepState, AwaitState, TerminalState {
-        ProcessStateId state();
+        /** Returns the state object passed to the builder. */
+        ProcessState declaration();
+
+        /** Returns the identity of the declared state. */
+        default ProcessStateId state() {
+            return declaration().id();
+        }
     }
 
-    /** Step state. {@code step} returns the outcome of a branching step, {@code null} otherwise. */
-    public record StepState(ProcessStateId state, Function<ProcessContext, Enum<?>> step, WorkerId worker, Exit exit)
-            implements StateSpec {
+    /**
+     * Step state.
+     */
+    public record StepState(
+            ProcessState declaration,
+            Function<ProcessContext, Enum<?>> step,
+            WorkerId worker,
+            Exit exit
+    ) implements StateSpec {
     }
 
-    /** Await state and its events; {@code every}, {@code after} and {@code at} are nullable. */
+    /**
+     * Await state and its events; {@code every}, {@code after} and {@code at} are nullable.
+     */
     public record AwaitState(
-            ProcessStateId state,
+            ProcessState declaration,
             List<MessageEvent<?>> messages,
             EveryEvent every,
             AfterEvent after,
@@ -176,14 +210,27 @@ public class ProcessSpec {
         public AwaitState {
             messages = List.copyOf(messages);
         }
-    }
 
-    public record TerminalState(ProcessStateId state) implements StateSpec {
+        /** Returns the event for this message name, ignoring the payload class. */
+        public Optional<MessageEvent<?>> message(String name) {
+            return messages.stream().filter(event -> event.type().name().equals(name)).findFirst();
+        }
+
+        /** Returns the names of the accepted messages. */
+        public Set<String> messageTypeNames() {
+            return messages.stream().map(event -> event.type().name()).collect(Collectors.toUnmodifiableSet());
+        }
     }
 
     /**
-     * Message event. {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
-     * A target equal to the await itself keeps waiting, see {@link ProcessSpecBuilder}.
+     * Final state: the process completes on entering it.
+     */
+    public record TerminalState(ProcessState declaration) implements StateSpec {
+    }
+
+    /**
+     * Message event, see
+     * {@link ProcessSpecBuilder.AwaitBuilder#message(MessageType, ProcessMessageHandler, ProcessState)}.
      */
     public record MessageEvent<T>(
             MessageType<T> type,
@@ -193,11 +240,7 @@ public class ProcessSpec {
     }
 
     /**
-     * Periodic event: fires at entering the await from another state plus {@code firstAfter} plus
-     * {@code k * period} of the {@link Interval}; the process staying in the await does not restart it. The period
-     * counts from the planned points, not from handling; missed points are skipped.
-     * {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
-     * A target equal to the await itself keeps waiting, see {@link ProcessSpecBuilder}.
+     * Periodic event, see {@link ProcessSpecBuilder.AwaitBuilder#every(Interval, ProcessTimerHandler, ProcessState)}.
      */
     public record EveryEvent(
             Interval interval,
@@ -207,16 +250,13 @@ public class ProcessSpec {
     }
 
     /**
-     * One-time event {@code delay} after entering the await from another state; the process staying in the await
-     * (see {@link ProcessSpecBuilder}) does not restart it. {@code handler} returns the outcome of a branching
-     * handler, {@code null} otherwise.
+     * One-time event, see {@link ProcessSpecBuilder.AwaitBuilder#after(Duration, ProcessTimerHandler, ProcessState)}.
      */
     public record AfterEvent(Duration delay, Function<ProcessContext, Enum<?>> handler, Exit exit) {
     }
 
     /**
-     * Event at the moment of a process {@code timer}; who sets the timer, when it fires and how long it lives: see
-     * {@link TimerType}. {@code handler} returns the outcome of a branching handler, {@code null} otherwise.
+     * Event at the time set for the process {@code timer}, see {@link TimerType}.
      */
     public record AtEvent(
             TimerType timer,
@@ -225,15 +265,22 @@ public class ProcessSpec {
     ) {
     }
 
-    /** Where the process goes after a step or event. */
+    /**
+     * Where the process goes after a step or event. With {@link Routes} the step or handler returns an outcome that
+     * is a key of the routes; with {@link Target} it returns {@code null}.
+     */
     public sealed interface Exit permits Target, Routes {
     }
 
-    /** Fixed target. */
+    /**
+     * Fixed target.
+     */
     public record Target(ProcessStateId state) implements Exit {
     }
 
-    /** Target chosen by outcome. */
+    /**
+     * Target chosen by outcome.
+     */
     public record Routes(Map<Enum<?>, ProcessStateId> routes) implements Exit {
         public Routes {
             routes = Map.copyOf(routes);

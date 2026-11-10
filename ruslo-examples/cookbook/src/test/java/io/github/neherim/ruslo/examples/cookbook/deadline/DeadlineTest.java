@@ -40,7 +40,7 @@ class DeadlineTest {
 
         assertEquals(SeatReservationDefinition.State.CONFIRMED, confirmed.state());
         assertEquals(PAYMENT_ID,
-                confirmed.variables().get(SeatReservationDefinition.PAYMENT_ID).orElseThrow());
+                confirmed.variables().find(SeatReservationDefinition.PAYMENT_ID).orElseThrow());
     }
 
     @Test

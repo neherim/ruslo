@@ -40,6 +40,6 @@ class QuickstartOrderTest {
         var cancelled = emulator.runUntilStop(processId);
         assertEquals(OrderState.CANCELLED, cancelled.state());
         assertEquals("customer request",
-                cancelled.variables().get(Constants.CANCELLATION_REASON).orElseThrow());
+                cancelled.variables().find(Constants.CANCELLATION_REASON).orElseThrow());
     }
 }

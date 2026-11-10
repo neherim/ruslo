@@ -39,6 +39,8 @@ import java.util.Objects;
 /**
  * Configures and builds a {@link ProcessEngine}. A transactional {@link WorkerId#DEFAULT} worker is required.
  * Variables and message payloads use the library's built-in JSON configuration.
+ * Dispatch intervals are truncated to whole milliseconds and must be between 1 and {@code Long.MAX_VALUE / 2}
+ * milliseconds so that polling backoff can be doubled safely.
  */
 public class ProcessEngineBuilder {
     private static final Duration DEFAULT_INSTANCE_HEARTBEAT_INTERVAL = Duration.ofSeconds(15);
@@ -105,15 +107,27 @@ public class ProcessEngineBuilder {
         return this;
     }
 
-    /** Sets the polling interval when there is no work; 10 s by default. */
+    /**
+     * Sets the maximum polling backoff when there is no work; 10 s by default.
+     *
+     * @throws NullPointerException if the interval is null
+     * @throws IllegalArgumentException if the interval is outside the range described by {@link ProcessEngineBuilder}
+     */
     public ProcessEngineBuilder withMaxProcessDispatchInterval(Duration maxDispatchInterval) {
-        this.maxProcessDispatchInterval = maxDispatchInterval;
+        this.maxProcessDispatchInterval = requireDispatchInterval(maxDispatchInterval,
+                "Maximum process dispatch interval");
         return this;
     }
 
-    /** Sets the polling interval when there is work; 100 ms by default. */
+    /**
+     * Sets the initial polling backoff after an empty cycle; 100 ms by default. Successful cycles continue immediately.
+     *
+     * @throws NullPointerException if the interval is null
+     * @throws IllegalArgumentException if the interval is outside the range described by {@link ProcessEngineBuilder}
+     */
     public ProcessEngineBuilder withMinProcessDispatchInterval(Duration minDispatchInterval) {
-        this.minProcessDispatchInterval = minDispatchInterval;
+        this.minProcessDispatchInterval = requireDispatchInterval(minDispatchInterval,
+                "Minimum process dispatch interval");
         return this;
     }
 
@@ -184,9 +198,14 @@ public class ProcessEngineBuilder {
      * Builds the engine; call {@link ProcessEngine#start()} to start it.
      *
      * @throws IllegalArgumentException if a definition is invalid, the transactional {@link WorkerId#DEFAULT}
-     *                                  worker is missing or the instance timeout is too short
+     *                                  worker is missing, the instance timeout is too short or the minimum dispatch
+     *                                  interval exceeds the maximum
      */
     public ProcessEngine build() {
+        if (minProcessDispatchInterval.compareTo(maxProcessDispatchInterval) > 0) {
+            throw new IllegalArgumentException(
+                    "Minimum process dispatch interval must not exceed maximum process dispatch interval");
+        }
         if (instanceTimeout.compareTo(instanceHeartbeatInterval.multipliedBy(4)) < 0) {
             throw new IllegalArgumentException("Instance timeout must be at least four times heartbeat interval");
         }
@@ -212,7 +231,7 @@ public class ProcessEngineBuilder {
         var leaseReleaser = new LeaseReleaser(leaseDao, effectiveMetrics);
         var dispatchSignal = new ProcessDispatchSignal();
         var workerFactory = new WorkerFactory(database, processInstanceDao, stepExecutor, stepErrorHandler,
-                effectiveMetrics, leaseReleaser, dispatchSignal::wakeUp);
+                effectiveMetrics, leaseReleaser, dispatchSignal);
         var workerRegistry = new WorkerRegistry(workerFactory);
 
         var applicationInstanceLifecycle = new ApplicationInstanceLifecycle(instanceHeartbeatInterval,
@@ -236,6 +255,21 @@ public class ProcessEngineBuilder {
                 workerRegistry, processDefinitionRegistry, processDispatchScheduler, managementService,
                 processRuntimeService, applicationInstanceLifecycle, clock,
                 databaseMigrationEnabled, dispatcherEnabled);
+    }
+
+    private static Duration requireDispatchInterval(Duration interval, String name) {
+        Objects.requireNonNull(interval, name + " must not be null");
+        var message = name + " must be between 1 and " + Long.MAX_VALUE / 2 + " milliseconds";
+        long millis;
+        try {
+            millis = interval.toMillis();
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException(message, ex);
+        }
+        if (millis < 1 || millis > Long.MAX_VALUE / 2) {
+            throw new IllegalArgumentException(message);
+        }
+        return interval;
     }
 
     private static Duration requirePositive(Duration duration, String name) {

@@ -1,16 +1,14 @@
 package io.github.neherim.ruslo.core.runtime.worker.impl;
 
 import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseLostException;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseReleaser;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
 import io.github.neherim.ruslo.core.runtime.process.ClaimedProcess;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceDao;
-import io.github.neherim.ruslo.core.runtime.worker.HandlerException;
-import io.github.neherim.ruslo.core.runtime.worker.StepErrorHandler;
-import io.github.neherim.ruslo.core.runtime.worker.StepExecutor;
-import io.github.neherim.ruslo.core.runtime.worker.Worker;
+import io.github.neherim.ruslo.core.runtime.worker.*;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import org.slf4j.Logger;
@@ -43,19 +41,21 @@ public class ProcessWorker implements Worker {
     private final StepErrorHandler stepErrorHandler;
     private final LeaseReleaser leaseReleaser;
     private final ProcessEngineMetrics metrics;
+    private final ExecutorService executorService;
+    private final boolean ownsExecutor;
     private final BoundedExecutor executor;
 
     public ProcessWorker(
             WorkerSpec spec,
             ExecutorService executorService,
-            boolean shutdownExecutor,
+            boolean ownsExecutor,
             Database database,
             ProcessInstanceDao processInstanceDao,
             StepExecutor stepExecutor,
             StepErrorHandler stepErrorHandler,
             ProcessEngineMetrics metrics,
             LeaseReleaser leaseReleaser,
-            Runnable completionHook
+            ProcessDispatchSignal dispatchSignal
     ) {
         this.spec = Objects.requireNonNull(spec);
         this.database = Objects.requireNonNull(database);
@@ -64,8 +64,10 @@ public class ProcessWorker implements Worker {
         this.stepErrorHandler = Objects.requireNonNull(stepErrorHandler);
         this.leaseReleaser = Objects.requireNonNull(leaseReleaser);
         this.metrics = Objects.requireNonNull(metrics);
-        this.executor = new BoundedExecutor(spec.maxConcurrency(), executorService, shutdownExecutor,
-                completionHook);
+        this.executorService = Objects.requireNonNull(executorService);
+        this.ownsExecutor = ownsExecutor;
+        this.executor = new BoundedExecutor(spec.maxConcurrency(), executorService,
+                dispatchSignal::wakeUp);
         metrics.registerWorkerMetrics(spec.workerId().name(), spec.maxConcurrency(), executor::getActiveTaskCount,
                 () -> processInstanceDao.countReadyForWorker(spec.workerId()),
                 () -> processInstanceDao.oldestReadyAgeForWorker(spec.workerId()));
@@ -83,22 +85,26 @@ public class ProcessWorker implements Worker {
 
     @Override
     public boolean tryExecute(ProcessLease lease) {
-        Objects.requireNonNull(lease, "Lease must not be null");
         return executor.trySubmit(() -> execute(lease));
     }
 
+    /**
+     * Stops accepting leases, waits for accepted tasks and shuts down the executor if owned by this worker.
+     */
     @Override
     public void close() {
-        executor.close();
+        try {
+            executor.close();
+        } finally {
+            if (ownsExecutor) {
+                executorService.shutdownNow();
+            }
+        }
     }
 
     private void execute(ProcessLease lease) {
         try {
-            try {
-                executeSteps(lease);
-            } catch (HandlerException ex) {
-                stepErrorHandler.handleHandlerError(ex.getCause(), lease);
-            }
+            executeSteps(lease);
         } catch (LeaseLostException ex) {
             onLeaseLost(ex, lease);
         } catch (RuntimeException ex) {
@@ -107,23 +113,48 @@ public class ProcessWorker implements Worker {
     }
 
     private void executeSteps(ProcessLease lease) {
-        if (spec.executionMode() == WorkerSpec.ExecutionMode.TRANSACTIONAL) {
-            while (database.doInTransactionWithResult(() -> executeClaimedStep(
-                    processInstanceDao.findClaimedWithLock(lease).orElseThrow(() -> leaseLost(lease))))) {
+        try {
+            while (executeNextStep(lease)) {
                 // The transition is committed and the process is ready on this worker: continue under the same lease.
             }
-        } else {
-            while (executeClaimedStep(processInstanceDao.findClaimed(lease).orElseThrow(() -> leaseLost(lease)))) {
-                // The transition is committed and the process is ready on this worker: continue under the same lease.
-            }
+        } catch (WorkerHandlerException ex) {
+            stepErrorHandler.handleWorkerError(ex);
         }
     }
 
-    /** Executes one handler and stores the process. Returns {@code true} if the lease is kept for the next step. */
+    private boolean executeNextStep(ProcessLease lease) {
+        return switch (spec.executionMode()) {
+            case TRANSACTIONAL -> executeTransactionalStep(lease);
+            case NON_TRANSACTIONAL -> executeNonTransactionalStep(lease);
+        };
+    }
+
+    private boolean executeTransactionalStep(ProcessLease lease) {
+        return database.doInTransactionWithResult(() -> {
+            var claimed = processInstanceDao.findClaimedWithLock(lease);
+            return executeClaimedStep(claimed);
+        });
+    }
+
+    private boolean executeNonTransactionalStep(ProcessLease lease) {
+        var claimed = processInstanceDao.findClaimed(lease);
+        return executeClaimedStep(claimed);
+    }
+
+    /**
+     * Executes one handler and stores the process. Returns {@code true} if the lease is kept for the next step.
+     */
     private boolean executeClaimedStep(ClaimedProcess claimed) {
         var process = claimed.process();
-        var retainLease = isRunnableHere(process) && stepExecutor.executeNextProcessStep(process)
-                && isRunnableHere(process);
+        boolean retainLease = false;
+        try {
+            if (isRunnableHere(process)) {
+                var executed = stepExecutor.executeNextProcessStep(process);
+                retainLease = executed && isRunnableHere(process);
+            }
+        } catch (HandlerException ex) {
+            throw new WorkerHandlerException(ex.getCause(), claimed.lease(), claimed.expectedRowVersion());
+        }
         if (retainLease) {
             processInstanceDao.updateClaimed(claimed);
         } else {
@@ -133,14 +164,12 @@ public class ProcessWorker implements Worker {
     }
 
     private boolean isRunnableHere(ProcessInstance process) {
-        return process.isTimeToExecute() && process.getWorkerId().filter(spec.workerId()::equals).isPresent();
+        return process.isTimeToExecute() && process.hasWorker(spec.workerId());
     }
 
     private void recoverFromSystemError(RuntimeException ex, ProcessLease lease) {
         try {
             stepErrorHandler.handleSystemError(ex, lease);
-        } catch (LeaseLostException lost) {
-            onLeaseLost(lost, lease);
         } catch (RuntimeException recoveryError) {
             log.error("Unable to postpone process {} after system error", lease.processId(), recoveryError);
             leaseReleaser.release(lease);
@@ -157,7 +186,4 @@ public class ProcessWorker implements Worker {
         leaseReleaser.release(lease);
     }
 
-    private static LeaseLostException leaseLost(ProcessLease lease) {
-        return new LeaseLostException(lease.processId());
-    }
 }

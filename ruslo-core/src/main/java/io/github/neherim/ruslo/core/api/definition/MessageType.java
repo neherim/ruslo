@@ -25,13 +25,17 @@ public record MessageType<T>(String name, Class<T> clazz) {
         return (Class<T>) array.getClass().getComponentType();
     }
 
-    /** Creates a type with the payload class inferred from the type argument: {@code MessageType.<Foo>of("foo")}. */
+    /**
+     * Creates a type with the payload class inferred from the type argument.
+     */
     @SafeVarargs
     public static <T> MessageType<T> of(String name, T... reified) {
         return of(name, getClassOf(reified));
     }
 
-    /** Creates a type with a non-generic payload class. */
+    /**
+     * Creates a type with a non-generic payload class.
+     */
     public static <T> MessageType<T> of(String name, Class<T> clazz) {
         return new MessageType<>(name, clazz);
     }

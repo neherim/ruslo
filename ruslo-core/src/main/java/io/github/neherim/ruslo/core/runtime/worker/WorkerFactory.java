@@ -1,6 +1,7 @@
 package io.github.neherim.ruslo.core.runtime.worker;
 
 import io.github.neherim.ruslo.core.api.WorkerSpec;
+import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseReleaser;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceDao;
 import io.github.neherim.ruslo.core.runtime.worker.impl.ProcessWorker;
@@ -18,12 +19,12 @@ public class WorkerFactory {
     private final StepErrorHandler stepErrorHandler;
     private final ProcessEngineMetrics processEngineMetrics;
     private final LeaseReleaser leaseReleaser;
-    private final Runnable completionHook;
+    private final ProcessDispatchSignal dispatchSignal;
 
     /**
      * Creates a worker factory.
      *
-     * @param completionHook called when a worker frees capacity
+     * @param dispatchSignal wakes the dispatcher when a worker frees capacity
      */
     public WorkerFactory(
             Database database,
@@ -32,7 +33,7 @@ public class WorkerFactory {
             StepErrorHandler stepErrorHandler,
             ProcessEngineMetrics processEngineMetrics,
             LeaseReleaser leaseReleaser,
-            Runnable completionHook
+            ProcessDispatchSignal dispatchSignal
     ) {
         this.database = Objects.requireNonNull(database);
         this.processInstanceDao = Objects.requireNonNull(processInstanceDao);
@@ -40,7 +41,7 @@ public class WorkerFactory {
         this.stepErrorHandler = Objects.requireNonNull(stepErrorHandler);
         this.processEngineMetrics = Objects.requireNonNull(processEngineMetrics);
         this.leaseReleaser = Objects.requireNonNull(leaseReleaser);
-        this.completionHook = Objects.requireNonNull(completionHook);
+        this.dispatchSignal = Objects.requireNonNull(dispatchSignal);
     }
 
     /**
@@ -54,6 +55,6 @@ public class WorkerFactory {
                 : Executors.newThreadPerTaskExecutor(
                         Thread.ofVirtual().name("process-worker-" + spec.workerId().name() + "-", 0).factory());
         return new ProcessWorker(spec, executorService, customExecutor == null, database, processInstanceDao,
-                stepExecutor, stepErrorHandler, processEngineMetrics, leaseReleaser, completionHook);
+                stepExecutor, stepErrorHandler, processEngineMetrics, leaseReleaser, dispatchSignal);
     }
 }

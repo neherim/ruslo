@@ -59,7 +59,7 @@ class WebhookTest {
 
         assertEquals(IdentityVerificationDefinition.State.WAITING_FOR_RESULT, waiting.state());
         assertEquals(Optional.of(new HandledEvents(List.of("evt-1"))),
-                waiting.variables().get(IdentityVerificationDefinition.HANDLED_EVENTS));
+                waiting.variables().find(IdentityVerificationDefinition.HANDLED_EVENTS));
     }
 
     @Test
