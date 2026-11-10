@@ -125,9 +125,9 @@ final class DefaultProcessQuery implements ProcessQuery {
 
     @Override
     public Optional<ProcessInstanceSummary> single() {
-        var result = list();
+        var result = list(2, 0);
         if (result.size() > 1) {
-            throw new TooManyRowsException("Found " + result.size() + " processes by filter");
+            throw new TooManyRowsException("Found more than one process by filter");
         }
         if (result.isEmpty()) {
             return Optional.empty();
@@ -137,9 +137,10 @@ final class DefaultProcessQuery implements ProcessQuery {
 
     @Override
     public Optional<ProcessInstanceDetails> singleDetails() {
-        var result = processInstanceSearchDao.findDetails(criteria, lock);
+        var result = processInstanceSearchDao.findDetails(criteria, 2, lock);
+        // A caught ambiguity must not mark a joined Spring transaction rollback-only.
         if (result.size() > 1) {
-            throw new TooManyRowsException("Found " + result.size() + " processes by filter");
+            throw new TooManyRowsException("Found more than one process by filter");
         }
         if (result.isEmpty()) {
             return Optional.empty();

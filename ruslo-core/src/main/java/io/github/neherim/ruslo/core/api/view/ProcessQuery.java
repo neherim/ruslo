@@ -13,6 +13,7 @@ import java.util.UUID;
 /**
  * Searches processes with filters combined with AND. Filter methods and {@link #withLock()} mutate and return
  * this query. Instances are not thread-safe; create an independent query with {@link ProcessEngine#processes()}.
+ * Catching {@link TooManyRowsException} does not mark the caller's transaction rollback-only.
  */
 public interface ProcessQuery {
 
@@ -60,9 +61,17 @@ public interface ProcessQuery {
 
     List<ProcessInstanceSummary> list();
 
-    /** @throws TooManyRowsException if more than one process matches */
+    /**
+     * Returns the matching process, or empty if none matches.
+     *
+     * @throws TooManyRowsException if more than one process matches
+     */
     Optional<ProcessInstanceSummary> single();
 
-    /** @throws TooManyRowsException if more than one process matches */
+    /**
+     * Returns details of the matching process, or empty if none matches.
+     *
+     * @throws TooManyRowsException if more than one process matches
+     */
     Optional<ProcessInstanceDetails> singleDetails();
 }

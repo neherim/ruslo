@@ -8,12 +8,19 @@ import io.github.neherim.ruslo.core.api.definition.VariableType;
 import io.github.neherim.ruslo.core.api.exception.TooManyRowsException;
 import io.github.neherim.ruslo.core.definitions.SimpleOneStepProcessDefinition;
 import io.github.neherim.ruslo.core.definitions.SimpleProcessDefinition;
+import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
+import io.github.neherim.ruslo.core.spi.RowMapper;
 import org.h2.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import javax.sql.DataSource;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TimeZone;
@@ -220,6 +227,80 @@ class ProcessSearchTest extends BaseTest {
         assertThrows(TooManyRowsException.class, () -> processEngine.processes().singleDetails());
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void singleReadsAtMostTwoCandidates(boolean lock) {
+        var tracking = new QueryTrackingDatabase(database.getDataSource());
+        database = tracking;
+        var engine = simpleProcessEngine();
+        for (int i = 0; i < 10; i++) {
+            engine.newProcess(SimpleProcessDefinition.TYPE).businessKey("shared").start();
+        }
+        tracking.startTracking();
+
+        database.doInTransaction(() -> {
+            var query = engine.processes().byBusinessKey("shared");
+            if (lock) {
+                query.withLock();
+            }
+            assertThrows(TooManyRowsException.class, query::single);
+        });
+
+        assertEquals(List.of(2), tracking.resultSizes);
+        assertEquals(10, engine.processes().byBusinessKey("shared").list().size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void singleDetailsReadsAtMostTwoProcessesWithHistory(boolean lock) {
+        var tracking = new QueryTrackingDatabase(database.getDataSource());
+        database = tracking;
+        var engine = simpleProcessEngine();
+        for (int i = 0; i < 10; i++) {
+            engine.newProcess(SimpleProcessDefinition.TYPE).businessKey("shared").start();
+        }
+        tracking.startTracking();
+
+        database.doInTransaction(() -> {
+            var query = engine.processes().byBusinessKey("shared");
+            if (lock) {
+                query.withLock();
+            }
+            assertThrows(TooManyRowsException.class, query::singleDetails);
+        });
+
+        assertEquals(List.of(1, 1, 2), tracking.resultSizes);
+    }
+
+    @Test
+    void singleDetailsReturnsFullHistoryVariablesAndTimers() {
+        var tracking = new QueryTrackingDatabase(database.getDataSource());
+        database = tracking;
+        var engine = simpleProcessEngine();
+        var id = engine.newProcess(SimpleProcessDefinition.TYPE).variable("key", "value").start();
+        var changedAt = engine.processes().byId(id).single().orElseThrow().createdAt().plusSeconds(1);
+        for (int i = 0; i < 5; i++) {
+            database.update("insert into xs_process_state_hist (id, link_process_instance, state, changed_at) "
+                    + "values (?, ?, ?, ?)", UUID.randomUUID(), id, FINISH.name(),
+                    Timestamp.from(changedAt.plusSeconds(i)));
+        }
+        database.update("update xs_process_instance set timers = ? where id = ?",
+                "{\"deadline\":\"" + changedAt + "\"}", id);
+        tracking.startTracking();
+
+        var details = engine.processes().byId(id).singleDetails().orElseThrow();
+
+        assertEquals(List.of(6, 1), tracking.resultSizes);
+        assertEquals(6, details.stateHistory().size());
+        assertEquals(INIT, details.stateHistory().getFirst().state());
+        for (int i = 0; i < 5; i++) {
+            assertEquals(FINISH, details.stateHistory().get(i + 1).state());
+            assertEquals(changedAt.plusSeconds(i), details.stateHistory().get(i + 1).changedAt());
+        }
+        assertEquals("value", details.variables().find(VariableType.of("key", String.class)).orElseThrow());
+        assertEquals(Map.of("deadline", changedAt), details.timers());
+    }
+
     @Test
     void singleDetailsReturnsProcessWithDetails() {
         var processEngine = simpleProcessEngine();
@@ -392,5 +473,27 @@ class ProcessSearchTest extends BaseTest {
 
     private ProcessEngine processEngineWith(ProcessDefinition... definitions) {
         return newProcessEngineWith(definitions);
+    }
+
+    private static final class QueryTrackingDatabase extends PlainJdbcDatabase {
+        private final List<Integer> resultSizes = new ArrayList<>();
+        private boolean tracking;
+
+        private QueryTrackingDatabase(DataSource dataSource) {
+            super(dataSource);
+        }
+
+        private void startTracking() {
+            tracking = true;
+        }
+
+        @Override
+        public <T> List<T> queryForList(String sql, RowMapper<T> mapper, Object... params) {
+            var result = super.queryForList(sql, mapper, params);
+            if (tracking) {
+                resultSizes.add(result.size());
+            }
+            return result;
+        }
     }
 }

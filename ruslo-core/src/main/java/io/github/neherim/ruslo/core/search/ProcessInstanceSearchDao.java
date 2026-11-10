@@ -104,16 +104,21 @@ public class ProcessInstanceSearchDao {
         return database.queryForList(sql.toString(), this::mapSummaryRow, params.toArray());
     }
 
-    public List<ProcessInstanceDetails> findDetails(ProcessSearchCriteria criteria, boolean lock) {
+    /** Returns details of matching processes up to the limit in one joined transaction. */
+    public List<ProcessInstanceDetails> findDetails(ProcessSearchCriteria criteria, int limit, boolean lock) {
         var sql = new StringBuilder(SELECT_DETAILS_SQL);
         var params = new ArrayList<>();
         appendFilterClauses(sql, params, criteria);
 
+        sql.append(" limit ?");
+        params.add(limit);
         if (lock) {
             sql.append(" for update");
         }
 
-        return database.queryForList(sql.toString(), this::mapDetailsRow, params.toArray());
+        // History queries in the row mapper must use the same connection as the main query.
+        return database.doInTransactionWithResult(
+                () -> database.queryForList(sql.toString(), this::mapDetailsRow, params.toArray()));
     }
 
     private void appendFilterClauses(StringBuilder sql, List<Object> params, ProcessSearchCriteria filter) {
