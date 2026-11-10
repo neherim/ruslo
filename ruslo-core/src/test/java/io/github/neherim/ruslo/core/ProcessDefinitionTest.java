@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 public class ProcessDefinitionTest extends BaseTest {
 
     @Test
-    void shouldUseInitialStepAsDefaultInitialState() {
+    void shouldUseDeclaredInitialState() {
         var processEngine = newProcessEngineWith(new SimpleProcessDefinition());
 
         var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
