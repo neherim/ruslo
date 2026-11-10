@@ -19,6 +19,8 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 
+import static io.github.neherim.ruslo.core.utils.DateTimeUtils.ceilToMicros;
+
 /**
  * Handles system and handler errors raised while executing a process step.
  */
@@ -54,7 +56,8 @@ public class StepErrorHandler {
     public void handleSystemError(Throwable ex, ProcessLease lease) {
         log.error("System error in process {}: {}", lease.processId(), ex.getMessage(), ex);
         metrics.recordSystemError();
-        processInstanceDao.postponeClaimed(lease, clock.instant().plus(SYSTEM_RETRY_DELAY), formatLastError(ex));
+        processInstanceDao.postponeClaimed(lease, ceilToMicros(clock.instant().plus(SYSTEM_RETRY_DELAY)),
+                formatLastError(ex));
     }
 
     /**

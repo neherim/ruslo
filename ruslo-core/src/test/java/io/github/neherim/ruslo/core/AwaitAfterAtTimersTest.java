@@ -344,23 +344,23 @@ class AwaitAfterAtTimersTest extends BaseTest {
     }
 
     @Test
-    void momentWithNanosecondsIsTruncatedToMicroseconds() {
+    void momentWithNanosecondsIsRoundedUpToMicroseconds() {
         engine(await -> await.message(SIGNAL, (context, message) -> log.add(context.findTimer(DUE)
             .orElseThrow()
             .toString()), State.WAIT)
             .message(CANCEL, (context, message) -> {}, State.MSG_DONE)
             .at(DUE, context -> log.add("at"), State.WAIT));
         var id = start(Instant.parse("2026-09-24T11:30:00.123456789Z"));
-        var truncated = Instant.parse("2026-09-24T11:30:00.123456Z");
-        assertEquals(Map.of(DUE.name(), truncated), details(id).timers());
-        assertEquals(Optional.of(truncated), details(id).nextRunAt());
+        var rounded = Instant.parse("2026-09-24T11:30:00.123457Z");
+        assertEquals(Map.of(DUE.name(), rounded), details(id).timers());
+        assertEquals(Optional.of(rounded), details(id).nextRunAt());
         engine.sendMessage(id, SIGNAL, "m");
         run(id);
-        assertEquals(List.of(truncated.toString()), log);
-        clock.setTime(truncated);
+        assertEquals(List.of(rounded.toString()), log);
+        clock.setTime(rounded);
         run(id);
         run(id);
-        assertEquals(List.of(truncated.toString(), "at"), log);
+        assertEquals(List.of(rounded.toString(), "at"), log);
         assertEquals(Optional.empty(), details(id).nextRunAt());
     }
 

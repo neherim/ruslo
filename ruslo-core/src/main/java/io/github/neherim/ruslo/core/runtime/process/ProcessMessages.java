@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.github.neherim.ruslo.core.utils.DateTimeUtils.ceilToMicros;
 import static io.github.neherim.ruslo.core.utils.JsonUtils.DEFAULT_OBJECT_MAPPER;
 
 /**
@@ -94,6 +95,7 @@ public final class ProcessMessages {
         public PendingMessage {
             Objects.requireNonNull(type);
             Objects.requireNonNull(receivedAt);
+            receivedAt = ceilToMicros(receivedAt);
         }
     }
 }

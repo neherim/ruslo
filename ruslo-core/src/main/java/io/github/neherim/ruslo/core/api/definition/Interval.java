@@ -2,11 +2,13 @@ package io.github.neherim.ruslo.core.api.definition;
 
 import java.time.Duration;
 
+import static io.github.neherim.ruslo.core.utils.DateTimeUtils.ceilToMicros;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Schedule of an {@code every} event: the first check {@code firstAfter} after entering the await, then every
  * {@code period}, see {@link ProcessSpecBuilder.AwaitBuilder#every(Interval, ProcessTimerHandler, ProcessState)}.
+ * The period is rounded up to microseconds.
  */
 public record Interval(Duration period, Duration firstAfter) {
     /**
@@ -21,6 +23,7 @@ public record Interval(Duration period, Duration firstAfter) {
         if (firstAfter.isNegative()) {
             throw new IllegalArgumentException("First check delay cannot be negative: " + firstAfter);
         }
+        period = ceilToMicros(period);
     }
 
     /**

@@ -17,6 +17,8 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static io.github.neherim.ruslo.core.utils.DateTimeUtils.ceilToMicros;
+
 /**
  * Executes one step or one selected await event and applies its result.
  * A user code failure is thrown as {@link HandlerException}, an engine failure as is.
@@ -71,7 +73,7 @@ public class StepExecutor {
         var started = System.nanoTime();
         try (var ignored = processMdc.open(process)) {
             var message = new IncomingMessage<>(event.type(),
-                    event.type().clazz().cast(payload), clock.instant());
+                    event.type().clazz().cast(payload), ceilToMicros(clock.instant()));
             var target = executeMessage(process, new DefaultProcessContext(process), event, message);
             if (!process.getState().equals(target)) process.enterState(target);
             recordStepExecuted(process, executedState, started);

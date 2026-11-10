@@ -49,8 +49,8 @@ public interface ProcessContext {
     <T> boolean removeVariable(VariableType<T> type);
 
     /**
-     * Sets the process timer to {@code moment}. The moment is stored truncated to microseconds, and {@link #findTimer}
-     * returns the truncated value. When the timer fires and how long it lives: see {@link TimerType}.
+     * Sets the process timer to {@code moment}. The moment is stored rounded up to microseconds, and {@link #findTimer}
+     * returns the rounded value. When the timer fires and how long it lives: see {@link TimerType}.
      *
      * @throws IllegalArgumentException if no {@code at} of the process uses the timer
      * @throws NullPointerException     if {@code moment} is {@code null}; only {@link #cancelTimer} removes a timer

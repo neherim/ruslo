@@ -10,6 +10,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 
+import static io.github.neherim.ruslo.core.utils.DateTimeUtils.ceilToMicros;
+
 /**
  * Process instance and atomic operations on its execution state.
  */
@@ -127,12 +129,12 @@ public final class ProcessInstance {
         switch (behavior) {
             case StepState ignored -> {
                 status = ProcessStatus.ACTIVE;
-                nextRunAt = now;
+                nextRunAt = ceilToMicros(now);
             }
             case AwaitState await -> {
                 status = ProcessStatus.ACTIVE;
-                if (await.every() != null) everyDueAt = now.plus(await.every().interval().firstAfter());
-                if (await.after() != null) afterDueAt = now.plus(await.after().delay());
+                if (await.every() != null) everyDueAt = ceilToMicros(now.plus(await.every().interval().firstAfter()));
+                if (await.after() != null) afterDueAt = ceilToMicros(now.plus(await.after().delay()));
                 recomputeNextRun();
             }
             case TerminalState ignored -> {
@@ -205,7 +207,7 @@ public final class ProcessInstance {
     private void activateCurrentState(Instant now) {
         status = ProcessStatus.ACTIVE;
         resetAttemptsAndError();
-        if (getStateSpec() instanceof StepState) nextRunAt = now;
+        if (getStateSpec() instanceof StepState) nextRunAt = ceilToMicros(now);
         else
             recomputeNextRun();
     }
@@ -215,7 +217,7 @@ public final class ProcessInstance {
      * {@link #hasRetryBackoff() retry backoff}.
      */
     public void scheduleRetryAfter(Duration delay, String error) {
-        nextRunAt = clock.instant().plus(delay);
+        nextRunAt = ceilToMicros(clock.instant().plus(delay));
         attempt++;
         lastError = Objects.requireNonNull(error);
     }
@@ -386,7 +388,7 @@ public final class ProcessInstance {
     }
 
     /**
-     * Sets the process timer, truncated to microseconds. If the current await waits for it, the next run moves,
+     * Sets the process timer, rounded up to microseconds. If the current await waits for it, the next run moves,
      * except in {@code FAILED} or during a {@link #hasRetryBackoff() retry backoff}. Whether an {@code at} declares
      * the timer is checked by the caller.
      */

@@ -4,17 +4,17 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectReader;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import static io.github.neherim.ruslo.core.utils.DateTimeUtils.ceilToMicros;
 import static io.github.neherim.ruslo.core.utils.JsonUtils.DEFAULT_OBJECT_MAPPER;
 
 /**
  * Process timers stored as one JSON object: timer name to its moment, in the {@link Instant} format of the variables.
- * Moments are truncated to microseconds, the precision of {@code next_run_at}: a finer moment would make the process
+ * Moments are rounded up to microseconds, the precision of {@code next_run_at}: a finer moment would make the process
  * runnable slightly before its timer is due.
  */
 public final class ProcessTimers {
@@ -49,10 +49,10 @@ public final class ProcessTimers {
         return DEFAULT_OBJECT_MAPPER.writeValueAsString(timers);
     }
 
-    /** Sets the timer to {@code moment} truncated to microseconds. */
+    /** Sets the timer to {@code moment} rounded up to microseconds. */
     public void set(String name, Instant moment) {
         Objects.requireNonNull(moment, "Timer moment cannot be null");
-        timers.put(name, moment.truncatedTo(ChronoUnit.MICROS));
+        timers.put(name, ceilToMicros(moment));
     }
 
     /**

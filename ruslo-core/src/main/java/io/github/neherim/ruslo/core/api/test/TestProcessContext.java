@@ -21,7 +21,7 @@ import java.util.UUID;
 /**
  * {@link io.github.neherim.ruslo.core.api.definition.ProcessContext} for unit tests of handlers, without an engine
  * or database. Variables use the engine's built-in JSON configuration, so a test catches non-serializable values and
- * object changes made without {@code setVariable}. Timer moments are truncated to microseconds like in the engine;
+ * object changes made without {@code setVariable}. Timer moments are rounded up to microseconds like in the engine;
  * the context knows no definition, so timer names are not checked against its {@code at} events.
  */
 public final class TestProcessContext implements ProcessContext {
@@ -196,7 +196,7 @@ public final class TestProcessContext implements ProcessContext {
             return this;
         }
 
-        /** Sets an initial timer, truncated to microseconds by {@link #build()}. */
+        /** Sets an initial timer, rounded up to microseconds by {@link #build()}. */
         public Builder timer(TimerType timer, Instant moment) {
             this.timers.put(Objects.requireNonNull(timer, "Timer type must not be null").name(),
                     Objects.requireNonNull(moment, "Timer moment must not be null"));

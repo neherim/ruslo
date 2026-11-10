@@ -40,18 +40,18 @@ class TestProcessContextTest {
     }
 
     @Test
-    void timersAreTruncatedToMicrosecondsLikeInEngine() {
+    void timersAreRoundedUpToMicrosecondsLikeInEngine() {
         var due = TimerType.of("due");
         var next = TimerType.of("next");
         var context = TestProcessContext.builder()
             .timer(due, Instant.parse("2026-10-07T10:00:00.123456789Z"))
             .build();
 
-        assertEquals(Optional.of(Instant.parse("2026-10-07T10:00:00.123456Z")), context.findTimer(due));
+        assertEquals(Optional.of(Instant.parse("2026-10-07T10:00:00.123457Z")), context.findTimer(due));
         context.setTimer(next, Instant.parse("2026-10-08T10:00:00.000000999Z"));
         assertTrue(context.cancelTimer(due));
         assertFalse(context.cancelTimer(due));
-        assertEquals(Map.of("next", Instant.parse("2026-10-08T10:00:00Z")), context.timers());
+        assertEquals(Map.of("next", Instant.parse("2026-10-08T10:00:00.000001Z")), context.timers());
     }
 
     @Test
