@@ -11,7 +11,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Process search. Filters are combined with AND. Created by {@link ProcessEngine#processes()}.
+ * Searches processes with filters combined with AND. Filter methods and {@link #withLock()} mutate and return
+ * this query. Instances are not thread-safe; create an independent query with {@link ProcessEngine#processes()}.
  */
 public interface ProcessQuery {
 

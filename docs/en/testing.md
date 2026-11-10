@@ -78,6 +78,12 @@ The builder also sets the process id, type, state, business key, `now()` and tim
 The emulator runs in one thread: it does not reproduce worker routing, concurrency limits, node failures or races
 between nodes. If they matter, write an integration test with a running dispatcher on the production database.
 
+The emulator also joins an existing transaction, including a test's Spring `@Transactional` transaction. Its
+transitions then share that transaction instead of committing independently as real workers do. A handler failure
+can mark the shared Spring transaction rollback-only, and rolling back the test also undoes earlier transitions.
+Run the emulator outside an enclosing transaction when testing retries and rollback behavior; use a running
+dispatcher to verify production transaction boundaries.
+
 ## Advanced setup
 
 - To run the dispatcher and still control time, use `@ImportAutoConfiguration(ProcessEngineTestConfiguration.class)`

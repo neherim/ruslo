@@ -132,6 +132,9 @@ Optional<ProcessInstanceDetails> order = processEngine.processes()
         .singleDetails();
 ```
 
+Методы фильтрации и `withLock()` изменяют и возвращают тот же объект запроса. Для каждого независимого поиска
+создавайте новый запрос через `processEngine.processes()`; не используйте один запрос из нескольких потоков.
+
 Фильтры: id, тип, состояние, статус, business key, correlation id, диапазоны `createdAt` и `nextRunAt`, процессы с
 неудачными попытками (`byAttempted`) и шаблон `LIKE` по переменным. `list` возвращает summary, `single` и
 `singleDetails` — не больше одного процесса и бросают `TooManyRowsException`, если подходят несколько.

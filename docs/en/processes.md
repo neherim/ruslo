@@ -132,6 +132,9 @@ Optional<ProcessInstanceDetails> order = processEngine.processes()
         .singleDetails();
 ```
 
+Filter methods and `withLock()` change and return the same query object. Create a new query with
+`processEngine.processes()` for each independent search; do not share a query between threads.
+
 Filters: id, type, state, status, business key, correlation id, ranges of `createdAt` and `nextRunAt`, processes with
 failed attempts (`byAttempted`) and a `LIKE` pattern on variables. `list` returns summaries, `single` and
 `singleDetails` return at most one process and throw `TooManyRowsException` if several match.

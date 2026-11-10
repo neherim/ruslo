@@ -338,11 +338,10 @@ class ProcessSpecBuilderTest {
         assertEquals(List.of("payment:tx-1", "cancellation:duplicate"), handlers.calls);
     }
 
-    private static <T> Enum<?> callMessage(MessageEvent<?> event, MessageType<T> type, T payload) {
-        @SuppressWarnings("unchecked")
-        var typed = (MessageEvent<T>) event;
-        return typed.handler()
-            .apply(null, new IncomingMessage<>(type, payload,
+    private static <T> Enum<?> callMessage(MessageEvent<T> event, MessageType<?> type, Object payload) {
+        assertEquals(type, event.type());
+        return event.handler()
+            .apply(null, new IncomingMessage<>(event.type(), event.type().clazz().cast(payload),
                     java.time.Instant.now()));
     }
 

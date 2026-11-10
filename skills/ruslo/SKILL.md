@@ -192,7 +192,8 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
   propagate to the caller. A `FAILED` process is not handled synchronously: `MessageNotExpectedException` with
   `getStatus() == FAILED`, nothing is stored.
 - Find processes: `processEngine.processes().byType(TYPE).byBusinessKey(key).single()` (`Optional`),
-  `.byId(id).singleDetails()`, `.list()`.
+  `.byId(id).singleDetails()`, `.list()`. Filters and `withLock()` mutate and return the same query;
+  call `processes()` for each independent search and do not share queries between threads.
 
 ## Errors
 
@@ -313,6 +314,9 @@ class OrderProcessTest {
 ```
 
 - `@ProcessEngineTest` disables the dispatcher; processes run only through the emulator, in the test thread.
+- The emulator joins an enclosing transaction, including Spring `@Transactional` on a test: transitions do not
+  commit independently, and a handler failure can mark the shared Spring transaction rollback-only. Test retries
+  and rollback behavior without an enclosing transaction; use a running dispatcher to check production boundaries.
 - Emulator: `runUntilStop(id)`, `runOneStep(id)`, `runUntilState(id, state)`, `runAll()`,
   `sendMessageAndRunUntilStop(id, type, payload)`, `fastForwardTime(d)`, `setTime(instant)`.
   Results are `ProcessInstanceDetails`: check `state()`, `status()`, `lastError()`,

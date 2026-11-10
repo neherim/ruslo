@@ -1,8 +1,6 @@
 package io.github.neherim.ruslo.core;
 
 import io.github.neherim.ruslo.core.definitions.SimpleProcessDefinition;
-import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchScheduler;
-import io.github.neherim.ruslo.core.spi.Database;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 
@@ -13,21 +11,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class ProcessStartTest extends BaseTest {
 
-    /**
-     * Starts a process inside a transaction and checks it does not run before commit, then commits and checks it runs
-     * without waiting for {@link ProcessDispatchScheduler}. This covers {@link Database#doAfterCommit(Runnable)}.
-     */
     @Test
-    void processShouldStartOnlyAfterCurrentTransactionCommit() {
+    void startedProcessIsInInitialStateInsideCurrentTransaction() {
         var processEngine = newProcessEngineWith(new SimpleProcessDefinition());
 
-        database.doInTransactionWithResult(() -> {
+        database.doInTransaction(() -> {
             var id = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
             var process = processEngine.processes().byId(id).singleDetails().orElseThrow();
             assertThat(process.state())
                 .as("Process should be in INIT state before commit")
                 .isEqualTo(INIT);
-            return id;
         });
     }
 
