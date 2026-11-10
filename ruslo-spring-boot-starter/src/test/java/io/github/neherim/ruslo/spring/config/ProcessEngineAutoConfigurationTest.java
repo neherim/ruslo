@@ -17,6 +17,8 @@ import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.spring.config.property.ProcessEngineProperties;
 import io.github.neherim.ruslo.spring.definitions.SimpleProcessDefinition;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -171,6 +173,42 @@ class ProcessEngineAutoConfigurationTest {
                 assertThat(dispatcher.getInstanceHeartbeatInterval()).isEqualTo(Duration.ofSeconds(20));
                 assertThat(dispatcher.getInstanceTimeout()).isEqualTo(Duration.ofSeconds(90));
             });
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        {
+                "0ms, 10s",
+                "1ns, 10s",
+                "-1ms, 10s",
+                "100ms, 0ms",
+                "100ms, 999999ns",
+                "100ms, -1ms",
+                "100ms, 4611686018427387904ms",
+                "100ms, PT9223372036854775807S",
+                "11s, 10s"
+        }
+    )
+    void invalidDispatchIntervalsShouldPreventStartup(String minInterval, String maxInterval) {
+        this.contextRunner.with(database())
+            .withUserConfiguration(EmptyConfiguration.class)
+            .withPropertyValues(
+                    "ruslo.dispatcher.min-interval=" + minInterval,
+                    "ruslo.dispatcher.max-interval=" + maxInterval)
+            .run(context -> {
+                assertThat(context).hasFailed();
+                assertThat(context.getStartupFailure()).hasStackTraceContaining("process dispatch interval");
+            });
+    }
+
+    @Test
+    void dispatchIntervalsBelowDefaultMinimumShouldAllowStartup() {
+        this.contextRunner.with(database())
+            .withUserConfiguration(EmptyConfiguration.class)
+            .withPropertyValues(
+                    "ruslo.dispatcher.min-interval=1ms",
+                    "ruslo.dispatcher.max-interval=10ms")
+            .run(context -> assertThat(context).hasNotFailed());
     }
 
     @Test

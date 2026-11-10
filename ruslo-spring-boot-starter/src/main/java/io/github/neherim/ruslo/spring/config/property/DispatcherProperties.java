@@ -8,12 +8,14 @@ public class DispatcherProperties {
      */
     private boolean enabled = true;
     /**
-     * Maximum interval between polls for ready processes, used when there is no work.
+     * Maximum polling backoff when there is no work. Must be at least minInterval and, in whole milliseconds,
+     * between 1 and Long.MAX_VALUE / 2.
      */
     private Duration maxInterval = Duration.ofSeconds(10);
 
     /**
-     * Minimum interval between polls for ready processes, used when there is work.
+     * Initial polling backoff after an empty cycle; successful cycles continue immediately.
+     * Must not exceed maxInterval and, in whole milliseconds, must be between 1 and Long.MAX_VALUE / 2.
      */
     private Duration minInterval = Duration.ofMillis(100);
 

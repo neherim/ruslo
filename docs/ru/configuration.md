@@ -29,8 +29,8 @@ engine.start();
 | `withDatabaseMigrationEnabled(boolean)` | `ruslo.database-migration.enabled` | `true` | Создавать и обновлять таблицы движка при запуске |
 | `withHistoryEnabled(boolean)` | `ruslo.history.enabled` | `true` | Хранить историю смены состояний в `xs_process_state_hist` |
 | `withDispatcherEnabled(boolean)` | `ruslo.dispatcher.enabled` | `true` | Выполнять процессы в фоне на этом узле |
-| `withMinProcessDispatchInterval(Duration)` | `ruslo.dispatcher.min-interval` | `100ms` | Интервал опроса таблицы процессов, когда есть работа |
-| `withMaxProcessDispatchInterval(Duration)` | `ruslo.dispatcher.max-interval` | `10s` | Интервал опроса, когда работы нет |
+| `withMinProcessDispatchInterval(Duration)` | `ruslo.dispatcher.min-interval` | `100ms` | Начальная задержка опроса после пустого цикла; не меньше `1ms` и не больше максимальной |
+| `withMaxProcessDispatchInterval(Duration)` | `ruslo.dispatcher.max-interval` | `10s` | Максимальная задержка опроса, когда работы нет |
 | `withInstanceHeartbeatInterval(Duration)` | `ruslo.dispatcher.instance-heartbeat-interval` | `15s` | Как часто узел подтверждает, что жив |
 | `withInstanceTimeout(Duration)` | `ruslo.dispatcher.instance-timeout` | `60s` | Через сколько без heartbeat процессы узла забирают другие узлы; не меньше четырёх интервалов heartbeat |
 | `registerWorker(WorkerSpec)` | `ruslo.workers.<name>.execution-mode` | `transactional` | `transactional` или `non_transactional` |

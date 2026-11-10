@@ -57,13 +57,13 @@
     {
       "name": "ruslo.dispatcher.max-interval",
       "type": "java.time.Duration",
-      "description": "Maximum interval between polls for ready processes, used when there is no work",
+      "description": "Maximum polling backoff when there is no work; must be at least min-interval and, in whole milliseconds, between 1 and Long.MAX_VALUE / 2",
       "defaultValue": "10s"
     },
     {
       "name": "ruslo.dispatcher.min-interval",
       "type": "java.time.Duration",
-      "description": "Minimum interval between polls for ready processes, used when there is work",
+      "description": "Initial polling backoff after an empty cycle; successful cycles continue immediately. Must not exceed max-interval and, in whole milliseconds, must be between 1 and Long.MAX_VALUE / 2",
       "defaultValue": "100ms"
     },
     {

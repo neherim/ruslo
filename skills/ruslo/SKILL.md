@@ -240,7 +240,7 @@ All properties are under `ruslo`:
 | `database-migration.enabled` | `true` | Create/upgrade `xs_*` tables on start. Disable when Flyway/Liquibase owns the schema and apply `db/migration/<database>/V*.sql` from the `ruslo-core` jar |
 | `history.enabled` | `true` | Store state changes in `xs_process_state_hist` |
 | `dispatcher.enabled` | `true` | Run processes in the background on this node |
-| `dispatcher.min-interval` / `max-interval` | `100ms` / `10s` | Polling interval with / without work |
+| `dispatcher.min-interval` / `max-interval` | `100ms` / `10s` | Initial / maximum backoff after empty polls; at least `1ms`, min ≤ max. Successful polls continue immediately |
 | `dispatcher.instance-heartbeat-interval` / `instance-timeout` | `15s` / `60s` | Node liveness; after the timeout other nodes take its processes |
 | `workers.<name>.execution-mode` / `max-concurrency` | `transactional` / `10` | See Workers |
 | `logging.mdc.correlation-id-key` / `process-id-key` / `process-type-key` | `correlation_id` / `process_id` / `process_type` | MDC keys |

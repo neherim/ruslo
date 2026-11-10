@@ -10,8 +10,8 @@ import java.time.Instant;
 /**
  * Background thread that polls the database by calling {@link ProcessDispatcher#dispatch()}.
  *
- * <p>The poll interval adapts: it shrinks towards {@code minInterval} while processes are ready and grows towards
- * {@code maxInterval} while none are. If the nearest process becomes ready earlier, the scheduler wakes up by then,
+ * <p>Successful cycles continue immediately and reset the polling backoff to {@code minInterval}. Empty cycles
+ * double it up to {@code maxInterval}. If the nearest process becomes ready earlier, the scheduler wakes up by then,
  * so timers fire on time on an idle node too. {@link ProcessDispatchSignal} interrupts the wait early.
  */
 public class ProcessDispatchScheduler {

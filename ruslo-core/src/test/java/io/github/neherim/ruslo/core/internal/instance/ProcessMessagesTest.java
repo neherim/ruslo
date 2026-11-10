@@ -59,7 +59,7 @@ class ProcessMessagesTest {
         var type = MessageType.of("AMOUNT", BigDecimal.class);
         var amount = new BigDecimal("9.99999999999999999999999");
         var messages = ProcessMessages.empty();
-        messages.append(type, amount, UUID.randomUUID(), Instant.EPOCH);
+        messages.append(type, amount, Instant.EPOCH);
 
         var restored = ProcessMessages.fromString(
                 messages.serializeToString());
@@ -72,7 +72,7 @@ class ProcessMessagesTest {
         var type = MessageType.of("AMOUNT", BigDecimal.class);
         var amount = new BigDecimal("1.10");
         var messages = ProcessMessages.empty();
-        messages.append(type, amount, UUID.randomUUID(), Instant.EPOCH);
+        messages.append(type, amount, Instant.EPOCH);
 
         var restored = ProcessMessages.fromString(
                 messages.serializeToString());

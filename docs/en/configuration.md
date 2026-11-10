@@ -29,8 +29,8 @@ A working example: [`ruslo-examples/standalone-core`](https://github.com/neherim
 | `withDatabaseMigrationEnabled(boolean)` | `ruslo.database-migration.enabled` | `true` | Create and update the engine tables on start |
 | `withHistoryEnabled(boolean)` | `ruslo.history.enabled` | `true` | Store the history of state changes in `xs_process_state_hist` |
 | `withDispatcherEnabled(boolean)` | `ruslo.dispatcher.enabled` | `true` | Run processes in the background on this node |
-| `withMinProcessDispatchInterval(Duration)` | `ruslo.dispatcher.min-interval` | `100ms` | Interval between polls of the process table when there is work |
-| `withMaxProcessDispatchInterval(Duration)` | `ruslo.dispatcher.max-interval` | `10s` | Interval between polls when there is no work |
+| `withMinProcessDispatchInterval(Duration)` | `ruslo.dispatcher.min-interval` | `100ms` | Initial polling backoff after an empty cycle; at least `1ms`, no greater than the maximum |
+| `withMaxProcessDispatchInterval(Duration)` | `ruslo.dispatcher.max-interval` | `10s` | Maximum polling backoff when there is no work |
 | `withInstanceHeartbeatInterval(Duration)` | `ruslo.dispatcher.instance-heartbeat-interval` | `15s` | How often the node confirms it is alive |
 | `withInstanceTimeout(Duration)` | `ruslo.dispatcher.instance-timeout` | `60s` | After how long without a heartbeat other nodes take the node's processes; at least four heartbeat intervals |
 | `registerWorker(WorkerSpec)` | `ruslo.workers.<name>.execution-mode` | `transactional` | `transactional` or `non_transactional` |
