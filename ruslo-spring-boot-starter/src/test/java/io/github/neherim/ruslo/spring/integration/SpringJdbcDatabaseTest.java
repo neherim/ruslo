@@ -1,13 +1,16 @@
 package io.github.neherim.ruslo.spring.integration;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
+import io.github.neherim.ruslo.core.api.exception.TooManyRowsException;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
@@ -17,6 +20,87 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SpringJdbcDatabaseTest {
+    private static final ProcessType SEARCH_TYPE = ProcessType.of("SEARCH");
+    private static final ProcessState SEARCH_START = ProcessState.of("START");
+    private static final ProcessState SEARCH_DONE = ProcessState.of("DONE");
+
+    @Test
+    void singleDetailsWorksWithoutAnOuterTransactionWithOnePooledConnection() {
+        try (var source = new HikariDataSource()) {
+            source.setJdbcUrl("jdbc:h2:mem:single-connection-" + System.nanoTime() + ";DB_CLOSE_DELAY=-1");
+            source.setMaximumPoolSize(1);
+            source.setMinimumIdle(1);
+            source.setConnectionTimeout(500);
+            var manager = new DataSourceTransactionManager(source);
+            var database = new SpringJdbcDatabase(manager, source);
+            ProcessDefinition definition = SpringJdbcDatabaseTest::defineSearchProcess;
+            try (
+                    var engine = new ProcessEngineBuilder(database).addProcessDefinitions(List.of(definition))
+                        .withDispatcherEnabled(false)
+                        .build()
+                        .start()
+            ) {
+                var id = engine.newProcess(SEARCH_TYPE).variable("key", "value").start();
+
+                assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+                var details = engine.processes().byId(id).singleDetails().orElseThrow();
+
+                assertEquals(id, details.id());
+                assertEquals(1, details.stateHistory().size());
+                assertEquals("value", details.variables().find(VariableType.of("key", String.class)).orElseThrow());
+                assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+                assertEquals(0, source.getHikariPoolMXBean().getActiveConnections());
+
+                new TransactionTemplate(manager).executeWithoutResult(status -> {
+                    var uncommittedId = engine.newProcess(SEARCH_TYPE).start();
+                    var uncommitted = engine.processes().byId(uncommittedId).withLock().singleDetails().orElseThrow();
+                    assertEquals(uncommittedId, uncommitted.id());
+                    assertEquals(1, uncommitted.stateHistory().size());
+                    status.setRollbackOnly();
+                });
+                assertEquals(1, engine.processes().list().size());
+            }
+        }
+    }
+
+    @Test
+    void ambiguousSearchDoesNotMarkApplicationTransactionRollbackOnly() {
+        var database = database();
+        var transaction = new TransactionTemplate(new DataSourceTransactionManager(database.getDataSource()));
+        ProcessDefinition definition = SpringJdbcDatabaseTest::defineSearchProcess;
+        try (
+                var engine = new ProcessEngineBuilder(database).addProcessDefinitions(List.of(definition))
+                    .withDispatcherEnabled(false)
+                    .build()
+                    .start()
+        ) {
+            database.update("create table application_data (id int primary key)");
+            engine.newProcess(SEARCH_TYPE).start();
+            engine.newProcess(SEARCH_TYPE).start();
+            transaction.executeWithoutResult(status -> {
+                database.update("insert into application_data values (1)");
+                assertThrows(TooManyRowsException.class, () -> engine.processes().single());
+                assertThrows(TooManyRowsException.class, () -> engine.processes().singleDetails());
+                assertThrows(TooManyRowsException.class, () -> engine.processes().withLock().single());
+                assertThrows(TooManyRowsException.class, () -> engine.processes().withLock().singleDetails());
+                assertFalse(status.isRollbackOnly());
+            });
+
+            assertEquals(1,
+                    database.queryForObject("select count(*) from application_data", rs -> rs.getInt(1)).orElseThrow());
+        }
+    }
+
+    private static ProcessSpec defineSearchProcess(ProcessSpecBuilder builder) {
+        return builder.type(SEARCH_TYPE)
+            .initialState(SEARCH_START)
+            .step(SEARCH_START, SpringJdbcDatabaseTest::searchStep, SEARCH_DONE)
+            .terminal(SEARCH_DONE)
+            .build();
+    }
+
+    private static void searchStep(ProcessContext context) {
+    }
 
     @Test
     void doInTransactionWithResultRethrowsRuntimeExceptionWithoutWrapping() {
