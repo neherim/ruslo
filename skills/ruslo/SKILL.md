@@ -95,8 +95,9 @@ enum Validation { VALID, REJECTED }
 ```
 
 To add a branch, change `ProcessStep` to `BranchingStep<Outcome>`; the compiler then points at the definition
-line where the target must become routes. The builder checks that all enum constants are routed when the routes
-callback returns.
+line where the target must become routes. Optional `on(outcome, target, "Label")` sets a diagram label for that
+transition in steps or await events; it replaces the outcome name while preserving the message name or timer.
+The builder checks that all enum constants are routed when the routes callback returns.
 
 ### Await rules
 

@@ -157,14 +157,16 @@ public class ProcessDefinitionRegistry {
     ) {
         return switch (exit) {
             case ProcessSpec.Target target -> List.of(new ProcessSpecInfo.TransitionInfo(trigger,
-                    Optional.ofNullable(messageType), Optional.empty(), spec.declaredState(target.state().name())));
+                    Optional.ofNullable(messageType), Optional.empty(), spec.declaredState(target.state().name()),
+                    Optional.empty()));
             case ProcessSpec.Routes routes -> routes.routes()
                 .entrySet()
                 .stream()
                 .sorted(Comparator.comparingInt(route -> route.getKey().ordinal()))
                 .map(route -> new ProcessSpecInfo.TransitionInfo(trigger, Optional.ofNullable(messageType),
                         Optional.of(route.getKey().name()),
-                        spec.declaredState(route.getValue().name())))
+                        spec.declaredState(route.getValue().state().name()),
+                        Optional.ofNullable(route.getValue().label())))
                 .toList();
         };
     }

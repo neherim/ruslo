@@ -61,6 +61,7 @@ public class CardPaymentDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Card payment on a non-transactional worker with limited concurrency and idempotent retries.")
             .onError(ProcessErrorHandler.exponential(5, Duration.ofSeconds(5), Duration.ofMinutes(5)))
             .initialState(State.CHARGING)
             .step(State.CHARGING, IO_WORKER, chargeCardStep, routes -> routes

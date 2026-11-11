@@ -169,7 +169,7 @@ public class ProcessSpecBuilder {
      */
     public static class Routes<O extends Enum<O>> {
         private final String where;
-        private final Map<Enum<?>, ProcessStateId> routes = new LinkedHashMap<>();
+        private final Map<Enum<?>, Route> routes = new LinkedHashMap<>();
 
         private Routes(String where) {
             this.where = where;
@@ -177,12 +177,30 @@ public class ProcessSpecBuilder {
 
         /** Routes {@code outcome} to {@code target}. */
         public Routes<O> on(O outcome, ProcessState target) {
+            return add(outcome, target, null);
+        }
+
+        /**
+         * Routes {@code outcome} to {@code target} with a label shown instead of the outcome name in the diagram.
+         *
+         * @throws IllegalArgumentException if {@code label} is blank
+         * @throws NullPointerException if {@code label} is null
+         */
+        public Routes<O> on(O outcome, ProcessState target, String label) {
+            requireNonNull(label, "Route label cannot be null");
+            if (label.isBlank()) {
+                throw new IllegalArgumentException("Route label cannot be blank");
+            }
+            return add(outcome, target, label);
+        }
+
+        private Routes<O> add(O outcome, ProcessState target, String label) {
             requireNonNull(outcome, "Outcome cannot be null");
             if (outcome instanceof ProcessState) {
                 throw new IllegalArgumentException("Outcome " + outcome + " in " + where
                         + " is a process state: the target state is the second argument of on(...)");
             }
-            if (routes.putIfAbsent(outcome, target.id()) != null) {
+            if (routes.putIfAbsent(outcome, new Route(target.id(), label)) != null) {
                 throw new IllegalArgumentException("Duplicate outcome " + outcome + " in " + where);
             }
             return this;
@@ -510,7 +528,7 @@ public class ProcessSpecBuilder {
             switch (exit) {
                 case Target target -> checkDeclared(target.state(), where);
                 case ProcessSpec.Routes routes ->
-                    routes.routes().values().forEach(target -> checkDeclared(target, where));
+                    routes.routes().values().forEach(route -> checkDeclared(route.state(), where));
             }
         }
 

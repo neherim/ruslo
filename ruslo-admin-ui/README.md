@@ -71,7 +71,8 @@ Page features are described in [docs/en/admin-ui.md](../docs/en/admin-ui.md).
 
 ## Process diagram
 
-The diagram is built automatically from the `ProcessDefinition`: nodes are the declared states, edges are step and await event transitions. There is nothing to draw or attach by hand.
+The diagram is built automatically from the `ProcessDefinition`: nodes are the declared states, edges are step and await event transitions. There is nothing to draw or attach by hand. Branching routes accept an optional diagram label via
+`on(outcome, target, "Label")`; see [custom transition labels](https://neherim.github.io/ruslo/en/admin-ui/#process-diagram).
 
 - A node is labeled with `ProcessState.description()` (the state name by default); the name is shown in the tooltip.
 - A step has a solid border, an await a dashed one, a terminal state a double one; a dot marks the initial state.

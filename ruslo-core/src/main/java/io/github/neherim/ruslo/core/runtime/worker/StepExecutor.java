@@ -183,7 +183,7 @@ public class StepExecutor {
                             + process.getState().name() + " of process " + process.getType().name()
                             + " returned null, but an outcome is required"));
                 }
-                yield Objects.requireNonNull(routes.routes().get(outcome), "No route for outcome " + outcome);
+                yield Objects.requireNonNull(routes.routes().get(outcome), "No route for outcome " + outcome).state();
             }
         };
     }

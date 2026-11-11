@@ -51,6 +51,7 @@ public class PurchaseOrderDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Order confirmation with application data and process state committed in one transaction.")
             .initialState(State.CONFIRMING)
             .step(State.CONFIRMING, this::confirm, State.CONFIRMED)
             .terminal(State.CONFIRMED)

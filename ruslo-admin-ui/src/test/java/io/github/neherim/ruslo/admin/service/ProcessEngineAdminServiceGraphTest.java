@@ -84,6 +84,46 @@ class ProcessEngineAdminServiceGraphTest {
     }
 
     @Test
+    void graphShouldUseLabelsOfIndividualRoutesAndKeepEventNames() {
+        ProcessDefinition definition = builder -> builder.type("LABELED")
+            .initialState(State.CHECK)
+            .step(State.CHECK, context -> Outcome.OK, routes -> routes
+                .on(Outcome.OK, State.WAIT, "Ready")
+                .on(Outcome.FAIL, State.DONE))
+            .await(State.WAIT, await -> await
+                .message(MessageType.of("review", String.class), (context, message) -> Outcome.OK, routes -> routes
+                    .on(Outcome.OK, State.DONE, "Approved")
+                    .on(Outcome.FAIL, State.WAIT))
+                .every(Duration.ofSeconds(30), context -> Outcome.OK, routes -> routes
+                    .on(Outcome.OK, State.DONE, "Available")
+                    .on(Outcome.FAIL, State.WAIT))
+                .after(Duration.ofMinutes(5), context -> Outcome.OK, routes -> routes
+                    .on(Outcome.OK, State.DONE, "Expired")
+                    .on(Outcome.FAIL, State.WAIT))
+                .at(TimerType.of("due"), context -> Outcome.OK, routes -> routes
+                    .on(Outcome.OK, State.DONE, "Due")
+                    .on(Outcome.FAIL, State.WAIT)))
+            .terminal(State.DONE)
+            .build();
+        var service = new ProcessEngineAdminService(engine(definition), new ProcessEngineAdmin(engine));
+
+        assertThat(service.graph("LABELED").orElseThrow().edges()).containsExactly(
+                new Edge("CHECK", "WAIT", "STEP", "Ready"),
+                new Edge("CHECK", "DONE", "STEP", "FAIL"),
+                new Edge("WAIT", "DONE", "MESSAGE", "review / Approved"),
+                new Edge("WAIT", "WAIT", "MESSAGE", "review / FAIL"),
+                new Edge("WAIT", "DONE", "EVERY", "every 30s / Available"),
+                new Edge("WAIT", "WAIT", "EVERY", "every 30s / FAIL"),
+                new Edge("WAIT", "DONE", "AFTER", "after 5m / Expired"),
+                new Edge("WAIT", "WAIT", "AFTER", "after 5m / FAIL"),
+                new Edge("WAIT", "DONE", "AT", "at due / Due"),
+                new Edge("WAIT", "WAIT", "AT", "at due / FAIL"));
+        var processId = service.startProcess("LABELED", null, "{}");
+        new ProcessEngineEmulator(engine).runOneStep(processId);
+        assertThat(service.process(processId).orElseThrow().state()).isEqualTo("WAIT");
+    }
+
+    @Test
     void processDetailsShouldDescribeStateAndMarkUndeclaredTransitionsAsManual() {
         ProcessDefinition definition = builder -> builder.type("HISTORY")
             .initialState(State.CHECK)

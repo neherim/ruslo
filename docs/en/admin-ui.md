@@ -32,3 +32,13 @@ Every action is written to the application log with the user name.
 
 The diagram is built from the definition: states are labeled with `ProcessState.description()` (the state name by default), edges with the
 outcome, the message name or the timer. The legend is in the [module README](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md#process-diagram).
+
+Branching transitions can have a label declared with `routes.on(outcome, target, "Label")`, in steps and in await
+events. The diagram uses this label instead of the outcome name; message names and timers remain visible.
+Without a label, the outcome name is shown.
+
+```java
+.step(VALIDATING, validateStep, routes -> routes
+    .on(Validation.VALID, RESERVING, "Validation passed")
+    .on(Validation.REJECTED, CANCELLED, "Validation failed"))
+```
