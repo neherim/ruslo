@@ -60,6 +60,7 @@ public class ExpenseApprovalDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Expense approval with deadline-based escalation to the next approver.")
             .initialState(State.REQUESTING)
             .step(State.REQUESTING, ExpenseApprovalDefinition::requestApproval, State.WAITING_FOR_DECISION)
             .await(State.WAITING_FOR_DECISION, await -> await

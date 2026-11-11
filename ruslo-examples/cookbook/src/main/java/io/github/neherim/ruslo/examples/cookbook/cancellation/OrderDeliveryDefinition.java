@@ -63,6 +63,7 @@ public class OrderDeliveryDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Order delivery with cancellation available until handover to the courier.")
             .initialState(State.RESERVING)
             .step(State.RESERVING, OrderDeliveryDefinition::reserveItems, State.WAITING_FOR_PAYMENT)
             .await(State.WAITING_FOR_PAYMENT, await -> await

@@ -31,6 +31,7 @@ public class FileImportPartDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Import of one file part with a completion message sent to the parent process.")
             .initialState(State.IMPORTING)
             .step(State.IMPORTING, importPartStep, State.IMPORTED)
             .terminal(State.IMPORTED)

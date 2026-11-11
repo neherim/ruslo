@@ -165,7 +165,16 @@ class ProcessSpecBuilderTest {
         var await = assertInstanceOf(AwaitState.class, spec.getStateSpec(State.WAIT));
         var routes = assertInstanceOf(ProcessSpec.Routes.class, await.every().exit());
         assertEquals(Set.of(Outcome.A, Outcome.B), routes.routes().keySet());
-        assertTrue(routes.routes().values().stream().allMatch(State.WAIT.id()::equals));
+        assertTrue(routes.routes().values().stream().allMatch(route -> route.state().equals(State.WAIT.id())));
+    }
+
+    @Test
+    void rejectsBlankRouteLabel() {
+        assertRejected("Route label cannot be blank", () -> new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.every(Duration.ofSeconds(1), context -> Outcome.A, routes -> routes
+                .on(Outcome.A, State.WAIT, "  ")
+                .on(Outcome.B, State.WAIT))));
     }
 
     @Test

@@ -53,6 +53,7 @@ public class FileImportDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("File import split into child processes, waiting for all parts to complete.")
             .initialState(State.SPLITTING)
             .step(State.SPLITTING, splitFileStep, State.WAITING_FOR_PARTS)
             .await(State.WAITING_FOR_PARTS, await -> await

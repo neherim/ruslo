@@ -66,6 +66,7 @@ public class SeatReservationDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Seat reservation awaiting payment until an extendable deadline, then released if unpaid.")
             .initialState(State.RESERVING)
             .step(State.RESERVING, SeatReservationDefinition::reserveSeat, State.WAITING_FOR_PAYMENT)
             .await(State.WAITING_FOR_PAYMENT, await -> await

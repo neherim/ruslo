@@ -32,3 +32,13 @@
 
 Диаграмма строится по definition: состояния подписаны `ProcessState.description()` (по умолчанию имя состояния), переходы — результатом, именем
 сообщения или таймером. Легенда — в [README модуля](https://github.com/neherim/ruslo/blob/main/ruslo-admin-ui/README.md#process-diagram).
+
+Переходам с ветвлением можно задать подпись через `routes.on(outcome, target, "Подпись")` — в шагах и событиях
+await. На схеме подпись заменяет имя outcome; имена сообщений и таймеры остаются видны.
+Без подписи показывается имя outcome.
+
+```java
+.step(VALIDATING, validateStep, routes -> routes
+    .on(Validation.VALID, RESERVING, "Проверка пройдена")
+    .on(Validation.REJECTED, CANCELLED, "Проверка не пройдена"))
+```

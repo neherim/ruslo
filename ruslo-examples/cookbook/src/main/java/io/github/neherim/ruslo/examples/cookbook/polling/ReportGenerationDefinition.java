@@ -64,6 +64,7 @@ public class ReportGenerationDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("External report generation with periodic status polling and cancellation on a deadline.")
             .initialState(State.REQUESTING)
             .step(State.REQUESTING, this::requestReport, State.WAITING_FOR_REPORT)
             .await(State.WAITING_FOR_REPORT, await -> await

@@ -61,6 +61,7 @@ public class NotificationDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Notification delivery with exponential retries for transient errors and a give-up state.")
             .onError(this::onError)
             .onGiveUp(State.DELIVERY_FAILED)
             .initialState(State.SENDING)

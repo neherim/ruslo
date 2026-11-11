@@ -70,6 +70,7 @@ public class IdentityVerificationDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Identity verification through external callbacks with duplicate event handling.")
             .initialState(State.SUBMITTING)
             .step(State.SUBMITTING, IdentityVerificationDefinition::submit, State.WAITING_FOR_RESULT)
             .await(State.WAITING_FOR_RESULT, await -> await

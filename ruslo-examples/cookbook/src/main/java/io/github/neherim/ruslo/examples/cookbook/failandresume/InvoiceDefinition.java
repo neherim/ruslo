@@ -53,6 +53,7 @@ public class InvoiceDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Invoice issuing that stops on invalid data and resumes after an operator corrects it.")
             .initialState(State.ISSUING)
             .step(State.ISSUING, InvoiceDefinition::issue, State.ISSUED)
             .terminal(State.ISSUED)

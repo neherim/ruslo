@@ -40,13 +40,15 @@ public record ProcessSpecInfo(
      *
      * @param messageType present only for {@link TransitionTrigger#MESSAGE}
      * @param outcome     present only for branching handlers
+     * @param label       optional diagram label replacing the outcome name
      * @param target      equals the source state for a transition to the same state
      */
     public record TransitionInfo(
             TransitionTrigger trigger,
             Optional<String> messageType,
             Optional<String> outcome,
-            ProcessState target
+            ProcessState target,
+            Optional<String> label
     ) {
     }
 

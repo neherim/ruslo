@@ -243,7 +243,7 @@ public class ProcessEngineAdminService {
             case AFTER -> "after " + state.afterDelay().map(this::shortDuration).orElse("");
             case AT -> "at " + state.atTimer().orElse("");
         };
-        var outcome = transition.outcome().orElse(null);
+        var outcome = transition.label().or(() -> transition.outcome()).orElse(null);
         if (event == null) return outcome;
         return outcome == null ? event : event + " / " + outcome;
     }

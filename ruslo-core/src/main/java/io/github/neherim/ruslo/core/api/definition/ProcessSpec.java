@@ -278,10 +278,14 @@ public class ProcessSpec {
     public record Target(ProcessStateId state) implements Exit {
     }
 
+    /** Target and optional diagram label of one outcome. */
+    public record Route(ProcessStateId state, String label) {
+    }
+
     /**
      * Target chosen by outcome.
      */
-    public record Routes(Map<Enum<?>, ProcessStateId> routes) implements Exit {
+    public record Routes(Map<Enum<?>, Route> routes) implements Exit {
         public Routes {
             routes = Map.copyOf(routes);
         }

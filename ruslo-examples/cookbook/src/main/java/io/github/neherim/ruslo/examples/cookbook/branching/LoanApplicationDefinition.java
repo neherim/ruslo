@@ -57,15 +57,16 @@ public class LoanApplicationDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Loan application review with automatic approval, rejection or manual review.")
             .initialState(State.CHECKING)
             .step(State.CHECKING, checkApplicationStep, routes -> routes
-                .on(CheckApplicationStep.Decision.APPROVE, State.APPROVED)
-                .on(CheckApplicationStep.Decision.REJECT, State.REJECTED)
-                .on(CheckApplicationStep.Decision.MANUAL_REVIEW, State.MANUAL_REVIEW))
+                .on(CheckApplicationStep.Decision.APPROVE, State.APPROVED, "Application approved")
+                .on(CheckApplicationStep.Decision.REJECT, State.REJECTED, "Application rejected")
+                .on(CheckApplicationStep.Decision.MANUAL_REVIEW, State.MANUAL_REVIEW, "Needs manual review"))
             .await(State.MANUAL_REVIEW, await -> await
                 .message(REVIEW_DECISION, LoanApplicationDefinition::onReviewDecision, routes -> routes
-                    .on(Verdict.APPROVED, State.APPROVED)
-                    .on(Verdict.REJECTED, State.REJECTED)))
+                    .on(Verdict.APPROVED, State.APPROVED, "Loan approved")
+                    .on(Verdict.REJECTED, State.REJECTED, "Loan rejected")))
             .terminal(State.APPROVED)
             .terminal(State.REJECTED)
             .build();

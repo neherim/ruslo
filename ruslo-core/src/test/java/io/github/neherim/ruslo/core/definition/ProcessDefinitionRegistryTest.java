@@ -22,7 +22,7 @@ class ProcessDefinitionRegistryTest {
         ProcessDefinition definition = builder -> builder.type("REGISTRY_TEST")
             .initialState(State.CHECK)
             .step(State.CHECK, context -> Outcome.OK, routes -> routes
-                .on(Outcome.OK, State.WAIT)
+                .on(Outcome.OK, State.WAIT, "Ready")
                 .on(Outcome.FAIL, State.DONE))
             .await(State.WAIT, await -> await
                 .message(APPROVE, (context, message) -> {}, State.DONE)
@@ -44,7 +44,8 @@ class ProcessDefinitionRegistryTest {
         assertEquals("Check", check.description());
         assertEquals(StateKind.STEP, check.kind());
         assertEquals(List.of(
-                transition(TransitionTrigger.STEP, null, "OK", State.WAIT),
+                new TransitionInfo(TransitionTrigger.STEP, Optional.empty(), Optional.of("OK"), State.WAIT,
+                        Optional.of("Ready")),
                 transition(TransitionTrigger.STEP, null, "FAIL", State.DONE)), check.transitions());
 
         var wait = state(info.states(), State.WAIT);
@@ -74,7 +75,8 @@ class ProcessDefinitionRegistryTest {
             String outcome,
             State target
     ) {
-        return new TransitionInfo(trigger, Optional.ofNullable(messageType), Optional.ofNullable(outcome), target);
+        return new TransitionInfo(trigger, Optional.ofNullable(messageType), Optional.ofNullable(outcome), target,
+                Optional.empty());
     }
 
     private enum Outcome {

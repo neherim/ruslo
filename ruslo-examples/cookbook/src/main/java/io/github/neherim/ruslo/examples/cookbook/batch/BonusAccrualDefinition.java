@@ -55,6 +55,7 @@ public class BonusAccrualDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Bonus accrual in batches, continuing from the last completed batch after a failure.")
             .initialState(State.ACCRUING)
             .step(State.ACCRUING, accrueBonusStep, routes -> routes
                 .on(AccrueBonusStep.Batch.MORE, State.ACCRUING)

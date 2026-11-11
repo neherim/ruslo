@@ -75,6 +75,7 @@ public class SubscriptionDefinition implements ProcessDefinition {
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
+            .description("Monthly subscription billing until cancellation or a bank decline.")
             .onError(ProcessErrorHandler.exponential(5, Duration.ofMinutes(1), Duration.ofHours(1)))
             .initialState(State.ACTIVE)
             .await(State.ACTIVE, await -> await
