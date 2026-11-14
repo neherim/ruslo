@@ -86,7 +86,7 @@ public class ProcessEngineAdminUiAutoConfiguration implements WebMvcConfigurer {
         return new ProcessesAdminController(adminService, bulkService.getIfAvailable());
     }
 
-    /** Возвращает массовые действия с транзакциями Database движка. */
+    /** Returns the bulk action service backed by the engine's {@link Database}. */
     @Bean
     @ConditionalOnSingleCandidate(Database.class)
     public BulkProcessAdminService bulkProcessAdminService(
@@ -97,7 +97,7 @@ public class ProcessEngineAdminUiAutoConfiguration implements WebMvcConfigurer {
         return new BulkProcessAdminService(engine, admin, database);
     }
 
-    /** Возвращает контроллер подтверждения и выполнения массовых действий. */
+    /** Returns the controller that previews and executes bulk actions. */
     @Bean
     public BulkProcessesAdminController bulkProcessesAdminController(
             ProcessEngineAdminService adminService,

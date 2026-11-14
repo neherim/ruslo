@@ -16,7 +16,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 
-/** Подтверждение и выполнение массовых действий без серверного хранения заданий. */
+/** Previews and executes bulk actions using selections submitted by the browser. */
 @Controller
 @RequestMapping("${ruslo.admin-ui.base-path:/ruslo}/htmx/processes/bulk")
 public class BulkProcessesAdminController {
@@ -34,19 +34,19 @@ public class BulkProcessesAdminController {
         this.bulkService = bulkService;
     }
 
-    /** Подготавливает подтверждение возобновления всех совпадений. */
+    /** Previews retrying all matching failed processes. */
     @GetMapping("/retry-form")
     public String retryForm(@RequestParam String filters, HttpServletResponse response, Model model) {
         return form(BulkProcessOperation.RETRY, filters, response, model);
     }
 
-    /** Подготавливает подтверждение смены состояния всех совпадений одного типа. */
+    /** Previews moving all matching processes of one type to another state. */
     @GetMapping("/state-form")
     public String stateForm(@RequestParam String filters, HttpServletResponse response, Model model) {
         return form(BulkProcessOperation.CHANGE_STATE, filters, response, model);
     }
 
-    /** Возобновляет подтверждённый набор и возвращает подробный результат. */
+    /** Retries the confirmed selection and returns the result fragment. */
     @PostMapping("/retry")
     public String retry(
             @RequestParam String snapshot,
@@ -56,7 +56,7 @@ public class BulkProcessesAdminController {
         return execute(BulkProcessOperation.RETRY, snapshot, null, response, model);
     }
 
-    /** Переводит подтверждённый набор в выбранное состояние и возвращает подробный результат. */
+    /** Moves the confirmed selection to the chosen state and returns the result fragment. */
     @PostMapping("/state")
     public String state(
             @RequestParam String snapshot,

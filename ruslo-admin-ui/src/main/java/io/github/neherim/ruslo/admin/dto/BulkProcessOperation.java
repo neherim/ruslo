@@ -1,6 +1,6 @@
 package io.github.neherim.ruslo.admin.dto;
 
-/** Операции над подтверждённой выборкой процессов в админке. */
+/** Bulk actions available for a confirmed process selection. */
 public enum BulkProcessOperation {
     RETRY("Retry", "retry"),
     CHANGE_STATE("Change state", "state");

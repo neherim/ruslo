@@ -85,14 +85,14 @@ public record ProcessSearchRequest(
         return offset == null ? 0 : Math.max(0, offset);
     }
 
-    /** Фиксирует временные границы в UTC и исключает параметры пагинации. */
+    /** Converts time bounds to UTC and clears pagination parameters. */
     public ProcessSearchRequest forBulk() {
         return new ProcessSearchRequest(processId, typeName, stateName, status, businessKey, correlationId,
                 utc(nextRunAtFrom), utc(nextRunAtTo), utc(createdAtFrom), utc(createdAtTo), variablesLike,
                 null, null, "UTC");
     }
 
-    /** Возвращает заполненные условия для подтверждения выборки и журнала. */
+    /** Returns the active filters for the confirmation dialog and application log. */
     public Map<String, String> activeFilters() {
         var filters = new LinkedHashMap<String, String>();
         if (processId != null) filters.put("ID", processId.toString());

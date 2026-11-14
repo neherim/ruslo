@@ -20,8 +20,8 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Массовые действия вне бизнес-транзакции; Database должен быть тем же экземпляром, который использует движок.
- * Проверка и изменение одного процесса выполняются в общей транзакции, разные процессы фиксируются независимо.
+ * Runs bulk actions outside application transactions using the same {@link Database} instance as the engine.
+ * Each process is checked and changed in its own transaction.
  */
 public class BulkProcessAdminService {
     private static final Logger log = LoggerFactory.getLogger(BulkProcessAdminService.class);
@@ -35,7 +35,7 @@ public class BulkProcessAdminService {
         this.database = database;
     }
 
-    /** Возвращает причину недоступности действия либо пустую строку. */
+    /** Returns the reason the action is unavailable, or an empty string if it is available. */
     public String unavailableReason(BulkProcessOperation operation, ProcessSearchRequest filter) {
         if (operation == BulkProcessOperation.RETRY) {
             return filter.status() == ProcessStatus.FAILED ? "" : "Filter by FAILED status";
@@ -49,7 +49,7 @@ public class BulkProcessAdminService {
         return filter.status() == ProcessStatus.COMPLETED ? "Completed processes cannot change state" : "";
     }
 
-    /** Фиксирует все совпадения с нормализованным фильтром, без ограничения количества. */
+    /** Captures all processes matching the normalized filter across all pages. */
     public BulkProcessSnapshot prepare(BulkProcessOperation operation, ProcessSearchRequest filter) {
         var normalized = filter.forBulk();
         requireApplicable(operation, normalized);
@@ -57,13 +57,13 @@ public class BulkProcessAdminService {
         return new BulkProcessSnapshot(normalized, Instant.now().toString(), processes);
     }
 
-    /** Возобновляет подтверждённые FAILED-процессы и возвращает частичный результат при остановке. */
+    /** Retries the confirmed failed processes and reports partial progress if execution stops. */
     public BulkProcessResult retry(BulkProcessSnapshot snapshot) {
         var filter = validate(snapshot, BulkProcessOperation.RETRY);
         return execute(BulkProcessOperation.RETRY, filter, snapshot.processes(), null);
     }
 
-    /** Переводит подтверждённые процессы одного типа в состояние их определения. */
+    /** Moves the confirmed processes of one type to a state declared by their definition. */
     public BulkProcessResult changeState(BulkProcessSnapshot snapshot, String targetState) {
         var filter = validate(snapshot, BulkProcessOperation.CHANGE_STATE);
         var definition = admin.listProcessSpecifications()
