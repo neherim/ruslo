@@ -4,6 +4,8 @@ import io.github.neherim.ruslo.core.api.view.ProcessQuery;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 
 import java.time.ZoneId;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -81,6 +83,34 @@ public record ProcessSearchRequest(
      */
     public int pageOffset() {
         return offset == null ? 0 : Math.max(0, offset);
+    }
+
+    /** Фиксирует временные границы в UTC и исключает параметры пагинации. */
+    public ProcessSearchRequest forBulk() {
+        return new ProcessSearchRequest(processId, typeName, stateName, status, businessKey, correlationId,
+                utc(nextRunAtFrom), utc(nextRunAtTo), utc(createdAtFrom), utc(createdAtTo), variablesLike,
+                null, null, "UTC");
+    }
+
+    /** Возвращает заполненные условия для подтверждения выборки и журнала. */
+    public Map<String, String> activeFilters() {
+        var filters = new LinkedHashMap<String, String>();
+        if (processId != null) filters.put("ID", processId.toString());
+        if (hasText(typeName)) filters.put("Type", typeName);
+        if (hasText(stateName)) filters.put("State", stateName);
+        if (status != null) filters.put("Status", status.name());
+        if (hasText(businessKey)) filters.put("Business key", businessKey);
+        if (hasText(correlationId)) filters.put("Correlation ID", correlationId);
+        if (hasText(nextRunAtFrom)) filters.put("Next run from (UTC)", nextRunAtFrom);
+        if (hasText(nextRunAtTo)) filters.put("Next run to (UTC)", nextRunAtTo);
+        if (hasText(createdAtFrom)) filters.put("Created from (UTC)", createdAtFrom);
+        if (hasText(createdAtTo)) filters.put("Created to (UTC)", createdAtTo);
+        if (hasText(variablesLike)) filters.put("Variables LIKE", variablesLike);
+        return filters;
+    }
+
+    private String utc(String value) {
+        return hasText(value) ? HtmlDateTime.parse(value, zone()).toString() : null;
     }
 
     private ZoneId zone() {

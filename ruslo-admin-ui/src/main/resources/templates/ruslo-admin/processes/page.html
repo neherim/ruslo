@@ -88,13 +88,30 @@
             </article>
 
             <article class="results-panel">
-                <div id="process-results">
+                <div id="process-results"
+                     th:attr="hx-get=${returnTo}"
+                     hx-trigger="processListChanged from:body"
+                     hx-select="#process-results" hx-target="this" hx-swap="outerHTML">
                     <th:block th:replace="~{ruslo-admin/processes/fragments :: processResults}"></th:block>
                 </div>
             </article>
         </main>
     </div>
 </div>
+<dialog id="bulk-process-dialog" class="small-modal bulk-modal" data-bulk-dialog data-keep-open>
+    <article>
+        <header class="modal-header">
+            <strong>Bulk operation</strong>
+            <button type="button" class="secondary" data-modal-close aria-label="Close">×</button>
+        </header>
+        <div class="modal-body">
+            <div id="bulk-wait" class="bulk-wait" role="status">
+                <span aria-busy="true"></span><span>Preparing process selection…</span>
+            </div>
+            <div id="bulk-content" aria-live="polite"></div>
+        </div>
+    </article>
+</dialog>
 <div id="toasts" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
 <script src="assets/vendor/htmx/2.0.10/htmx.min.js"></script>
 <script src="assets/admin.js"></script>

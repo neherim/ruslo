@@ -1,15 +1,19 @@
 package io.github.neherim.ruslo.admin.config;
 
 import io.github.neherim.ruslo.admin.controller.*;
+import io.github.neherim.ruslo.admin.service.BulkProcessAdminService;
 import io.github.neherim.ruslo.admin.service.ProcessEngineAdminService;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
+import io.github.neherim.ruslo.core.spi.Database;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnSingleCandidate;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -75,8 +79,31 @@ public class ProcessEngineAdminUiAutoConfiguration implements WebMvcConfigurer {
      * Returns the processes section controller.
      */
     @Bean
-    public ProcessesAdminController processesAdminController(ProcessEngineAdminService adminService) {
-        return new ProcessesAdminController(adminService);
+    public ProcessesAdminController processesAdminController(
+            ProcessEngineAdminService adminService,
+            ObjectProvider<BulkProcessAdminService> bulkService
+    ) {
+        return new ProcessesAdminController(adminService, bulkService.getIfAvailable());
+    }
+
+    /** Возвращает массовые действия с транзакциями Database движка. */
+    @Bean
+    @ConditionalOnSingleCandidate(Database.class)
+    public BulkProcessAdminService bulkProcessAdminService(
+            ProcessEngine engine,
+            ProcessEngineAdmin admin,
+            Database database
+    ) {
+        return new BulkProcessAdminService(engine, admin, database);
+    }
+
+    /** Возвращает контроллер подтверждения и выполнения массовых действий. */
+    @Bean
+    public BulkProcessesAdminController bulkProcessesAdminController(
+            ProcessEngineAdminService adminService,
+            ObjectProvider<BulkProcessAdminService> bulkService
+    ) {
+        return new BulkProcessesAdminController(adminService, bulkService.getIfAvailable());
     }
 
     /**

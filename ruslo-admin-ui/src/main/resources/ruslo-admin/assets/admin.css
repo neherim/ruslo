@@ -2286,3 +2286,23 @@ form.htmx-request,
 [hx-target].htmx-request {
     opacity: 0.55;
 }
+
+/* Bulk operations keep the report outside the refreshed result table. */
+.bulk-actions { display: flex; justify-content: flex-end; margin-bottom: 0.6rem; }
+.bulk-actions form { margin: 0; }
+.bulk-modal { width: min(58rem, calc(100vw - 2rem)); max-width: none; }
+.bulk-modal > article { max-height: calc(100dvh - 2rem); overflow: auto; }
+.bulk-modal .modal-body { overflow-wrap: anywhere; }
+.bulk-modal .bulk-filters { display: grid; grid-template-columns: minmax(8rem, 1fr) 3fr; gap: 0.25rem 1rem; }
+.bulk-filters dt { font-weight: 600; }
+.bulk-filters dd { margin: 0; white-space: pre-wrap; }
+.bulk-wait { display: none; align-items: center; gap: 0.75rem; padding: 0.75rem 0; }
+.bulk-wait.htmx-request { display: flex; opacity: 1; }
+.bulk-modal[data-busy="true"] #bulk-content { opacity: 0.55; pointer-events: none; }
+.bulk-modal[data-busy="true"] [data-modal-close] { opacity: 0.55; cursor: wait; }
+.bulk-preview, .bulk-skipped { max-height: 24rem; overflow: auto; }
+.bulk-modal table { font-size: 0.85rem; }
+@media (max-width: 600px) {
+    .bulk-modal .bulk-filters { grid-template-columns: 1fr; }
+    .bulk-filters dd { margin-bottom: 0.5rem; }
+}

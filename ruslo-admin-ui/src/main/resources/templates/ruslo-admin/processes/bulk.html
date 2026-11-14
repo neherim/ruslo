@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<section th:fragment="confirmation">
+    <h3 th:text="|${operation.label()} — ${snapshot.processes.size()} processes|">Confirm operation</h3>
+    <p><strong>All matching processes across all pages.</strong></p>
+    <p class="muted">Selection prepared at <time class="local-date-time" th:datetime="${snapshot.preparedAt}"
+                                              th:text="${snapshot.preparedAt}"></time>.</p>
+    <dl class="bulk-filters">
+        <th:block th:each="filter : ${snapshot.filter.activeFilters()}">
+            <dt th:text="${filter.key}"></dt><dd th:text="${filter.value}"></dd>
+        </th:block>
+    </dl>
+    <ul><li th:each="group : ${snapshot.groups()}" th:text="|${group.key}: ${group.value}|"></li></ul>
+    <details>
+        <summary th:text="|Showing ${snapshot.preview().size()} of ${snapshot.processes.size()} selected processes|">Preview</summary>
+        <div class="table-wrap bulk-preview">
+            <table>
+                <thead><tr><th>ID</th><th>Type</th><th>State</th><th>Status</th></tr></thead>
+                <tbody><tr th:each="process : ${snapshot.preview()}">
+                    <td><a class="mono" th:href="@{|processes/${process.id}|}" th:text="${process.id}"></a></td>
+                    <td th:text="${process.type}"></td><td th:text="${process.state}"></td><td th:text="${process.status}"></td>
+                </tr></tbody>
+            </table>
+        </div>
+    </details>
+    <p>New matches after this preview are not included. Processes that change state, status or no longer match
+        the filter are skipped. Each process is committed separately; an unexpected error stops the operation.</p>
+    <p th:if="${operation.path() == 'retry'}">Retry schedules execution by the dispatcher; it does not wait for handlers to finish.</p>
+    <form th:attr="hx-post=|htmx/processes/bulk/${operation.path()}|" hx-target="#bulk-content"
+          hx-indicator="#bulk-wait" hx-disabled-elt="find button" hx-sync="closest dialog:drop" data-bulk-execute>
+        <input type="hidden" name="snapshot" th:value="${snapshotJson}">
+        <th:block th:if="${operation.path() == 'state'}">
+            <label>Target state
+                <select name="targetState" required>
+                    <option value="" selected disabled>Select target state</option>
+                    <option th:each="state : ${states}" th:value="${state.name}"
+                            th:text="${state.description == null ? state.name : state.name + ' — ' + state.description}"></option>
+                </select>
+            </label>
+            <p>Moving to another state clears queued messages. A terminal target completes the process.
+                Moving to the current state can run its step again.</p>
+        </th:block>
+        <div class="action-bar">
+            <button type="submit" th:disabled="${snapshot.processes.empty}"
+                    th:text="|${operation.label()} ${snapshot.processes.size()} processes|">Confirm</button>
+        </div>
+    </form>
+    <p th:if="${snapshot.processes.empty}" class="muted">No matching processes.</p>
+</section>
+
+<section th:fragment="result" data-bulk-result>
+    <h3 th:text="${bulkResult.interruption == null ? 'Bulk operation finished' : 'Bulk operation stopped'}"></h3>
+    <p th:text="|Selected: ${bulkResult.selectedCount}. ${bulkResult.summary()}|"></p>
+    <p th:if="${bulkResult.interruption != null}" class="status-line error">
+        Outcome not confirmed for
+        <a class="mono" th:href="@{|processes/${bulkResult.interruption.processId}|}"
+           th:text="${bulkResult.interruption.processId}"></a>.
+        Check this process before retrying. Earlier successful changes remain committed.
+    </p>
+    <div th:if="${!bulkResult.skipped.empty}" class="table-wrap bulk-skipped">
+        <table>
+            <thead><tr><th>Skipped process</th><th>Reason</th></tr></thead>
+            <tbody><tr th:each="skip : ${bulkResult.skipped}">
+                <td><a class="mono" th:href="@{|processes/${skip.processId}|}" th:text="${skip.processId}"></a></td>
+                <td th:text="${skip.message}"></td>
+            </tr></tbody>
+        </table>
+    </div>
+</section>
+</body>
+</html>

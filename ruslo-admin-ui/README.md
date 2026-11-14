@@ -69,6 +69,26 @@ Third-party frontend dependencies are shipped locally in `assets/vendor/`, so th
 
 Page features are described in [docs/en/admin-ui.md](../docs/en/admin-ui.md).
 
+## Bulk operations
+
+The process list can retry all matching failed processes or move all matching processes of one type to a
+declared state. Selection and execution semantics are described in
+[Bulk actions](../docs/en/admin-ui.md#bulk-actions).
+
+Atomic checks require the **same `Database` instance used to build the engine**. The standard starter supplies
+this bean. If you build the engine manually, expose that instance as a `Database` bean and pass it to
+`ProcessEngineBuilder`. With multiple databases, select this bean explicitly, for example with `@Primary`.
+Without an unambiguous `Database` bean, existing pages and individual actions work, while bulk actions stay
+visible and disabled with an explanation. The admin module cannot verify the identity of a manually wired
+engine's database; using another database does not provide the required atomicity.
+
+Bulk requests have no application limit on the number of processes and remain synchronous. Size the servlet
+container's form-body limit and proxy/request timeouts for the expected selection. The compact selection in
+one JSON form field uses memory and request space proportional to its size; process variables and history
+are not included. Database round-trip latency, commit latency, connection availability and row-lock waits
+determine execution time. The waiting indicator remains visible until a response arrives. A disconnected
+browser does not guarantee cancellation on the server, so do not configure automatic retries of bulk POSTs.
+
 ## Process diagram
 
 The diagram is built automatically from the `ProcessDefinition`: nodes are the declared states, edges are step and await event transitions. There is nothing to draw or attach by hand. Branching routes accept an optional diagram label via

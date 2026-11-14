@@ -1,12 +1,15 @@
 package io.github.neherim.ruslo.admin.controller;
 
+import io.github.neherim.ruslo.admin.dto.BulkProcessOperation;
 import io.github.neherim.ruslo.admin.dto.HtmlDateTime;
 import io.github.neherim.ruslo.admin.dto.ProcessDetailsResponse;
 import io.github.neherim.ruslo.admin.dto.ProcessSearchRequest;
+import io.github.neherim.ruslo.admin.service.BulkProcessAdminService;
 import io.github.neherim.ruslo.admin.service.ProcessEngineAdminService;
 import io.github.neherim.ruslo.admin.view.Breadcrumb;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -39,9 +42,18 @@ public class ProcessesAdminController {
     private static final String PROCESSES_PATH = "processes";
     private static final String PROCESSES_LINK = "./processes";
     private final ProcessEngineAdminService adminService;
+    private final @Nullable BulkProcessAdminService bulkService;
 
     public ProcessesAdminController(ProcessEngineAdminService adminService) {
+        this(adminService, null);
+    }
+
+    public ProcessesAdminController(
+            ProcessEngineAdminService adminService,
+            @Nullable BulkProcessAdminService bulkService
+    ) {
         this.adminService = adminService;
+        this.bulkService = bulkService;
     }
 
     /**
@@ -60,7 +72,16 @@ public class ProcessesAdminController {
         model.addAttribute("returnTo", processesReturnTo(request));
         model.addAttribute("status", "Loaded " + page.items().size() + " processes");
         model.addAttribute("breadcrumbs", List.of(Breadcrumb.current("Processes")));
+        model.addAttribute("bulkFilters", BulkProcessesAdminController.serialize(searchForm.forBulk()));
+        model.addAttribute("bulkRetryReason", bulkReason(BulkProcessOperation.RETRY, searchForm));
+        model.addAttribute("bulkStateReason", bulkReason(BulkProcessOperation.CHANGE_STATE, searchForm));
         return "ruslo-admin/processes/page";
+    }
+
+    private String bulkReason(BulkProcessOperation operation, ProcessSearchRequest filter) {
+        return bulkService == null
+                ? BulkProcessesAdminController.DATABASE_REQUIRED
+                : bulkService.unavailableReason(operation, filter);
     }
 
     /**

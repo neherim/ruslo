@@ -1,9 +1,11 @@
 package io.github.neherim.ruslo.admin.config;
 
+import io.github.neherim.ruslo.admin.controller.BulkProcessesAdminController;
 import io.github.neherim.ruslo.admin.controller.DashboardAdminController;
 import io.github.neherim.ruslo.admin.controller.ProcessEngineAdminApiController;
 import io.github.neherim.ruslo.admin.controller.ProcessEngineAdminModelAttributes;
 import io.github.neherim.ruslo.admin.controller.ProcessesAdminController;
+import io.github.neherim.ruslo.admin.service.BulkProcessAdminService;
 import io.github.neherim.ruslo.admin.service.ProcessEngineAdminService;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
@@ -11,6 +13,7 @@ import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.core.management.DatabaseSchemaMigrator;
+import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
@@ -38,7 +41,34 @@ class ProcessEngineAdminUiAutoConfigurationTest {
             assertThat(context).hasSingleBean(ProcessesAdminController.class);
             assertThat(context).hasSingleBean(ProcessEngineAdminApiController.class);
             assertThat(context).hasSingleBean(ProcessEngineAdminModelAttributes.class);
+            assertThat(context).hasSingleBean(BulkProcessesAdminController.class);
+            assertThat(context).doesNotHaveBean(BulkProcessAdminService.class);
         });
+    }
+
+    @Test
+    void shouldRegisterBulkServiceWithAnUnambiguousDatabaseBean() {
+        contextRunner.withPropertyValues("ruslo.admin-ui.enabled=true")
+            .withBean(Database.class, this::database)
+            .run(context -> assertThat(context).hasSingleBean(BulkProcessAdminService.class));
+    }
+
+    @Test
+    void shouldNotChooseBetweenAmbiguousDatabases() {
+        contextRunner.withPropertyValues("ruslo.admin-ui.enabled=true")
+            .withBean("firstDatabase", Database.class, this::database)
+            .withBean("secondDatabase", Database.class, this::database)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context).doesNotHaveBean(BulkProcessAdminService.class);
+                assertThat(context).hasSingleBean(ProcessesAdminController.class);
+            });
+    }
+
+    private Database database() {
+        var source = new JdbcDataSource();
+        source.setURL("jdbc:h2:mem:" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1");
+        return new PlainJdbcDatabase(source);
     }
 
     @Test

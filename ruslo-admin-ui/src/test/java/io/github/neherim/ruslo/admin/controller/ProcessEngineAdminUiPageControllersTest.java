@@ -707,7 +707,8 @@ class ProcessEngineAdminUiPageControllersTest {
             .doesNotContain("processListChanged from:body, refresh")
             .doesNotContain("change delay:300ms from:select")
             .doesNotContain("keyup changed delay:400ms from:input")
-            .doesNotContainPattern("(?s)<div id=\"process-results\"[^>]*hx-get=")
+            .contains("hx-trigger=\"processListChanged from:body\"")
+            .doesNotContain("hx-trigger=\"load\"")
             .contains("ruslo-admin/processes/fragments :: processResults");
     }
 
@@ -743,7 +744,7 @@ class ProcessEngineAdminUiPageControllersTest {
             .contains("<article class=\"filter-bar\">")
             .contains("<article class=\"results-panel\">")
             .contains("<details class=\"advanced\">")
-            .contains("<div id=\"process-results\">");
+            .contains("<div id=\"process-results\"");
         assertThat(adminCss)
             .contains("details.advanced > summary")
             .contains("display: inline-flex")

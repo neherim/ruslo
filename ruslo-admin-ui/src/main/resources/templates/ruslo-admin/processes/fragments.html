@@ -33,6 +33,31 @@
 </form>
 
 <th:block th:fragment="processResults">
+    <div class="bulk-actions">
+        <details class="actions-menu">
+            <summary>Bulk actions</summary>
+            <div class="actions-menu-panel">
+                <form hx-get="htmx/processes/bulk/retry-form" hx-target="#bulk-content" hx-indicator="#bulk-wait"
+                      hx-disabled-elt="find button" data-bulk-preview>
+                    <input type="hidden" name="filters" th:value="${bulkFilters}">
+                    <button type="submit" class="actions-menu-item"
+                            th:disabled="${bulkRetryReason == null or !#strings.isEmpty(bulkRetryReason)}">
+                        Retry all matching
+                        <small th:if="${!#strings.isEmpty(bulkRetryReason)}" th:text="${bulkRetryReason}"></small>
+                    </button>
+                </form>
+                <form hx-get="htmx/processes/bulk/state-form" hx-target="#bulk-content" hx-indicator="#bulk-wait"
+                      hx-disabled-elt="find button" data-bulk-preview>
+                    <input type="hidden" name="filters" th:value="${bulkFilters}">
+                    <button type="submit" class="actions-menu-item"
+                            th:disabled="${bulkStateReason == null or !#strings.isEmpty(bulkStateReason)}">
+                        Change state for all matching
+                        <small th:if="${!#strings.isEmpty(bulkStateReason)}" th:text="${bulkStateReason}"></small>
+                    </button>
+                </form>
+            </div>
+        </details>
+    </div>
     <div class="table-wrap">
         <table class="processes-table">
             <thead>
