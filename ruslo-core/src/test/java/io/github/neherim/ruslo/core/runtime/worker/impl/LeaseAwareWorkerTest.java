@@ -318,7 +318,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         }
 
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
-        assertEquals(0, stored.getAttempt());
+        assertEquals(0, stored.getFailedAttempts());
         assertTrue(stored.getLastError().isEmpty());
     }
 
@@ -371,7 +371,7 @@ class LeaseAwareWorkerTest extends BaseTest {
         assertEquals((completeProcess ? TestState.DONE : TestState.INIT).name(), stored.getState().name());
         assertTrue(stored.findVariable("fresh", Boolean.class).orElseThrow());
         assertTrue(stored.findVariable("stale", Boolean.class).isEmpty());
-        assertEquals(0, stored.getAttempt());
+        assertEquals(0, stored.getFailedAttempts());
         assertTrue(stored.getLastError().isEmpty());
         assertEquals(1L, storedVersion(process.getId()));
         assertNull(storedOwner(process.getId()));

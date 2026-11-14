@@ -149,7 +149,7 @@ public class ProcessWorker implements Worker {
         boolean retainLease = false;
         try {
             if (isRunnableHere(process)) {
-                var executed = stepExecutor.executeNextProcessStep(process);
+                var executed = stepExecutor.executeNext(process);
                 retainLease = executed && isRunnableHere(process);
             }
         } catch (HandlerException ex) {

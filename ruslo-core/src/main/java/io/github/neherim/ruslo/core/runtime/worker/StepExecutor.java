@@ -1,8 +1,9 @@
 package io.github.neherim.ruslo.core.runtime.worker;
 
-import io.github.neherim.ruslo.core.api.definition.*;
+import io.github.neherim.ruslo.core.api.definition.IncomingMessage;
+import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec.*;
-import io.github.neherim.ruslo.core.api.view.ProcessStatus;
+import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.DefaultProcessContext;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
@@ -13,8 +14,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.Objects;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -38,23 +37,22 @@ public class StepExecutor {
      *
      * @return {@code false} if there is nothing to execute
      */
-    public boolean executeNextProcessStep(ProcessInstance process) {
+    public boolean executeNext(ProcessInstance process) {
         var executedState = process.getState();
-        var started = System.nanoTime();
+        var startedAtNanos = System.nanoTime();
         try (var ignored = processMdc.open(process)) {
-            if (process.getStatus() != ProcessStatus.ACTIVE) return false;
-            var executed = switch (process.getStateSpec()) {
-                case StepState step -> {
-                    executeStep(process, step);
-                    yield true;
-                }
+            var executed = switch (process.getCurrentStateSpec()) {
+                case StepState step -> executeStep(process, step);
                 case AwaitState await -> executeAwait(process, await);
                 case TerminalState ignoredSpec -> false;
             };
-            if (executed) recordStepExecuted(process, executedState, started);
+
+            if (executed) {
+                recordStepExecuted(process, executedState, startedAtNanos);
+            }
             return executed;
         } catch (HandlerException ex) {
-            recordStepFailed(process, executedState, started);
+            recordStepFailed(process, executedState, startedAtNanos);
             throw ex;
         }
     }
@@ -66,137 +64,148 @@ public class StepExecutor {
      *
      * @param payload an instance of the message type class, or {@code null}
      */
-    public <T> void executeMessage(ProcessInstance process, MessageEvent<T> event, Object payload) {
+    public <T> void executeMessageBypassingQueue(ProcessInstance process, MessageEvent<T> event, Object payload) {
         var executedState = process.getState();
-        var started = System.nanoTime();
+        var startedAtNanos = System.nanoTime();
         try (var ignored = processMdc.open(process)) {
-            var message = new IncomingMessage<>(event.type(),
-                    event.type().clazz().cast(payload), clock.instant());
-            var target = executeMessage(process, new DefaultProcessContext(process), event, message);
-            if (!process.getState().equals(target)) process.enterState(target);
-            recordStepExecuted(process, executedState, started);
+            log.debug("Starting message {} in {}", event.type().name(), executedState.name());
+            var message = new IncomingMessage<>(event.type(), event.type().clazz().cast(payload), clock.instant());
+            var context = new DefaultProcessContext(process);
+            var outcome = invokeHandler(() -> event.handler().apply(context, message));
+            var target = resolveTargetState(event.exit(), outcome, process);
+            if (!process.getState().equals(target)) {
+                process.enterState(target);
+            }
+            recordStepExecuted(process, executedState, startedAtNanos);
         } catch (HandlerException ex) {
-            recordStepFailed(process, executedState, started);
+            recordStepFailed(process, executedState, startedAtNanos);
             throw ex;
         }
     }
 
-    private void executeStep(ProcessInstance process, StepState spec) {
-        log.debug("Execute step {}", process.getState());
-        var outcome = invokeHandler(() -> spec.step().apply(new DefaultProcessContext(process)));
-        process.enterState(target(spec.exit(), outcome, process, "step"));
+    private boolean executeStep(ProcessInstance process, StepState stepStateSpec) {
+        log.debug("Starting step {}", process.getState().name());
+        var context = new DefaultProcessContext(process);
+        var outcome = invokeHandler(() -> stepStateSpec.step().apply(context));
+        var target = resolveTargetState(stepStateSpec.exit(), outcome, process);
+        process.enterState(target);
+        return true;
     }
 
     /**
      * Executes the selected due event and enters its target. Without a due event, recomputes the next run and clears
      * the previous error, e.g. after a manual change of {@code next_run_at}.
      */
-    private boolean executeAwait(ProcessInstance process, AwaitState spec) {
-        var due = process.dueAwaitEvent();
-        if (due.isEmpty()) {
-            process.stayInAwait();
+    private boolean executeAwait(ProcessInstance process, AwaitState awaitStateSpec) {
+        var eventKind = process.findDueAwaitEventKind().orElse(null);
+        if (eventKind == null) {
+            process.finishAwaitRunWithoutEvent();
             return false;
         }
+        log.debug("Starting event {} in {}", eventKind, process.getState().name());
         var context = new DefaultProcessContext(process);
-        var target = switch (due.get()) {
+        var target = switch (eventKind) {
             case MESSAGE -> executeQueuedMessage(process, context, process.getMessages().takeFirst());
-            case EVERY -> {
-                process.advanceEvery();
-                yield executeTimer(process, context, spec.every().handler(), spec.every().exit(), "every");
-            }
-            case AFTER -> {
-                process.disableAfter();
-                yield executeTimer(process, context, spec.after().handler(), spec.after().exit(), "after");
-            }
-            case AT -> executeAt(process, context, spec.at());
+            case EVERY -> executeEveryEvent(process, context, awaitStateSpec.every());
+            case AFTER -> executeAfterEvent(process, context, awaitStateSpec.after());
+            case AT -> executeAtEvent(process, context, awaitStateSpec.at());
         };
         process.enterState(target);
         return true;
     }
 
-    /** Executes the timer handler and returns its target. */
-    private static ProcessStateId executeTimer(
-            ProcessInstance process,
-            DefaultProcessContext context,
-            Function<ProcessContext, Enum<?>> handler,
-            Exit exit,
-            String name
-    ) {
-        var outcome = invokeHandler(() -> handler.apply(context));
-        return target(exit, outcome, process, name);
+    private static ProcessStateId executeEveryEvent(ProcessInstance process, ProcessContext context, EveryEvent every) {
+        process.advanceEveryTimer();
+        var outcome = invokeHandler(() -> every.handler().apply(context));
+        return resolveTargetState(every.exit(), outcome, process);
+    }
+
+    private static ProcessStateId executeAfterEvent(ProcessInstance process, ProcessContext context, AfterEvent after) {
+        process.disableAfterTimer();
+        var outcome = invokeHandler(() -> after.handler().apply(context));
+        return resolveTargetState(after.exit(), outcome, process);
     }
 
     /**
      * Executes the {@code at} handler and returns its target. The timer stays set while the handler runs, so the
      * handler reads the fired moment; a timer the handler left unchanged is cancelled, so it does not fire again.
      */
-    private static ProcessStateId executeAt(ProcessInstance process, DefaultProcessContext context, AtEvent at) {
-        var fired = process.getTimer(at.timer());
-        var target = executeTimer(process, context, at.handler(), at.exit(), "at");
-        if (process.getTimer(at.timer()).equals(fired)) process.cancelTimer(at.timer());
+    private static ProcessStateId executeAtEvent(ProcessInstance process, ProcessContext context, AtEvent at) {
+        var firedAt = process.getTimer(at.timer());
+        var outcome = invokeHandler(() -> at.handler().apply(context));
+        var target = resolveTargetState(at.exit(), outcome, process);
+
+        if (process.getTimer(at.timer()).equals(firedAt)) {
+            process.cancelTimer(at.timer());
+        }
         return target;
     }
 
-    /** Executes the queued message and returns the handler's target. */
+    /**
+     * Executes the queued message and returns the handler's target.
+     */
     private ProcessStateId executeQueuedMessage(
             ProcessInstance process,
-            DefaultProcessContext context,
-            PendingMessage pending
+            ProcessContext context,
+            PendingMessage pendingMessage
     ) {
         var event = process.getProcessSpec()
-            .getMessageEvent(pending.type(), process.getState())
-            .orElseThrow(() -> new IllegalStateException("Queued message " + pending.type()
+            .getMessageEvent(pendingMessage.type(), process.getState())
+            .orElseThrow(() -> new IllegalStateException("Queued message " + pendingMessage.type()
                     + " is not expected in state " + process.getState().name()));
-        return convertAndExecute(process, context, event, pending);
+        return executeQueuedMessage(process, context, event, pendingMessage);
     }
 
-    private <T> ProcessStateId convertAndExecute(
+    /**
+     * Converts the queued message, executes its handler and returns the target.
+     */
+    private <T> ProcessStateId executeQueuedMessage(
             ProcessInstance process,
-            DefaultProcessContext context,
+            ProcessContext context,
             MessageEvent<T> event,
-            PendingMessage pending
+            PendingMessage pendingMessage
     ) {
-        return executeMessage(process, context, event, process.getMessages().convert(pending, event.type()));
-    }
-
-    /** Executes the message handler and returns its target. */
-    private <T> ProcessStateId executeMessage(
-            ProcessInstance process,
-            DefaultProcessContext context,
-            MessageEvent<T> event,
-            IncomingMessage<T> message
-    ) {
+        var message = process.getMessages().convert(pendingMessage, event.type());
         var outcome = invokeHandler(() -> event.handler().apply(context, message));
-        return target(event.exit(), outcome, process, "message " + event.type().name());
+        return resolveTargetState(event.exit(), outcome, process);
     }
 
     /**
      * Resolves the target of a linear ({@code outcome == null}) or branching handler.
      * {@code null} from a branching handler is a user code failure: {@link HandlerException}.
      */
-    private static ProcessStateId target(Exit exit, Enum<?> outcome, ProcessInstance process, String handler) {
+    private static ProcessStateId resolveTargetState(
+            Exit exit,
+            Enum<?> outcome,
+            ProcessInstance process
+    ) {
         return switch (exit) {
             case Target target -> target.state();
             case Routes routes -> {
                 if (outcome == null) {
-                    throw new HandlerException(new IllegalStateException("Branching " + handler + " in state "
-                            + process.getState().name() + " of process " + process.getType().name()
-                            + " returned null, but an outcome is required"));
+                    var message = "Branching handler in state %s of process %s returned null, but an outcome is required"
+                        .formatted(process.getState().name(), process.getType().name());
+                    throw new HandlerException(new IllegalStateException(message));
                 }
-                yield Objects.requireNonNull(routes.routes().get(outcome), "No route for outcome " + outcome).state();
+                yield routes.routes().get(outcome).state();
             }
         };
     }
 
-    private void recordStepExecuted(ProcessInstance process, ProcessStateId executedState, long started) {
-        metrics.recordStepExecuted(process.getType(), executedState, Duration.ofNanos(System.nanoTime() - started));
+    private void recordStepExecuted(ProcessInstance process, ProcessStateId executedState, long startedAtNanos) {
+        log.debug("Execution completed: {} -> {}", executedState.name(), process.getState().name());
+        metrics.recordStepExecuted(process.getType(), executedState,
+                Duration.ofNanos(System.nanoTime() - startedAtNanos));
     }
 
-    private void recordStepFailed(ProcessInstance process, ProcessStateId executedState, long started) {
-        metrics.recordStepFailed(process.getType(), executedState, Duration.ofNanos(System.nanoTime() - started));
+    private void recordStepFailed(ProcessInstance process, ProcessStateId executedState, long startedAtNanos) {
+        metrics.recordStepFailed(process.getType(), executedState,
+                Duration.ofNanos(System.nanoTime() - startedAtNanos));
     }
 
-    /** Calls user code, wrapping its failure in {@link HandlerException}. */
+    /**
+     * Calls user code, wrapping its failure in {@link HandlerException}.
+     */
     private static <R> R invokeHandler(Supplier<R> handler) {
         try {
             return handler.get();

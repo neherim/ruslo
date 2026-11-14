@@ -68,7 +68,7 @@ public class DefaultProcessContext implements ProcessContext {
 
     @Override
     public int attempt() {
-        return processInstance.getAttempt();
+        return processInstance.getFailedAttempts();
     }
 
     @Override

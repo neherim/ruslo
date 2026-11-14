@@ -1,6 +1,8 @@
 package io.github.neherim.ruslo.core.runtime.logging;
 
-/** MDC keys the engine uses when logging a process. A {@code null} or blank key is replaced by the default key. */
+/**
+ * MDC keys the engine uses when logging a process. A {@code null} or blank key is replaced by the default key.
+ */
 public record MdcKeys(String correlationId, String processId, String processType) {
 
     public static final String DEFAULT_CORRELATION_ID = "correlation_id";
@@ -13,7 +15,9 @@ public record MdcKeys(String correlationId, String processId, String processType
         processType = orDefault(processType, DEFAULT_PROCESS_TYPE);
     }
 
-    /** Returns the default MDC keys. */
+    /**
+     * Returns the default MDC keys.
+     */
     public static MdcKeys defaults() {
         return new MdcKeys(null, null, null);
     }

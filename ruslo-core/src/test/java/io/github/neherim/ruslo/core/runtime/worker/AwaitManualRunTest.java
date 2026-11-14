@@ -29,7 +29,7 @@ class AwaitManualRunTest extends BaseTest {
 
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
         assertEquals("WAIT", stored.getState().name());
-        assertEquals(0, stored.getAttempt());
+        assertEquals(0, stored.getFailedAttempts());
         assertTrue(stored.getLastError().isEmpty());
         assertEquals(deadline, stored.getNextRunAt().orElseThrow());
         assertEquals(1L, database.queryForObject(

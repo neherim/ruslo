@@ -99,7 +99,7 @@ class ErrorGiveUpTest extends BaseTest {
         var process = fixture.insertNewProcess(ProcessType.of("CUSTOM_ERRORS"), "correlation");
         fixture.transactionalWorker().tryExecute(fixture.task(process));
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
-        assertEquals(1, stored.getAttempt());
+        assertEquals(1, stored.getFailedAttempts());
         assertEquals(ProcessStatus.ACTIVE, stored.getStatus());
     }
 

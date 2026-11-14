@@ -10,7 +10,9 @@ import java.util.Objects;
  * @param expectedRowVersion row version read with the snapshot
  */
 public record ClaimedProcess(ProcessInstance process, ProcessLease lease, long expectedRowVersion) {
-    /** Checks that the process, lease and row version match. */
+    /**
+     * Checks that the process, lease and row version match.
+     */
     public ClaimedProcess {
         Objects.requireNonNull(process, "Process must not be null");
         Objects.requireNonNull(lease, "Lease must not be null");

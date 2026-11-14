@@ -162,7 +162,7 @@ public class ProcessRuntimeService {
                     return messageNotExpected(process, type.name(), "a FAILED process cannot handle a message "
                             + "synchronously; resume it or queue the message with sendMessage");
                 }
-                stepExecutor.executeMessage(process, event.get(), message);
+                stepExecutor.executeMessageBypassingQueue(process, event.get(), message);
                 processInstanceDao.update(process);
                 database.doAfterCommit(dispatchSignal::wakeUp);
                 return null;
@@ -192,11 +192,11 @@ public class ProcessRuntimeService {
                     throw new ProcessStatusException(processId, process.getStatus(),
                             "only an ACTIVE process runs steps");
                 }
-                if (process.getStateSpec() instanceof ProcessSpec.AwaitState
+                if (process.getCurrentStateSpec() instanceof ProcessSpec.AwaitState
                         && process.getNextRunAt().map(time -> time.isAfter(clock.instant())).orElse(true)) {
                     return false;
                 }
-                stepExecutor.executeNextProcessStep(process);
+                stepExecutor.executeNext(process);
                 processInstanceDao.update(process);
                 database.doAfterCommit(dispatchSignal::wakeUp);
                 return process.isTimeToExecute();

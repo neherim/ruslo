@@ -8,7 +8,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Puts process values into the MDC and restores the previous values afterwards. */
+/**
+ * Puts process values into the MDC and restores the previous values afterwards.
+ */
 public class ProcessMdc {
     private final MdcKeys keys;
 
@@ -29,7 +31,9 @@ public class ProcessMdc {
         return new Scope(values);
     }
 
-    /** Returns the correlation id from the MDC, or a new random UUID if there is none. */
+    /**
+     * Returns the correlation id from the MDC, or a new random UUID if there is none.
+     */
     public String getOrCreateCorrelationId() {
         var correlationId = MDC.get(keys.correlationId());
         if (correlationId == null || correlationId.isBlank()) {

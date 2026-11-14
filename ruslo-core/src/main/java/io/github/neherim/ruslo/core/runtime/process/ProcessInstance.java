@@ -25,7 +25,7 @@ public final class ProcessInstance {
     private final List<ProcessStateHist> pendingHistory = new ArrayList<>();
     private ProcessStateId state;
     private ProcessStatus status;
-    private int attempt;
+    private int failedAttempts;
     private String lastError;
     private Instant nextRunAt;
     private Instant everyDueAt;
@@ -80,7 +80,7 @@ public final class ProcessInstance {
             ProcessTimers timers,
             ProcessMessages messages,
             String correlationId,
-            int attempt,
+            int failedAttempts,
             String lastError,
             Instant nextRunAt,
             Instant everyDueAt,
@@ -90,7 +90,7 @@ public final class ProcessInstance {
         var process = new ProcessInstance(id, businessKey, spec, variables, timers, messages, correlationId, clock);
         process.state = state;
         process.status = status;
-        process.attempt = attempt;
+        process.failedAttempts = failedAttempts;
         process.lastError = lastError;
         process.nextRunAt = nextRunAt;
         process.everyDueAt = everyDueAt;
@@ -113,7 +113,7 @@ public final class ProcessInstance {
             throw new ProcessStatusException(id, status, "a completed process cannot change state");
         }
         var targetId = target.id();
-        var behavior = spec.getStateSpec(targetId);
+        var targetStateSpec = spec.getStateSpec(targetId);
         if (state != null && state.equals(targetId)) {
             activateCurrentState(now);
             return;
@@ -124,7 +124,7 @@ public final class ProcessInstance {
         resetAttemptsAndError();
         everyDueAt = null;
         afterDueAt = null;
-        switch (behavior) {
+        switch (targetStateSpec) {
             case StepState ignored -> {
                 status = ProcessStatus.ACTIVE;
                 nextRunAt = now;
@@ -133,7 +133,7 @@ public final class ProcessInstance {
                 status = ProcessStatus.ACTIVE;
                 if (await.every() != null) everyDueAt = now.plus(await.every().interval().firstAfter());
                 if (await.after() != null) afterDueAt = now.plus(await.after().delay());
-                recomputeNextRun();
+                updateAwaitNextRunAt();
             }
             case TerminalState ignored -> {
                 status = ProcessStatus.COMPLETED;
@@ -152,24 +152,23 @@ public final class ProcessInstance {
     }
 
     /**
-     * Queues the message for the current await and updates its next run, except during a {@link #hasRetryBackoff()
-     * retry backoff}. The event comes from {@link #expectedMessageEvent}, so the current state awaits it. A
+     * Queues the message for the current await and updates its next run, subject to {@link #hasFailedAttempt()}.
+     * The event comes from {@link #expectedMessageEvent}, so the current state awaits it. A
      * {@code FAILED} process only queues the message; it is handled after resume.
      */
     public void appendMessage(MessageEvent<?> event, Object payload, Instant receivedAt) {
         messages.append(event.type(), payload, receivedAt);
-        if (status == ProcessStatus.ACTIVE && !hasRetryBackoff()) recomputeNextRun();
+        if (status == ProcessStatus.ACTIVE && !hasFailedAttempt()) updateAwaitNextRunAt();
     }
 
     /**
-     * Selects the await event to handle now: the due event with the earliest time; on a tie message, {@code every},
-     * {@code after}, {@code at}.
+     * Returns the kind of the earliest due await event; on a tie message, {@code every}, {@code after}, {@code at}.
      *
      * @return empty if no event is due
      */
-    public Optional<AwaitEvent> dueAwaitEvent() {
+    public Optional<AwaitEventKind> findDueAwaitEventKind() {
         var now = clock.instant();
-        return nextAwaitEvent()
+        return findEarliestAwaitEvent()
             .filter(event -> !event.dueAt().isAfter(now))
             .map(ScheduledAwaitEvent::kind);
     }
@@ -178,17 +177,17 @@ public final class ProcessInstance {
      * Moves the due {@code every} to the first grid point after now before its handler runs, without moving the
      * next run; missed points are skipped. A handler failure discards the change with the process instance.
      */
-    public void advanceEvery() {
+    public void advanceEveryTimer() {
         var interval = currentAwait().every().interval().period();
-        var missed = Duration.between(everyDueAt, clock.instant()).dividedBy(interval);
-        everyDueAt = everyDueAt.plus(interval.multipliedBy(missed + 1));
+        var elapsedPeriods = Duration.between(everyDueAt, clock.instant()).dividedBy(interval);
+        everyDueAt = everyDueAt.plus(interval.multipliedBy(elapsedPeriods + 1));
     }
 
     /**
      * Disables {@code after} before its handler runs, without moving the next run; a handler failure discards the
      * change with the process instance.
      */
-    public void disableAfter() {
+    public void disableAfterTimer() {
         afterDueAt = null;
     }
 
@@ -197,26 +196,26 @@ public final class ProcessInstance {
      * attempts and error of a failed event and recomputes the next run, so an event that is no longer due is not
      * retried.
      */
-    public void stayInAwait() {
+    public void finishAwaitRunWithoutEvent() {
         resetAttemptsAndError();
-        recomputeNextRun();
+        updateAwaitNextRunAt();
     }
 
     private void activateCurrentState(Instant now) {
         status = ProcessStatus.ACTIVE;
         resetAttemptsAndError();
-        if (getStateSpec() instanceof StepState) nextRunAt = now;
+        if (getCurrentStateSpec() instanceof StepState) nextRunAt = now;
         else
-            recomputeNextRun();
+            updateAwaitNextRunAt();
     }
 
     /**
-     * Runs the step or await again after {@code delay} of engine time; in an await this starts a
-     * {@link #hasRetryBackoff() retry backoff}.
+     * Schedules the step or await to run again after {@code delay} of engine time and records a failed attempt,
+     * see {@link #hasFailedAttempt()}.
      */
     public void scheduleRetryAfter(Duration delay, String error) {
         nextRunAt = clock.instant().plus(delay);
-        attempt++;
+        failedAttempts++;
         lastError = Objects.requireNonNull(error);
     }
 
@@ -224,7 +223,7 @@ public final class ProcessInstance {
      * Stops the process in {@code FAILED} after an error, keeping the failed step or event.
      */
     public void markFailed(String error) {
-        attempt++;
+        failedAttempts++;
         lastError = Objects.requireNonNull(error);
         status = ProcessStatus.FAILED;
         nextRunAt = null;
@@ -242,21 +241,22 @@ public final class ProcessInstance {
     }
 
     /**
-     * Recomputes when the active await runs next: the earliest of its timers and the first queued message.
+     * Sets the next run to the earliest await event's time, or {@code null} without an event; the caller decides
+     * whether rescheduling is allowed.
      */
-    private void recomputeNextRun() {
-        nextRunAt = nextAwaitEvent().map(ScheduledAwaitEvent::dueAt).orElse(null);
+    private void updateAwaitNextRunAt() {
+        nextRunAt = findEarliestAwaitEvent().map(ScheduledAwaitEvent::dueAt).orElse(null);
     }
 
-    private Optional<ScheduledAwaitEvent> nextAwaitEvent() {
+    private Optional<ScheduledAwaitEvent> findEarliestAwaitEvent() {
         var events = new ArrayList<ScheduledAwaitEvent>(4);
-        messages.firstReceivedAt().ifPresent(time -> events.add(new ScheduledAwaitEvent(AwaitEvent.MESSAGE, time)));
-        if (everyDueAt != null) events.add(new ScheduledAwaitEvent(AwaitEvent.EVERY, everyDueAt));
-        if (afterDueAt != null) events.add(new ScheduledAwaitEvent(AwaitEvent.AFTER, afterDueAt));
+        messages.firstReceivedAt().ifPresent(time -> events.add(new ScheduledAwaitEvent(AwaitEventKind.MESSAGE, time)));
+        if (everyDueAt != null) events.add(new ScheduledAwaitEvent(AwaitEventKind.EVERY, everyDueAt));
+        if (afterDueAt != null) events.add(new ScheduledAwaitEvent(AwaitEventKind.AFTER, afterDueAt));
         var await = currentAwait();
         if (await != null && await.at() != null) {
             timers.get(await.at().timer().name())
-                .ifPresent(time -> events.add(new ScheduledAwaitEvent(AwaitEvent.AT, time)));
+                .ifPresent(time -> events.add(new ScheduledAwaitEvent(AwaitEventKind.AT, time)));
         }
         return events.stream()
             .min(Comparator.comparing(ScheduledAwaitEvent::dueAt)
@@ -264,13 +264,13 @@ public final class ProcessInstance {
     }
 
     /**
-     * Updates the next run after a change of {@code timer} if the current await waits for it; the next run is not
-     * moved in {@code FAILED} or during a {@link #hasRetryBackoff() retry backoff}.
+     * Updates the next run after a change of {@code timer} if the current await waits for it, subject to
+     * {@link #hasFailedAttempt()}; a {@code FAILED} process keeps its next run unset.
      */
     private void timerChanged(TimerType timer) {
         var await = currentAwait();
         if (await == null || await.at() == null || !await.at().timer().equals(timer)) return;
-        if (status == ProcessStatus.ACTIVE && !hasRetryBackoff()) recomputeNextRun();
+        if (status == ProcessStatus.ACTIVE && !hasFailedAttempt()) updateAwaitNextRunAt();
     }
 
     /**
@@ -287,24 +287,25 @@ public final class ProcessInstance {
      * Clears the previous error.
      */
     private void resetAttemptsAndError() {
-        attempt = 0;
+        failedAttempts = 0;
         lastError = null;
     }
 
     /**
-     * Returns whether the process waits for a retry after an error. {@code nextRunAt} is then the retry time: new
-     * messages and moved timers do not wake the process before it. After the backoff an await selects its event by
-     * the usual rule, see {@link #dueAwaitEvent()}.
+     * Returns whether the process has failed attempts that have not been cleared, including in {@code FAILED}
+     * and after the retry time has passed. While {@code ACTIVE}, messages and timer changes preserve the scheduled
+     * retry time until the attempts are cleared. An await selects its event by the usual rule when it runs,
+     * see {@link #findDueAwaitEventKind()}.
      */
-    public boolean hasRetryBackoff() {
-        return attempt > 0;
+    public boolean hasFailedAttempt() {
+        return failedAttempts > 0;
     }
 
     public boolean isTimeToExecute() {
         return status == ProcessStatus.ACTIVE && nextRunAt != null && !nextRunAt.isAfter(clock.instant());
     }
 
-    public StateSpec getStateSpec() {
+    public StateSpec getCurrentStateSpec() {
         return spec.getStateSpec(state);
     }
 
@@ -386,9 +387,9 @@ public final class ProcessInstance {
     }
 
     /**
-     * Sets the process timer, truncated to microseconds. If the current await waits for it, the next run moves,
-     * except in {@code FAILED} or during a {@link #hasRetryBackoff() retry backoff}. Whether an {@code at} declares
-     * the timer is checked by the caller.
+     * Sets the process timer, truncated to microseconds. If the current await waits for it, the next run is updated
+     * subject to {@link #hasFailedAttempt()}; a {@code FAILED} process keeps its next run unset. Whether an {@code at}
+     * declares the timer is checked by the caller.
      */
     public void setTimer(TimerType timer, Instant moment) {
         timers.set(timer.name(), moment);
@@ -414,8 +415,8 @@ public final class ProcessInstance {
         return messages;
     }
 
-    public int getAttempt() {
-        return attempt;
+    public int getFailedAttempts() {
+        return failedAttempts;
     }
 
     public Optional<String> getLastError() {
@@ -458,14 +459,14 @@ public final class ProcessInstance {
     /**
      * Await event kinds in tie order.
      */
-    public enum AwaitEvent {
+    public enum AwaitEventKind {
         MESSAGE,
         EVERY,
         AFTER,
         AT
     }
 
-    private record ScheduledAwaitEvent(AwaitEvent kind, Instant dueAt) {
+    private record ScheduledAwaitEvent(AwaitEventKind kind, Instant dueAt) {
     }
 
     @Override
