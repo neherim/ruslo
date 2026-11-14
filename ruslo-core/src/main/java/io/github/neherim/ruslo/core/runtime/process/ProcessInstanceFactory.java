@@ -36,7 +36,7 @@ public class ProcessInstanceFactory {
             String variablesStr,
             String timersStr,
             String messagesStr,
-            int attempt,
+            int failedAttempts,
             String lastError,
             Instant nextRunAt,
             Instant everyDueAt,
@@ -52,7 +52,7 @@ public class ProcessInstanceFactory {
         var messages = ProcessMessages.fromString(messagesStr);
 
         return ProcessInstance.loadFromStorage(id, businessKey, spec, state, status, variables, timers, messages,
-                correlationId, attempt, lastError, nextRunAt, everyDueAt, afterDueAt, clock);
+                correlationId, failedAttempts, lastError, nextRunAt, everyDueAt, afterDueAt, clock);
     }
 
     /**

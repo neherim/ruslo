@@ -234,7 +234,7 @@ public class ProcessInstanceDao {
                 process.getVariables().serializeToString(),
                 process.getTimers().serializeToString(),
                 process.getMessages().serializeToString(),
-                process.getAttempt(),
+                process.getFailedAttempts(),
                 process.getLastError().orElse(null),
                 process.getNextRunAt().orElse(null),
                 process.getEveryDueAt().orElse(null),

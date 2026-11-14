@@ -20,7 +20,7 @@ class LastErrorDiagnosticsTest extends BaseTest {
         fixture.transactionalWorker().tryExecute(fixture.task(process));
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
         assertEquals(ProcessStatus.FAILED, stored.getStatus());
-        assertEquals(1, stored.getAttempt());
+        assertEquals(1, stored.getFailedAttempts());
         assertTrue(stored.getLastError().orElseThrow().contains("step failed"));
         fail.set(false);
         stored.resume();
@@ -28,7 +28,7 @@ class LastErrorDiagnosticsTest extends BaseTest {
         fixture.transactionalWorker().tryExecute(fixture.task(process));
         var completed = fixture.dao().findById(process.getId()).orElseThrow();
         assertEquals(ProcessStatus.COMPLETED, completed.getStatus());
-        assertEquals(0, completed.getAttempt());
+        assertEquals(0, completed.getFailedAttempts());
         assertTrue(completed.getLastError().isEmpty());
     }
 
@@ -41,7 +41,7 @@ class LastErrorDiagnosticsTest extends BaseTest {
         fixture.stepErrorHandler().handleSystemError(new IllegalStateException("system failed"), task);
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
         assertTrue(stored.getNextRunAt().orElseThrow().isAfter(nextRun));
-        assertEquals(1, stored.getAttempt());
+        assertEquals(1, stored.getFailedAttempts());
     }
 
     @Test
@@ -80,7 +80,7 @@ class LastErrorDiagnosticsTest extends BaseTest {
         fixture.transactionalWorker().tryExecute(fixture.task(process));
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
         assertEquals(ProcessStatus.ACTIVE, stored.getStatus());
-        assertEquals(1, stored.getAttempt());
+        assertEquals(1, stored.getFailedAttempts());
         assertTrue(stored.getLastError().orElseThrow().contains("step failed"));
         assertTrue(stored.getNextRunAt().orElseThrow().isAfter(Instant.now().plus(Duration.ofSeconds(59))));
     }

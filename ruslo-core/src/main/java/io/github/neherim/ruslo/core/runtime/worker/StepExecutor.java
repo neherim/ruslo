@@ -39,7 +39,7 @@ public class StepExecutor {
      */
     public boolean executeNext(ProcessInstance process) {
         var executedState = process.getState();
-        var started = System.nanoTime();
+        var startedAtNanos = System.nanoTime();
         try (var ignored = processMdc.open(process)) {
             var executed = switch (process.getCurrentStateSpec()) {
                 case StepState step -> executeStep(process, step);
@@ -48,11 +48,11 @@ public class StepExecutor {
             };
 
             if (executed) {
-                recordStepExecuted(process, executedState, started);
+                recordStepExecuted(process, executedState, startedAtNanos);
             }
             return executed;
         } catch (HandlerException ex) {
-            recordStepFailed(process, executedState, started);
+            recordStepFailed(process, executedState, startedAtNanos);
             throw ex;
         }
     }
@@ -66,7 +66,7 @@ public class StepExecutor {
      */
     public <T> void executeMessageBypassingQueue(ProcessInstance process, MessageEvent<T> event, Object payload) {
         var executedState = process.getState();
-        var started = System.nanoTime();
+        var startedAtNanos = System.nanoTime();
         try (var ignored = processMdc.open(process)) {
             log.debug("Starting message {} in {}", event.type().name(), executedState.name());
             var message = new IncomingMessage<>(event.type(), event.type().clazz().cast(payload), clock.instant());
@@ -76,18 +76,18 @@ public class StepExecutor {
             if (!process.getState().equals(target)) {
                 process.enterState(target);
             }
-            recordStepExecuted(process, executedState, started);
+            recordStepExecuted(process, executedState, startedAtNanos);
         } catch (HandlerException ex) {
-            recordStepFailed(process, executedState, started);
+            recordStepFailed(process, executedState, startedAtNanos);
             throw ex;
         }
     }
 
-    private boolean executeStep(ProcessInstance process, StepState spec) {
+    private boolean executeStep(ProcessInstance process, StepState stepStateSpec) {
         log.debug("Starting step {}", process.getState().name());
         var context = new DefaultProcessContext(process);
-        var outcome = invokeHandler(() -> spec.step().apply(context));
-        var target = resolveTargetState(spec.exit(), outcome, process);
+        var outcome = invokeHandler(() -> stepStateSpec.step().apply(context));
+        var target = resolveTargetState(stepStateSpec.exit(), outcome, process);
         process.enterState(target);
         return true;
     }
@@ -96,19 +96,19 @@ public class StepExecutor {
      * Executes the selected due event and enters its target. Without a due event, recomputes the next run and clears
      * the previous error, e.g. after a manual change of {@code next_run_at}.
      */
-    private boolean executeAwait(ProcessInstance process, AwaitState spec) {
-        var due = process.dueAwaitEvent().orElse(null);
-        if (due == null) {
-            process.stayInAwait();
+    private boolean executeAwait(ProcessInstance process, AwaitState awaitStateSpec) {
+        var eventKind = process.findDueAwaitEventKind().orElse(null);
+        if (eventKind == null) {
+            process.finishAwaitRunWithoutEvent();
             return false;
         }
-        log.debug("Starting event {} in {}", due, process.getState().name());
+        log.debug("Starting event {} in {}", eventKind, process.getState().name());
         var context = new DefaultProcessContext(process);
-        var target = switch (due) {
+        var target = switch (eventKind) {
             case MESSAGE -> executeQueuedMessage(process, context, process.getMessages().takeFirst());
-            case EVERY -> executeEveryEvent(process, context, spec.every());
-            case AFTER -> executeAfterEvent(process, context, spec.after());
-            case AT -> executeAtEvent(process, context, spec.at());
+            case EVERY -> executeEveryEvent(process, context, awaitStateSpec.every());
+            case AFTER -> executeAfterEvent(process, context, awaitStateSpec.after());
+            case AT -> executeAtEvent(process, context, awaitStateSpec.at());
         };
         process.enterState(target);
         return true;
@@ -147,13 +147,13 @@ public class StepExecutor {
     private ProcessStateId executeQueuedMessage(
             ProcessInstance process,
             ProcessContext context,
-            PendingMessage pending
+            PendingMessage pendingMessage
     ) {
         var event = process.getProcessSpec()
-            .getMessageEvent(pending.type(), process.getState())
-            .orElseThrow(() -> new IllegalStateException("Queued message " + pending.type()
+            .getMessageEvent(pendingMessage.type(), process.getState())
+            .orElseThrow(() -> new IllegalStateException("Queued message " + pendingMessage.type()
                     + " is not expected in state " + process.getState().name()));
-        return executeQueuedMessage(process, context, event, pending);
+        return executeQueuedMessage(process, context, event, pendingMessage);
     }
 
     /**
@@ -163,9 +163,9 @@ public class StepExecutor {
             ProcessInstance process,
             ProcessContext context,
             MessageEvent<T> event,
-            PendingMessage pending
+            PendingMessage pendingMessage
     ) {
-        var message = process.getMessages().convert(pending, event.type());
+        var message = process.getMessages().convert(pendingMessage, event.type());
         var outcome = invokeHandler(() -> event.handler().apply(context, message));
         return resolveTargetState(event.exit(), outcome, process);
     }
@@ -192,13 +192,15 @@ public class StepExecutor {
         };
     }
 
-    private void recordStepExecuted(ProcessInstance process, ProcessStateId executedState, long started) {
+    private void recordStepExecuted(ProcessInstance process, ProcessStateId executedState, long startedAtNanos) {
         log.debug("Execution completed: {} -> {}", executedState.name(), process.getState().name());
-        metrics.recordStepExecuted(process.getType(), executedState, Duration.ofNanos(System.nanoTime() - started));
+        metrics.recordStepExecuted(process.getType(), executedState,
+                Duration.ofNanos(System.nanoTime() - startedAtNanos));
     }
 
-    private void recordStepFailed(ProcessInstance process, ProcessStateId executedState, long started) {
-        metrics.recordStepFailed(process.getType(), executedState, Duration.ofNanos(System.nanoTime() - started));
+    private void recordStepFailed(ProcessInstance process, ProcessStateId executedState, long startedAtNanos) {
+        metrics.recordStepFailed(process.getType(), executedState,
+                Duration.ofNanos(System.nanoTime() - startedAtNanos));
     }
 
     /**
