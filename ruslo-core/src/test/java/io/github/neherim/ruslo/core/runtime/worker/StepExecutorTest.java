@@ -33,7 +33,7 @@ class StepExecutorTest {
     void stepEntersTarget() {
         var process = process(builder -> builder.step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {}, State.DONE)));
-        assertTrue(executor.executeNextProcessStep(process));
+        assertTrue(executor.executeNext(process));
         assertEquals(State.WAIT.name(), process.getState().name());
         assertEquals(WorkerId.DEFAULT, process.getWorkerId().orElseThrow());
     }
@@ -43,7 +43,7 @@ class StepExecutorTest {
         var process = process(builder -> builder.step(State.START, context -> Outcome.B,
                 routes -> routes.on(Outcome.A, State.WAIT).on(Outcome.B, State.DONE))
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {}, State.DONE)));
-        assertTrue(executor.executeNextProcessStep(process));
+        assertTrue(executor.executeNext(process));
         assertEquals(ProcessStatus.COMPLETED, process.getStatus());
         assertTrue(process.getWorkerId().isEmpty());
     }
@@ -52,8 +52,8 @@ class StepExecutorTest {
     void nullOutcomeOfBranchingStepIsHandlerError() {
         var process = process(builder -> builder.step(State.START, context -> (Outcome) null,
                 routes -> routes.on(Outcome.A, State.DONE).on(Outcome.B, State.DONE)));
-        var error = assertThrows(HandlerException.class, () -> executor.executeNextProcessStep(process)).getCause();
-        assertTrue(error.getMessage().contains("Branching step in state START of process EXEC_TEST"),
+        var error = assertThrows(HandlerException.class, () -> executor.executeNext(process)).getCause();
+        assertTrue(error.getMessage().contains("Branching handler in state START of process EXEC_TEST"),
                 error.getMessage());
         assertTrue(error.getMessage().contains("returned null"));
         assertEquals(State.START.name(), process.getState().name());
@@ -65,9 +65,10 @@ class StepExecutorTest {
             .await(State.WAIT, await -> await.every(Interval.of(Duration.ofSeconds(5)).firstAfter(Duration.ZERO),
                     context -> (Outcome) null,
                     routes -> routes.on(Outcome.A, State.DONE).on(Outcome.B, State.WAIT))));
-        executor.executeNextProcessStep(process);
-        var error = assertThrows(HandlerException.class, () -> executor.executeNextProcessStep(process)).getCause();
-        assertTrue(error.getMessage().contains("Branching every in state WAIT"), error.getMessage());
+        executor.executeNext(process);
+        var error = assertThrows(HandlerException.class, () -> executor.executeNext(process)).getCause();
+        assertTrue(error.getMessage().contains("Branching handler in state WAIT of process EXEC_TEST"),
+                error.getMessage());
     }
 
     @Test
@@ -76,7 +77,7 @@ class StepExecutorTest {
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", NOW);
         var deadline = process.getAfterDueAt().orElseThrow();
-        assertTrue(executor.executeNextProcessStep(process));
+        assertTrue(executor.executeNext(process));
         assertEquals(State.WAIT.name(), process.getState().name());
         var queued = process.getMessages().peekFirst().orElseThrow();
         assertEquals("b", process.getMessages().convert(queued, SIGNAL).payload());
@@ -88,7 +89,7 @@ class StepExecutorTest {
         var process = awaitProcess(State.DONE);
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "b", NOW);
-        assertTrue(executor.executeNextProcessStep(process));
+        assertTrue(executor.executeNext(process));
         assertTrue(process.getMessages().isEmpty());
         assertEquals(ProcessStatus.COMPLETED, process.getStatus());
     }
@@ -98,7 +99,7 @@ class StepExecutorTest {
         var process = awaitProcess(State.DONE);
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "a", NOW);
         clock.now = NOW.plus(Duration.ofMinutes(2));
-        executor.executeNextProcessStep(process);
+        executor.executeNext(process);
         assertEquals(State.DONE.name(), process.getState().name());
     }
 
@@ -109,7 +110,7 @@ class StepExecutorTest {
         process.scheduleRetryAfter(Duration.ofMinutes(10), "boom");
         assertEquals(Optional.of(NOW.plus(Duration.ofMinutes(10))), process.getNextRunAt());
         clock.now = process.getNextRunAt().orElseThrow();
-        executor.executeNextProcessStep(process);
+        executor.executeNext(process);
         assertEquals(State.DONE.name(), process.getState().name());
     }
 
@@ -126,17 +127,17 @@ class StepExecutorTest {
                 .every(everyDelay, context -> {}, State.WAIT)
                 .after(afterDelay, context -> {}, State.WAIT)
                 .at(timer, context -> {}, State.WAIT)));
-        executor.executeNextProcessStep(process);
+        executor.executeNext(process);
         process.setTimer(timer, NOW.plus(atDelay));
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "future", NOW.plus(messageDelay));
 
         assertEquals(Optional.of(NOW.plusSeconds(1)), process.getNextRunAt());
-        assertFalse(executor.executeNextProcessStep(process));
+        assertFalse(executor.executeNext(process));
         assertEquals(Optional.of(NOW.plusSeconds(1)), process.getNextRunAt());
 
         clock.now = NOW.plusSeconds(1);
         assertEquals(Optional.of(earliest), process.dueAwaitEvent());
-        assertTrue(executor.executeNextProcessStep(process));
+        assertTrue(executor.executeNext(process));
         assertEquals(Optional.of(NOW.plusSeconds(2)), process.getNextRunAt());
         assertEquals(earliest == AwaitEvent.MESSAGE, process.getMessages().isEmpty());
     }
@@ -146,7 +147,7 @@ class StepExecutorTest {
         var process = process(builder -> builder.step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {}, messageTarget)
                 .after(Duration.ofMinutes(1), State.EXPIRED)));
-        executor.executeNextProcessStep(process);
+        executor.executeNext(process);
         return process;
     }
 

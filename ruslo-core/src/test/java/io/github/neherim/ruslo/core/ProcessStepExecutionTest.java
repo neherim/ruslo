@@ -596,7 +596,7 @@ class ProcessStepExecutionTest extends BaseTest {
     }
 
     @Test
-    void nullOutcomeFailsWithStateAndEventInLastError() {
+    void nullOutcomeFailsWithStateAndProcessTypeInLastError() {
         ProcessDefinition definition = builder -> builder.type("MISMATCH")
             .initialState(State.START)
             .step(State.START, context -> (Outcome) null, routes -> routes
@@ -609,7 +609,8 @@ class ProcessStepExecutionTest extends BaseTest {
             var id = engine.newProcess(ProcessType.of("MISMATCH")).start();
             var failed = emulator(engine).runUntilStop(id);
             assertEquals(ProcessStatus.FAILED, failed.status());
-            assertTrue(failed.lastError().orElseThrow().contains("Branching step in state START"),
+            assertTrue(
+                    failed.lastError().orElseThrow().contains("Branching handler in state START of process MISMATCH"),
                     failed.lastError().orElseThrow());
             assertTrue(failed.lastError().orElseThrow().contains("returned null"), failed.lastError().orElseThrow());
         } finally {
@@ -626,7 +627,10 @@ class ProcessStepExecutionTest extends BaseTest {
             var id = other.newProcess(ProcessType.of("MISMATCH_AWAIT")).start();
             var failed = emulator(other).sendMessageAndRunUntilStop(id, SIGNAL, "x");
             assertEquals(ProcessStatus.FAILED, failed.status());
-            assertTrue(failed.lastError().orElseThrow().contains("message SIGNAL in state WAIT"),
+            assertTrue(
+                    failed.lastError()
+                        .orElseThrow()
+                        .contains("Branching handler in state WAIT of process MISMATCH_AWAIT"),
                     failed.lastError().orElseThrow());
         } finally {
             other.close();

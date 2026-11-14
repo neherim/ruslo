@@ -152,13 +152,13 @@ public final class ProcessInstance {
     }
 
     /**
-     * Queues the message for the current await and updates its next run, except during a {@link #hasRetryBackoff()
+     * Queues the message for the current await and updates its next run, except during a {@link #hasFailedAttempt()
      * retry backoff}. The event comes from {@link #expectedMessageEvent}, so the current state awaits it. A
      * {@code FAILED} process only queues the message; it is handled after resume.
      */
     public void appendMessage(MessageEvent<?> event, Object payload, Instant receivedAt) {
         messages.append(event.type(), payload, receivedAt);
-        if (status == ProcessStatus.ACTIVE && !hasRetryBackoff()) recomputeNextRun();
+        if (status == ProcessStatus.ACTIVE && !hasFailedAttempt()) recomputeNextRun();
     }
 
     /**
@@ -178,7 +178,7 @@ public final class ProcessInstance {
      * Moves the due {@code every} to the first grid point after now before its handler runs, without moving the
      * next run; missed points are skipped. A handler failure discards the change with the process instance.
      */
-    public void advanceEvery() {
+    public void advanceEveryTimer() {
         var interval = currentAwait().every().interval().period();
         var missed = Duration.between(everyDueAt, clock.instant()).dividedBy(interval);
         everyDueAt = everyDueAt.plus(interval.multipliedBy(missed + 1));
@@ -188,7 +188,7 @@ public final class ProcessInstance {
      * Disables {@code after} before its handler runs, without moving the next run; a handler failure discards the
      * change with the process instance.
      */
-    public void disableAfter() {
+    public void disableAfterTimer() {
         afterDueAt = null;
     }
 
@@ -205,14 +205,14 @@ public final class ProcessInstance {
     private void activateCurrentState(Instant now) {
         status = ProcessStatus.ACTIVE;
         resetAttemptsAndError();
-        if (getStateSpec() instanceof StepState) nextRunAt = now;
+        if (getCurrentStateSpec() instanceof StepState) nextRunAt = now;
         else
             recomputeNextRun();
     }
 
     /**
      * Runs the step or await again after {@code delay} of engine time; in an await this starts a
-     * {@link #hasRetryBackoff() retry backoff}.
+     * {@link #hasFailedAttempt() retry backoff}.
      */
     public void scheduleRetryAfter(Duration delay, String error) {
         nextRunAt = clock.instant().plus(delay);
@@ -265,12 +265,12 @@ public final class ProcessInstance {
 
     /**
      * Updates the next run after a change of {@code timer} if the current await waits for it; the next run is not
-     * moved in {@code FAILED} or during a {@link #hasRetryBackoff() retry backoff}.
+     * moved in {@code FAILED} or during a {@link #hasFailedAttempt() retry backoff}.
      */
     private void timerChanged(TimerType timer) {
         var await = currentAwait();
         if (await == null || await.at() == null || !await.at().timer().equals(timer)) return;
-        if (status == ProcessStatus.ACTIVE && !hasRetryBackoff()) recomputeNextRun();
+        if (status == ProcessStatus.ACTIVE && !hasFailedAttempt()) recomputeNextRun();
     }
 
     /**
@@ -296,7 +296,7 @@ public final class ProcessInstance {
      * messages and moved timers do not wake the process before it. After the backoff an await selects its event by
      * the usual rule, see {@link #dueAwaitEvent()}.
      */
-    public boolean hasRetryBackoff() {
+    public boolean hasFailedAttempt() {
         return attempt > 0;
     }
 
@@ -304,7 +304,7 @@ public final class ProcessInstance {
         return status == ProcessStatus.ACTIVE && nextRunAt != null && !nextRunAt.isAfter(clock.instant());
     }
 
-    public StateSpec getStateSpec() {
+    public StateSpec getCurrentStateSpec() {
         return spec.getStateSpec(state);
     }
 
@@ -387,7 +387,7 @@ public final class ProcessInstance {
 
     /**
      * Sets the process timer, truncated to microseconds. If the current await waits for it, the next run moves,
-     * except in {@code FAILED} or during a {@link #hasRetryBackoff() retry backoff}. Whether an {@code at} declares
+     * except in {@code FAILED} or during a {@link #hasFailedAttempt() retry backoff}. Whether an {@code at} declares
      * the timer is checked by the caller.
      */
     public void setTimer(TimerType timer, Instant moment) {
