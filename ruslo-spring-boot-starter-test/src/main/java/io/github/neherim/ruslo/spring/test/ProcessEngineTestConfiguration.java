@@ -15,8 +15,9 @@ import java.time.Clock;
  * <p>
  * Registers a {@link MutableClock} named {@code processEngineClock}, which replaces the system clock of
  * {@link ProcessEngineAutoConfiguration}, and a {@link ProcessEngineEmulator}. Tests move time with
- * {@link ProcessEngineEmulator#fastForwardTime} and {@link ProcessEngineEmulator#setTime};
- * {@link ProcessEngineTestExecutionListener} resets the clock before each test.
+ * {@link ProcessEngineEmulator#fastForwardTime} and {@link ProcessEngineEmulator#setTime}.
+ * Importing this configuration directly does not reset the clock between tests; {@link ProcessEngineTest}
+ * adds that behavior by default.
  */
 @AutoConfiguration(before = ProcessEngineAutoConfiguration.class)
 public class ProcessEngineTestConfiguration {

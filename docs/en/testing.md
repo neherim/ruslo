@@ -5,7 +5,11 @@ and annotate the test with `@ProcessEngineTest`. The annotation:
 
 - disables the background dispatcher: processes run only when the test tells them to;
 - registers `ProcessEngineEmulator`, which runs processes in the test thread;
-- gives the engine a clock that the emulator controls, reset before each test.
+- gives the engine a clock that the emulator controls, reset before each test by default.
+
+Automatic clock reset is enabled by `@ProcessEngineTest`; adding the dependency alone does not enable it.
+To preserve time between test methods, use `@ProcessEngineTest(resetTimeBeforeEachTest = false)`.
+You can still reset it explicitly with `emulator.resetTime()`.
 
 ## ProcessEngineEmulator
 
@@ -87,7 +91,8 @@ dispatcher to verify production transaction boundaries.
 ## Advanced setup
 
 - To run the dispatcher and still control time, use `@ImportAutoConfiguration(ProcessEngineTestConfiguration.class)`
-  instead of `@ProcessEngineTest`.
+  instead of `@ProcessEngineTest`. This configuration also leaves clock resets to the test; call
+  `emulator.resetTime()` when needed.
 - To start from your own initial time, declare a `MutableClock` bean named `processEngineClock` with
   `@Bean(defaultCandidate = false)` in the test configuration.
 - Without Spring, build the engine with a `MutableClock` (`ProcessEngineBuilder.withClock`) and create the emulator
