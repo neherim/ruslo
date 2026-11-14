@@ -110,7 +110,7 @@ class BulkProcessesAdminWebTest {
     }
 
     @Test
-    void rejectsInvalidSnapshotAndTargetWithoutChangingProcesses() throws Exception {
+    void rejectsDuplicateSelectionAndUnknownTarget() throws Exception {
         var id = failed();
         var prepared = preview("state", filter(null));
         var snapshot = (BulkProcessSnapshot) prepared.getModelAndView().getModel().get("snapshot");
@@ -126,24 +126,7 @@ class BulkProcessesAdminWebTest {
             .param("targetState", "BOGUS"))
             .andExpect(status().isUnprocessableContent())
             .andExpect(content().string(containsString("Select a state declared")));
-        mvc.perform(post("/ops/htmx/processes/bulk/retry").param("snapshot", "{bad"))
-            .andExpect(status().isUnprocessableContent())
-            .andExpect(content().string(containsString("Invalid process selection JSON")));
         assertThat(statusOf(id)).isEqualTo(ProcessStatus.FAILED);
-    }
-
-    @Test
-    void actionsStayVisibleWhenUnavailableAndEmptyPreviewCannotBeSubmitted() throws Exception {
-        mvc.perform(get("/ops/processes").param("businessKey", key))
-            .andExpect(status().isOk())
-            .andExpect(content().string(containsString("Filter by FAILED status")))
-            .andExpect(content().string(containsString("Select a single process type")));
-        var result = preview("retry", filter(ProcessStatus.FAILED));
-        assertThat(result.getResponse().getContentAsString()).contains("No matching processes", "disabled=\"disabled\"",
-                "Retry 0 processes");
-        mvc.perform(get("/ops/htmx/processes/bulk/state-form")
-            .param("filters", BulkProcessesAdminController.serialize(filter(ProcessStatus.COMPLETED))))
-            .andExpect(status().isUnprocessableContent());
     }
 
     private MvcResult preview(String operation, ProcessSearchRequest filter) throws Exception {

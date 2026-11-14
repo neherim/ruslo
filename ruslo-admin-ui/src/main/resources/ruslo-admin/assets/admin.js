@@ -162,15 +162,7 @@ const AdminUi = (() => {
             if (event.target.matches('[data-bulk-dialog]') && event.target.dataset.busy === 'true') event.preventDefault();
         }
 
-        function preventDuplicateSubmit(event) {
-            const dialog = event.target.closest('[data-bulk-dialog]');
-            if (dialog && dialog.dataset.busy === 'true') {
-                event.preventDefault();
-                event.stopImmediatePropagation();
-            }
-        }
-
-        return {beforeRequest, preventBusyClose, preventDuplicateSubmit};
+        return {beforeRequest, preventBusyClose};
     })();
 
     // hx-confirm asks through the styled #confirm-dialog instead of the browser confirm().
@@ -1145,7 +1137,6 @@ const AdminUi = (() => {
     document.body.addEventListener('htmx:confirm', Confirmations.handleConfirm);
     document.body.addEventListener('htmx:beforeRequest', BulkOperations.beforeRequest);
     document.addEventListener('cancel', BulkOperations.preventBusyClose, true);
-    document.addEventListener('submit', BulkOperations.preventDuplicateSubmit, true);
     document.body.addEventListener('htmx:beforeSwap', ProcessDetails.handleBeforeSwap);
     document.body.addEventListener('htmx:afterSwap', handleHtmxAfterSwap);
     document.body.addEventListener('htmx:afterRequest', handleHtmxAfterRequest);

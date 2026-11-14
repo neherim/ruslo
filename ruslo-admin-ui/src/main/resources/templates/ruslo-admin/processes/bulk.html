@@ -28,7 +28,7 @@
         the filter are skipped. Each process is committed separately; an unexpected error stops the operation.</p>
     <p th:if="${operation.path() == 'retry'}">Retry schedules execution by the dispatcher; it does not wait for handlers to finish.</p>
     <form th:attr="hx-post=|htmx/processes/bulk/${operation.path()}|" hx-target="#bulk-content"
-          hx-indicator="#bulk-wait" hx-disabled-elt="find button" hx-sync="closest dialog:drop" data-bulk-execute>
+          hx-indicator="#bulk-wait" hx-disabled-elt="find button" data-bulk-execute>
         <input type="hidden" name="snapshot" th:value="${snapshotJson}">
         <th:block th:if="${operation.path() == 'state'}">
             <label>Target state
@@ -50,12 +50,12 @@
 </section>
 
 <section th:fragment="result" data-bulk-result>
-    <h3 th:text="${bulkResult.interruption == null ? 'Bulk operation finished' : 'Bulk operation stopped'}"></h3>
+    <h3 th:text="${bulkResult.interruptedProcessId == null ? 'Bulk operation finished' : 'Bulk operation stopped'}"></h3>
     <p th:text="|Selected: ${bulkResult.selectedCount}. ${bulkResult.summary()}|"></p>
-    <p th:if="${bulkResult.interruption != null}" class="status-line error">
+    <p th:if="${bulkResult.interruptedProcessId != null}" class="status-line error">
         Outcome not confirmed for
-        <a class="mono" th:href="@{|processes/${bulkResult.interruption.processId}|}"
-           th:text="${bulkResult.interruption.processId}"></a>.
+        <a class="mono" th:href="@{|processes/${bulkResult.interruptedProcessId}|}"
+           th:text="${bulkResult.interruptedProcessId}"></a>.
         Check this process before retrying. Earlier successful changes remain committed.
     </p>
     <div th:if="${!bulkResult.skipped.empty}" class="table-wrap bulk-skipped">

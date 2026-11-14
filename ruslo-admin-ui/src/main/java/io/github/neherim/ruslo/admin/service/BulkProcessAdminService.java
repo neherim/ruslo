@@ -1,13 +1,11 @@
 package io.github.neherim.ruslo.admin.service;
 
 import io.github.neherim.ruslo.admin.dto.*;
-import io.github.neherim.ruslo.admin.dto.BulkProcessResult.*;
+import io.github.neherim.ruslo.admin.dto.BulkProcessResult.Skipped;
 import io.github.neherim.ruslo.admin.dto.BulkProcessSnapshot.Selection;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
-import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.spi.Database;
@@ -17,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -60,16 +59,16 @@ public class BulkProcessAdminService {
 
     /** Возобновляет подтверждённые FAILED-процессы и возвращает частичный результат при остановке. */
     public BulkProcessResult retry(BulkProcessSnapshot snapshot) {
-        validate(snapshot, BulkProcessOperation.RETRY);
-        return execute(BulkProcessOperation.RETRY, snapshot, null);
+        var filter = validate(snapshot, BulkProcessOperation.RETRY);
+        return execute(BulkProcessOperation.RETRY, filter, snapshot.processes(), null);
     }
 
     /** Переводит подтверждённые процессы одного типа в состояние их определения. */
     public BulkProcessResult changeState(BulkProcessSnapshot snapshot, String targetState) {
-        validate(snapshot, BulkProcessOperation.CHANGE_STATE);
+        var filter = validate(snapshot, BulkProcessOperation.CHANGE_STATE);
         var definition = admin.listProcessSpecifications()
             .stream()
-            .filter(spec -> spec.type().name().equals(snapshot.filter().typeName()))
+            .filter(spec -> spec.type().name().equals(filter.typeName()))
             .findFirst()
             .orElseThrow();
         if (definition.states()
@@ -78,34 +77,29 @@ public class BulkProcessAdminService {
             .noneMatch(state -> state.name().equals(targetState))) {
             throw new IllegalArgumentException("Select a state declared by the selected process type");
         }
-        return execute(BulkProcessOperation.CHANGE_STATE, snapshot, ProcessState.of(targetState));
+        return execute(BulkProcessOperation.CHANGE_STATE, filter, snapshot.processes(), ProcessState.of(targetState));
     }
 
     private BulkProcessResult execute(
             BulkProcessOperation operation,
-            BulkProcessSnapshot snapshot,
+            ProcessSearchRequest filter,
+            List<Selection> processes,
             ProcessState target
     ) {
-        var filter = snapshot.filter().forBulk();
         var skipped = new ArrayList<Skipped>();
         int succeeded = 0;
-        for (var selection : snapshot.processes()) {
+        for (var selection : processes) {
             try {
                 var rejection = database.doInTransactionWithResult(() -> apply(operation, filter, selection, target));
                 if (rejection == null) succeeded++;
                 else
                     skipped.add(rejection);
-            } catch (ProcessStatusException ex) {
-                skipped.add(new Skipped(selection.id(), "STATUS_NOT_APPLICABLE", ex.getMessage()));
-            } catch (ProcessNotFoundException ex) {
-                skipped.add(new Skipped(selection.id(), "PROCESS_MISSING", "Process no longer exists"));
             } catch (RuntimeException ex) {
                 log.warn("Bulk {} stopped at process {}", operation, selection.id(), ex);
-                return new BulkProcessResult(snapshot.processes().size(), succeeded, skipped,
-                        new Interruption(selection.id()), snapshot.processes().size() - succeeded - skipped.size() - 1);
+                return new BulkProcessResult(processes.size(), succeeded, skipped, selection.id());
             }
         }
-        return new BulkProcessResult(snapshot.processes().size(), succeeded, skipped, null, 0);
+        return new BulkProcessResult(processes.size(), succeeded, skipped, null);
     }
 
     private Skipped apply(
@@ -118,13 +112,16 @@ public class BulkProcessAdminService {
         if (current.isEmpty()) {
             var diagnostic = engine.processes().byId(selection.id()).single();
             if (diagnostic.isEmpty()) return new Skipped(selection.id(), "PROCESS_MISSING", "Process no longer exists");
-            if (!selection.matches(diagnostic.get()))
-                return changed(selection, diagnostic.get().state().name(), diagnostic.get().status());
+            var process = diagnostic.get();
+            if (!selection.matches(process)) return changed(selection, process.state().name(), process.status());
             return new Skipped(selection.id(), "FILTER_NO_LONGER_MATCHES",
                     "Process no longer matches the confirmed filter");
         }
-        if (!selection.matches(current.get()))
-            return changed(selection, current.get().state().name(), current.get().status());
+        var process = current.get();
+        if (!selection.matches(process)) return changed(selection, process.state().name(), process.status());
+        if (process.status() == ProcessStatus.COMPLETED) {
+            return new Skipped(selection.id(), "STATUS_NOT_APPLICABLE", "Completed processes cannot change state");
+        }
         if (operation == BulkProcessOperation.RETRY) engine.resumeFailedProcess(selection.id());
         else
             admin.moveProcessToState(selection.id(), target);
@@ -136,12 +133,10 @@ public class BulkProcessAdminService {
                 "Process changed since preview; now " + state + " / " + status);
     }
 
-    private void validate(BulkProcessSnapshot snapshot, BulkProcessOperation operation) {
+    private ProcessSearchRequest validate(BulkProcessSnapshot snapshot, BulkProcessOperation operation) {
         Objects.requireNonNull(snapshot, "Snapshot is required");
-        Objects.requireNonNull(snapshot.filter(), "Filter is required");
-        snapshot.filter().forBulk();
-        requireApplicable(operation, snapshot.filter());
-        Instant.parse(snapshot.preparedAt());
+        var filter = Objects.requireNonNull(snapshot.filter(), "Filter is required").forBulk();
+        requireApplicable(operation, filter);
         if (snapshot.processes().isEmpty()) throw new IllegalArgumentException("No processes selected");
         var ids = new HashSet<UUID>();
         for (var selection : snapshot.processes()) {
@@ -150,7 +145,6 @@ public class BulkProcessAdminService {
                 throw new IllegalArgumentException("Invalid process selection");
             }
             if (!ids.add(selection.id())) throw new IllegalArgumentException("Duplicate process ID in selection");
-            var filter = snapshot.filter();
             if ((filter.processId() != null && !filter.processId().equals(selection.id()))
                     || (hasText(filter.typeName()) && !filter.typeName().equals(selection.type()))
                     || (hasText(filter.stateName()) && !filter.stateName().equals(selection.state()))
@@ -158,6 +152,7 @@ public class BulkProcessAdminService {
                 throw new IllegalArgumentException("Selection does not match the confirmed filter");
             }
         }
+        return filter;
     }
 
     private void requireApplicable(BulkProcessOperation operation, ProcessSearchRequest filter) {

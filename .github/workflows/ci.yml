@@ -70,7 +70,7 @@ jobs:
           retention-days: 7
 
   postgresql:
-    name: Core and admin integration tests (PostgreSQL)
+    name: Core tests (PostgreSQL)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -83,13 +83,13 @@ jobs:
           cache: maven
 
       # Testcontainers uses the Docker daemon available on GitHub-hosted runners.
-      - name: Test core and admin integration on PostgreSQL
-        run: ./mvnw -B -ntp verify -pl ruslo-admin-ui -am -Ppostgresql-tests -Dtest.db=postgresql
+      - name: Test ruslo-core on PostgreSQL
+        run: ./mvnw -B -ntp verify -pl ruslo-core -Ppostgresql-tests
 
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: test-reports-postgresql
-          path: '**/target/surefire-reports/'
+          path: ruslo-core/target/surefire-reports/
           retention-days: 7

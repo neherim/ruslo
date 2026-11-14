@@ -109,8 +109,10 @@ public class BulkProcessesAdminController {
                     ? service.retry(snapshot)
                     : service.changeState(snapshot, state);
             model.addAttribute("bulkResult", result);
-            if (result.interruption() != null) response.setStatus(HttpStatus.UNPROCESSABLE_CONTENT.value());
-            var kind = result.interruption() != null ? "error" : result.skipped().isEmpty() ? "success" : "info";
+            if (result.interruptedProcessId() != null) response.setStatus(HttpStatus.UNPROCESSABLE_CONTENT.value());
+            var kind = result.interruptedProcessId() != null
+                    ? "error"
+                    : result.skipped().isEmpty() ? "success" : "info";
             response.setHeader("HX-Trigger", HtmxResponseSupport.buildEventAndToastTrigger(
                     HtmxResponseSupport.PROCESS_LIST_CHANGED, kind, result.summary()));
             log.info("Admin UI bulk action by {} finished: {}, {}, durationMs={}", user, operation, result.summary(),
