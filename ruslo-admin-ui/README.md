@@ -80,7 +80,9 @@ this bean. If you build the engine manually, expose that instance as a `Database
 `ProcessEngineBuilder`. With multiple databases, select this bean explicitly, for example with `@Primary`.
 Without an unambiguous `Database` bean, existing pages and individual actions work, while bulk actions stay
 visible and disabled with an explanation. The admin module cannot verify the identity of a manually wired
-engine's database; using another database does not provide the required atomicity.
+engine's database; using another database does not provide the required atomicity. Bulk execution requires
+an entry point outside a Spring transaction so each process can commit independently. Execution inside an
+active Spring transaction is rejected before any process is changed.
 
 Bulk requests have no application limit on the number of processes and remain synchronous. Size the servlet
 container's form-body limit and proxy/request timeouts for the expected selection. The compact selection in

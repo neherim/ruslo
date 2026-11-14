@@ -118,24 +118,20 @@ const AdminUi = (() => {
     })();
 
     const BulkOperations = (() => {
-        function isBulkRequest(event) {
-            const el = event.detail && event.detail.elt;
-            return el && el.matches('[data-bulk-preview], [data-bulk-execute]');
-        }
-
         function beforeRequest(event) {
-            if (!isBulkRequest(event)) return;
+            const form = event.detail && event.detail.elt;
+            if (!form || !form.matches('[data-bulk-preview], [data-bulk-execute]')) return;
             const dialog = document.getElementById('bulk-process-dialog');
             if (!dialog) return;
             if (dialog.dataset.busy === 'true') {
                 event.preventDefault();
                 return;
             }
-            const preview = event.detail.elt.hasAttribute('data-bulk-preview');
+            const preview = form.hasAttribute('data-bulk-preview');
             const content = document.getElementById('bulk-content');
             if (preview) {
                 content.replaceChildren();
-                const menu = event.detail.elt.closest('details');
+                const menu = form.closest('details');
                 if (menu) menu.open = false;
             }
             dialog.querySelector('#bulk-wait span:last-child').textContent = preview
@@ -143,23 +139,22 @@ const AdminUi = (() => {
                 : 'Processing the selected processes. This may take some time.';
             dialog.dataset.busy = 'true';
             content.setAttribute('aria-busy', 'true');
+            // htmx still dispatches on the original form after swapping it out of the dialog.
+            form.addEventListener('htmx:afterRequest', completed => {
+                finish(dialog, content, preview, completed.detail.xhr.status);
+            }, {once: true});
             Dialogs.openDialog(dialog.id);
         }
 
-        function afterRequest(event) {
-            if (!isBulkRequest(event)) return;
-            const dialog = document.getElementById('bulk-process-dialog');
-            if (!dialog) return;
+        function finish(dialog, content, preview, status) {
             dialog.dataset.busy = 'false';
-            const content = document.getElementById('bulk-content');
             content.setAttribute('aria-busy', 'false');
-            const status = event.detail.xhr && event.detail.xhr.status;
             if (status === 200 || status === 422) return;
             const message = document.createElement('p');
             message.className = 'status-line error';
-            message.textContent = event.detail.elt.hasAttribute('data-bulk-execute')
-                ? 'The operation outcome is unknown. The server may still be processing. Check the processes before starting another operation.'
-                : 'Could not prepare the selection. Close this dialog and try again.';
+            message.textContent = preview
+                ? 'Could not prepare the selection. Close this dialog and try again.'
+                : 'The operation outcome is unknown. The server may still be processing. Check the processes before starting another operation.';
             content.replaceChildren(message);
         }
 
@@ -175,7 +170,7 @@ const AdminUi = (() => {
             }
         }
 
-        return {beforeRequest, afterRequest, preventBusyClose, preventDuplicateSubmit};
+        return {beforeRequest, preventBusyClose, preventDuplicateSubmit};
     })();
 
     // hx-confirm asks through the styled #confirm-dialog instead of the browser confirm().
@@ -1099,7 +1094,6 @@ const AdminUi = (() => {
     }
 
     function handleHtmxAfterRequest(event) {
-        BulkOperations.afterRequest(event);
         const el = event.detail && event.detail.elt;
         if (!el) return;
 

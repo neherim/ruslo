@@ -13,6 +13,7 @@ import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.spi.Database;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -58,13 +59,21 @@ public class BulkProcessAdminService {
         return new BulkProcessSnapshot(normalized, Instant.now().toString(), processes);
     }
 
-    /** Возобновляет подтверждённые FAILED-процессы и возвращает частичный результат при остановке. */
+    /**
+     * Возобновляет подтверждённые FAILED-процессы и возвращает частичный результат при остановке.
+     *
+     * @throws IllegalArgumentException если вызов выполняется в активной Spring-транзакции
+     */
     public BulkProcessResult retry(BulkProcessSnapshot snapshot) {
         validate(snapshot, BulkProcessOperation.RETRY);
         return execute(BulkProcessOperation.RETRY, snapshot, null);
     }
 
-    /** Переводит подтверждённые процессы одного типа в состояние их определения. */
+    /**
+     * Переводит подтверждённые процессы одного типа в состояние их определения.
+     *
+     * @throws IllegalArgumentException если вызов выполняется в активной Spring-транзакции
+     */
     public BulkProcessResult changeState(BulkProcessSnapshot snapshot, String targetState) {
         validate(snapshot, BulkProcessOperation.CHANGE_STATE);
         var definition = admin.listProcessSpecifications()
@@ -86,6 +95,9 @@ public class BulkProcessAdminService {
             BulkProcessSnapshot snapshot,
             ProcessState target
     ) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalArgumentException("Bulk operations cannot run inside an active Spring transaction");
+        }
         var filter = snapshot.filter().forBulk();
         var skipped = new ArrayList<Skipped>();
         int succeeded = 0;

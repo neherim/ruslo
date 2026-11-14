@@ -10,6 +10,7 @@ import io.github.neherim.ruslo.core.spi.RowMapper;
 import io.github.neherim.ruslo.spring.integration.SpringJdbcDatabase;
 import org.junit.jupiter.api.*;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.time.Instant;
@@ -109,6 +110,25 @@ class BulkProcessAdminServiceTest {
         assertThat(status(unchanged)).isEqualTo(ProcessStatus.ACTIVE);
         assertThat(status(later)).isEqualTo(ProcessStatus.FAILED);
         assertThat(status(changedFilter)).isEqualTo(ProcessStatus.FAILED);
+    }
+
+    @Test
+    void rejectsBulkExecutionInsideSpringTransactionBeforeWriting() {
+        var id = failed();
+        var retry = ordered(List.of(id));
+        var move = service.prepare(BulkProcessOperation.CHANGE_STATE, filter(null));
+        var transaction = new TransactionTemplate(new DataSourceTransactionManager(database.getDataSource()));
+        database.resetCounts();
+
+        transaction.executeWithoutResult(status -> {
+            assertThatIllegalArgumentException().isThrownBy(() -> service.retry(retry))
+                .withMessageContaining("active Spring transaction");
+            assertThatIllegalArgumentException().isThrownBy(() -> service.changeState(move, State.NEXT.name()))
+                .withMessageContaining("active Spring transaction");
+        });
+
+        assertThat(database.updates).isZero();
+        assertThat(status(id)).isEqualTo(ProcessStatus.FAILED);
     }
 
     @Test
