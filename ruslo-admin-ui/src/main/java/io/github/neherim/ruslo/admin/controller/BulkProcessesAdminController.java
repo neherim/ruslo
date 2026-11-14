@@ -3,7 +3,6 @@ package io.github.neherim.ruslo.admin.controller;
 import io.github.neherim.ruslo.admin.dto.*;
 import io.github.neherim.ruslo.admin.service.BulkProcessAdminService;
 import io.github.neherim.ruslo.admin.service.ProcessEngineAdminService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -51,11 +50,10 @@ public class BulkProcessesAdminController {
     @PostMapping("/retry")
     public String retry(
             @RequestParam String snapshot,
-            HttpServletRequest request,
             HttpServletResponse response,
             Model model
     ) {
-        return execute(BulkProcessOperation.RETRY, snapshot, null, request, response, model);
+        return execute(BulkProcessOperation.RETRY, snapshot, null, response, model);
     }
 
     /** Переводит подтверждённый набор в выбранное состояние и возвращает подробный результат. */
@@ -63,11 +61,10 @@ public class BulkProcessesAdminController {
     public String state(
             @RequestParam String snapshot,
             @RequestParam String targetState,
-            HttpServletRequest request,
             HttpServletResponse response,
             Model model
     ) {
-        return execute(BulkProcessOperation.CHANGE_STATE, snapshot, targetState, request, response, model);
+        return execute(BulkProcessOperation.CHANGE_STATE, snapshot, targetState, response, model);
     }
 
     static String serialize(Object value) {
@@ -94,16 +91,14 @@ public class BulkProcessesAdminController {
             BulkProcessOperation operation,
             String json,
             @Nullable String state,
-            HttpServletRequest request,
             HttpServletResponse response,
             Model model
     ) {
-        var user = request.getUserPrincipal() == null ? "anonymous" : request.getUserPrincipal().getName();
         long started = System.nanoTime();
         try {
             var service = requireService();
             var snapshot = read(json, BulkProcessSnapshot.class);
-            log.info("Admin UI bulk action by {}: {}, target={}, filters={}, selected={}", user, operation, state,
+            log.info("Admin UI bulk action: {}, target={}, filters={}, selected={}", operation, state,
                     snapshot.filter().activeFilters(), snapshot.processes().size());
             var result = operation == BulkProcessOperation.RETRY
                     ? service.retry(snapshot)
@@ -115,11 +110,11 @@ public class BulkProcessesAdminController {
                     : result.skipped().isEmpty() ? "success" : "info";
             response.setHeader("HX-Trigger", HtmxResponseSupport.buildEventAndToastTrigger(
                     HtmxResponseSupport.PROCESS_LIST_CHANGED, kind, result.summary()));
-            log.info("Admin UI bulk action by {} finished: {}, {}, durationMs={}", user, operation, result.summary(),
+            log.info("Admin UI bulk action finished: {}, {}, durationMs={}", operation, result.summary(),
                     (System.nanoTime() - started) / 1_000_000);
             return "ruslo-admin/processes/bulk :: result";
         } catch (RuntimeException ex) {
-            log.warn("Admin UI bulk action by {} failed before execution: {}", user, operation, ex);
+            log.warn("Admin UI bulk action failed: {}", operation, ex);
             return invalid(response, model, ex);
         }
     }

@@ -84,7 +84,7 @@ class BulkProcessesAdminWebTest {
         var later = failed();
         new ProcessEngineAdmin(engine).moveProcessToState(first, OrderProcessDefinition.State.MANUAL_REVIEW);
 
-        mvc.perform(post("/ops/htmx/processes/bulk/retry").principal(() -> "operator")
+        mvc.perform(post("/ops/htmx/processes/bulk/retry")
             .param("snapshot", (String) prepared.getModelAndView().getModel().get("snapshotJson")))
             .andExpect(status().isOk())
             .andExpect(header().string("HX-Trigger", containsString("processListChanged")))
