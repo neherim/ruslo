@@ -35,7 +35,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
         assertEquals(now, process.getNextRunAt().orElseThrow());
         dao.insert(process);
 
-        process.enterState(State.WAIT);
+        process.changeState(State.WAIT);
         assertEquals(WorkerId.DEFAULT, process.getWorkerId().orElseThrow());
         assertEquals(now.plusSeconds(2), process.getAfterDueAt().orElseThrow());
         assertTrue(process.getEveryDueAt().isEmpty());
@@ -48,12 +48,12 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
                 restored.getMessages().convert(restored.getMessages().peekFirst().orElseThrow(), SIGNAL).payload());
 
         clock.setTime(now.plusSeconds(3));
-        restored.enterState(State.WAIT);
+        restored.changeState(State.WAIT);
         assertFalse(restored.getMessages().isEmpty());
         assertEquals(now.plusSeconds(2), restored.getAfterDueAt().orElseThrow());
         assertEquals(now.plusSeconds(1), restored.getNextRunAt().orElseThrow());
         clock.setTime(now.plusSeconds(4));
-        restored.enterState(State.DONE);
+        restored.changeState(State.DONE);
         assertEquals(ProcessStatus.COMPLETED, restored.getStatus());
         assertTrue(restored.getWorkerId().isEmpty());
         assertTrue(restored.getNextRunAt().isEmpty());

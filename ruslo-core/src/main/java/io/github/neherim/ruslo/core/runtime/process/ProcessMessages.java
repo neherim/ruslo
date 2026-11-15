@@ -28,12 +28,16 @@ public final class ProcessMessages {
         this.entries = entries;
     }
 
-    /** Creates an empty message queue. */
+    /**
+     * Creates an empty message queue.
+     */
     public static ProcessMessages empty() {
         return new ProcessMessages(new ArrayList<>());
     }
 
-    /** Reads queued messages, preserving decimal precision and scale in payloads. */
+    /**
+     * Reads queued messages, preserving decimal precision and scale in payloads.
+     */
     public static ProcessMessages fromString(String json) {
         if (json == null || json.isBlank()) throw new IllegalArgumentException("Messages JSON cannot be blank");
         List<PendingMessage> messages = JSON_READER.readValue(json);
@@ -57,7 +61,9 @@ public final class ProcessMessages {
         return entries.isEmpty() ? Optional.empty() : Optional.of(entries.getFirst());
     }
 
-    /** Returns and removes the first queued message. */
+    /**
+     * Returns and removes the first queued message.
+     */
     public PendingMessage takeFirst() {
         return entries.removeFirst();
     }

@@ -43,17 +43,23 @@ public final class ProcessEngineAdmin {
         this.processSearchService = processEngine.processSearchService();
     }
 
-    /** Returns the registered workers, the {@code DEFAULT} worker included. */
+    /**
+     * Returns the registered workers, the {@code DEFAULT} worker included.
+     */
     public Set<WorkerSpec> listWorkerSpecifications() {
         return workerRegistry.getAllWorkerSpecs();
     }
 
-    /** Returns the registered process definitions, in no particular order. */
+    /**
+     * Returns the registered process definitions, in no particular order.
+     */
     public List<ProcessSpecInfo> listProcessSpecifications() {
         return processDefinitionRegistry.getProcessDefinitions();
     }
 
-    /** Returns the number of {@code ACTIVE} and {@code FAILED} processes. */
+    /**
+     * Returns the number of {@code ACTIVE} and {@code FAILED} processes.
+     */
     public long countIncompleteProcesses() {
         return processRuntimeService.countIncompleteProcesses();
     }
@@ -79,9 +85,7 @@ public final class ProcessEngineAdmin {
     /**
      * Moves the process to {@code state} as a regular transition: the process becomes {@code ACTIVE} (also from
      * {@code FAILED}), the error is cleared, and the dispatcher continues. A move to another state clears the message
-     * queue; entering a terminal state completes the process. A move to the current state is not a state change
-     * (see {@link io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder}): the queue and timers are kept, and
-     * the step or the due await event runs again.
+     * queue; entering a terminal state completes the process.
      *
      * @throws ProcessStatusException           if the process is completed
      * @throws UnsupportedProcessStateException if the process definition does not declare {@code state}

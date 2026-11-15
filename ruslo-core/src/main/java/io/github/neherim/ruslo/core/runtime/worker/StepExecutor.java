@@ -74,7 +74,7 @@ public class StepExecutor {
             var outcome = invokeHandler(() -> event.handler().apply(context, message));
             var target = resolveTargetState(event.exit(), outcome, process);
             if (!process.getState().equals(target)) {
-                process.enterState(target);
+                process.changeState(target);
             }
             recordStepExecuted(process, executedState, startedAtNanos);
         } catch (HandlerException ex) {
@@ -88,7 +88,7 @@ public class StepExecutor {
         var context = new DefaultProcessContext(process);
         var outcome = invokeHandler(() -> stepStateSpec.step().apply(context));
         var target = resolveTargetState(stepStateSpec.exit(), outcome, process);
-        process.enterState(target);
+        process.changeState(target);
         return true;
     }
 
@@ -110,7 +110,7 @@ public class StepExecutor {
             case AFTER -> executeAfterEvent(process, context, awaitStateSpec.after());
             case AT -> executeAtEvent(process, context, awaitStateSpec.at());
         };
-        process.enterState(target);
+        process.changeState(target);
         return true;
     }
 

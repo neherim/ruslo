@@ -1,28 +1,17 @@
 package io.github.neherim.ruslo.core.api.test;
 
-import io.github.neherim.ruslo.core.api.definition.ProcessContext;
-import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.definition.ProcessType;
-import io.github.neherim.ruslo.core.api.definition.TimerType;
-import io.github.neherim.ruslo.core.api.definition.VariableType;
+import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.runtime.process.ProcessTimers;
 import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * {@link io.github.neherim.ruslo.core.api.definition.ProcessContext} for unit tests of handlers, without an engine
- * or database. Variables use the engine's built-in JSON configuration, so a test catches non-serializable values and
- * object changes made without {@code setVariable}. Timer moments are truncated to microseconds like in the engine;
- * the context knows no definition, so timer names are not checked against its {@code at} events.
+ * or database.
  */
 public final class TestProcessContext implements ProcessContext {
     private final UUID processId;
@@ -48,7 +37,9 @@ public final class TestProcessContext implements ProcessContext {
         builder.timers.forEach(timers::set);
     }
 
-    /** Returns a context with {@link #builder()} defaults. */
+    /**
+     * Returns a context with {@link #builder()} defaults.
+     */
     public static TestProcessContext create() {
         return builder().build();
     }
@@ -61,12 +52,16 @@ public final class TestProcessContext implements ProcessContext {
         return new Builder();
     }
 
-    /** Returns the immutable set of variable names, e.g. to check that a step wrote nothing extra. */
+    /**
+     * Returns the immutable set of variable names, e.g. to check that a step wrote nothing extra.
+     */
     public Set<String> variableNames() {
         return variables.asMap().keySet();
     }
 
-    /** Returns the immutable map of timer name to moment, e.g. to check which timers a handler set. */
+    /**
+     * Returns the immutable map of timer name to moment, e.g. to check which timers a handler set.
+     */
     public Map<String, Instant> timers() {
         return timers.asMap();
     }
@@ -170,7 +165,9 @@ public final class TestProcessContext implements ProcessContext {
             return this;
         }
 
-        /** Sets {@link #attempt()}: {@code 0} for the first execution, then the retry number. */
+        /**
+         * Sets {@link #attempt()}: {@code 0} for the first execution, then the retry number.
+         */
         public Builder attempt(int attempt) {
             if (attempt < 0) {
                 throw new IllegalArgumentException("Attempt must not be negative");
@@ -184,19 +181,25 @@ public final class TestProcessContext implements ProcessContext {
             return this;
         }
 
-        /** Fixes {@link #now()} at {@code now}. */
+        /**
+         * Fixes {@link #now()} at {@code now}.
+         */
         public Builder now(Instant now) {
             this.clock = Clock.fixed(Objects.requireNonNull(now, "Now must not be null"), ZoneOffset.UTC);
             return this;
         }
 
-        /** Adds an initial variable, serialized to JSON by {@link #build()}. */
+        /**
+         * Adds an initial variable, serialized to JSON by {@link #build()}.
+         */
         public <T> Builder variable(VariableType<T> type, T value) {
             this.variables.put(Objects.requireNonNull(type, "Variable type must not be null").name(), value);
             return this;
         }
 
-        /** Sets an initial timer, truncated to microseconds by {@link #build()}. */
+        /**
+         * Sets an initial timer, truncated to microseconds by {@link #build()}.
+         */
         public Builder timer(TimerType timer, Instant moment) {
             this.timers.put(Objects.requireNonNull(timer, "Timer type must not be null").name(),
                     Objects.requireNonNull(moment, "Timer moment must not be null"));

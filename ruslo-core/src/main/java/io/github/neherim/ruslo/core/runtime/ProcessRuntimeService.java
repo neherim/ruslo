@@ -104,7 +104,7 @@ public class ProcessRuntimeService {
     public void moveToState(UUID processId, ProcessState processState) {
         database.doInTransaction(() -> {
             var process = findProcessWithLock(processId);
-            process.enterState(processState);
+            process.changeState(processState);
             processInstanceDao.update(process);
             database.doAfterCommit(dispatchSignal::wakeUp);
         });

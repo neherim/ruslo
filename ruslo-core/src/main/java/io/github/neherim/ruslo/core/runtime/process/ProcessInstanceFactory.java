@@ -62,7 +62,7 @@ public class ProcessInstanceFactory {
      */
     public ProcessInstance newInstance(
             ProcessType type,
-            Instant startDate,
+            Instant nextRunAt,
             @Nullable String businessKey,
             String correlationId,
             Map<String, Object> variables,
@@ -79,6 +79,6 @@ public class ProcessInstanceFactory {
 
         return ProcessInstance.createNew(id, businessKey, spec,
                 processVariables, processTimers, ProcessMessages.empty(),
-                correlationId, startDate, clock);
+                correlationId, nextRunAt, clock);
     }
 }

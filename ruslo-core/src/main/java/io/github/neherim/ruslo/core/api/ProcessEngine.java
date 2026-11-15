@@ -5,7 +5,6 @@ import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
-import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.view.ProcessQuery;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
@@ -19,19 +18,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
-import java.util.Collection;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
  * Engine entry point: lifecycle, process start, message delivery and search.
- * <p>
- * Operations join the caller's transaction if one is open. An exception means an error and rolls that
- * transaction back. A rejection caused by concurrent process state ({@link MessageNotExpectedException},
- * {@link ProcessStatusException}) is thrown after the engine's transaction completes, so catching it does not
- * mark the caller's transaction rollback-only.
- * <p>
- * Operations that take a process id throw {@link ProcessNotFoundException} if no such process exists.
+ * Operations join the caller's transaction if one is open.
  */
 public class ProcessEngine implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(ProcessEngine.class);
@@ -139,18 +130,6 @@ public class ProcessEngine implements AutoCloseable {
         return this;
     }
 
-    /**
-     * Registers definitions in iteration order.
-     *
-     * @return this engine
-     * @see #registerDefinition(ProcessDefinition)
-     */
-    public ProcessEngine registerDefinitions(Collection<? extends ProcessDefinition> processDefinitions) {
-        Objects.requireNonNull(processDefinitions, "ProcessDefinitions must not be null")
-            .forEach(this::registerDefinition);
-        return this;
-    }
-
     private void requireStarted() {
         if (!started) {
             throw new IllegalStateException("Process engine is not started");
@@ -169,7 +148,7 @@ public class ProcessEngine implements AutoCloseable {
 
     /**
      * Resumes a {@code FAILED} process: resets the attempt counter and error, so the failed step or await
-     * event runs again. Returns once the change is stored; the step runs later on the dispatcher.
+     * event runs again.
      *
      * @throws ProcessStatusException if the process is not {@code FAILED}, e.g. already resumed or completed
      * @throws IllegalStateException  if the engine is not started
@@ -180,11 +159,9 @@ public class ProcessEngine implements AutoCloseable {
     }
 
     /**
-     * Queues the message for the current await; the dispatcher handles it after commit. A {@code FAILED}
-     * process also accepts it; the message is handled after {@link #resumeFailedProcess(UUID)}.
+     * Queues the message for the current await; the dispatcher handles it after commit.
      * <p>
-     * Returning means the message is stored, not that it will be handled: an admin transition may close
-     * the await and drop the queue. Senders of early external replies need redelivery, e.g. an outbox.
+     * Returning means the message is stored, not that it will be handled.
      *
      * @throws MessageNotExpectedException if the current state does not await this type or the process is completed
      * @throws IllegalArgumentException    if no await of the process declares this type
@@ -196,10 +173,9 @@ public class ProcessEngine implements AutoCloseable {
     }
 
     /**
-     * Runs the message handler in the calling thread, in the caller's transaction or a new one; other operations
-     * on the process wait until that transaction ends. Subsequent steps run on the dispatcher after commit.
+     * Runs the message handler in the calling thread, in the caller's transaction or a new one.
      * <p>
-     * The message bypasses the queue: earlier messages and due {@code every}, {@code after} and {@code at} events
+     * The message bypasses the queue: earlier messages, {@code every}, {@code after} and {@code at} events
      * are ignored, and a transition to another state drops the queued messages unhandled. If the handler keeps the
      * process in the await, a pending retry of a failed event is kept.
      * <p>

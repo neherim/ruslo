@@ -127,9 +127,11 @@ public class StepErrorHandler {
             case ErrorResult.Fail ignored -> markFailed(process, error);
             case ErrorResult.GiveUp ignored -> {
                 var giveUpState = process.getProcessSpec().getGiveUpState().orElse(null);
-                if (giveUpState != null && !process.getState().equals(giveUpState)) process.enterState(giveUpState);
-                else
+                if (giveUpState != null && !process.getState().equals(giveUpState)) {
+                    process.changeState(giveUpState);
+                } else {
                     markFailed(process, error);
+                }
             }
         }
     }

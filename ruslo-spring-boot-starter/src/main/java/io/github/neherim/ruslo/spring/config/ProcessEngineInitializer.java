@@ -53,7 +53,7 @@ public class ProcessEngineInitializer implements SmartLifecycle {
             return;
         }
         if (processDefinitions != null && !definitionsRegistered) {
-            processEngine.registerDefinitions(processDefinitions.orderedStream().toList());
+            processDefinitions.stream().forEach(processEngine::registerDefinition);
             definitionsRegistered = true;
         }
         processEngine.start();

@@ -62,11 +62,11 @@ public final class ProcessInstance {
             ProcessTimers timers,
             ProcessMessages messages,
             String correlationId,
-            Instant startAt,
+            Instant nextRunAt,
             Clock clock
     ) {
         var process = new ProcessInstance(id, businessKey, spec, variables, timers, messages, correlationId, clock);
-        process.enterStateAt(spec.getInitialState(), startAt);
+        process.changeState(spec.getInitialState(), nextRunAt);
         return process;
     }
 
@@ -103,24 +103,24 @@ public final class ProcessInstance {
      * a state change: the message queue, the await timers and the history are kept, the error is cleared, a step
      * runs again and an await keeps waiting.
      */
-    public void enterState(ProcessState target) {
-        enterStateAt(target, clock.instant());
+    public void changeState(ProcessState target) {
+        changeState(target, clock.instant());
     }
 
-    private void enterStateAt(ProcessState target, Instant now) {
+    private void changeState(ProcessState target, Instant now) {
         Objects.requireNonNull(target);
         if (status == ProcessStatus.COMPLETED) {
             throw new ProcessStatusException(id, status, "a completed process cannot change state");
         }
-        var targetId = target.id();
-        var targetStateSpec = spec.getStateSpec(targetId);
-        if (state != null && state.equals(targetId)) {
+        var targetStateId = target.id();
+        var targetStateSpec = spec.getStateSpec(targetStateId);
+        if (state != null && state.equals(targetStateId)) {
             activateCurrentState(now);
             return;
         }
         messages.clear();
-        state = targetId;
-        pendingHistory.add(new ProcessStateHist(targetId, now));
+        state = targetStateId;
+        pendingHistory.add(new ProcessStateHist(targetStateId, now));
         resetAttemptsAndError();
         everyDueAt = null;
         afterDueAt = null;
@@ -158,7 +158,9 @@ public final class ProcessInstance {
      */
     public void appendMessage(MessageEvent<?> event, Object payload, Instant receivedAt) {
         messages.append(event.type(), payload, receivedAt);
-        if (status == ProcessStatus.ACTIVE && !hasFailedAttempt()) updateAwaitNextRunAt();
+        if (status == ProcessStatus.ACTIVE && !hasFailedAttempt()) {
+            updateAwaitNextRunAt();
+        }
     }
 
     /**
@@ -204,9 +206,11 @@ public final class ProcessInstance {
     private void activateCurrentState(Instant now) {
         status = ProcessStatus.ACTIVE;
         resetAttemptsAndError();
-        if (getCurrentStateSpec() instanceof StepState) nextRunAt = now;
-        else
+        if (getCurrentStateSpec() instanceof StepState) {
+            nextRunAt = now;
+        } else {
             updateAwaitNextRunAt();
+        }
     }
 
     /**
@@ -235,7 +239,9 @@ public final class ProcessInstance {
      * @return {@code false} if the process is not {@code FAILED}; it is then unchanged
      */
     public boolean resume() {
-        if (status != ProcessStatus.FAILED) return false;
+        if (status != ProcessStatus.FAILED) {
+            return false;
+        }
         activateCurrentState(clock.instant());
         return true;
     }

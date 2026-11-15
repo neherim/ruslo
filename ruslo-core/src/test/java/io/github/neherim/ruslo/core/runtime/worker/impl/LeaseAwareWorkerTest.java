@@ -355,7 +355,7 @@ class LeaseAwareWorkerTest extends BaseTest {
                 database.doInTransaction(() -> {
                     var changed = fixture.dao().findWithLockById(process.getId()).orElseThrow();
                     changed.setVariable("fresh", true);
-                    if (completeProcess) changed.enterState(TestState.DONE);
+                    if (completeProcess) changed.changeState(TestState.DONE);
                     fixture.dao().update(changed);
                 });
                 assertEquals(lease.ownerId(), storedOwner(process.getId()));
