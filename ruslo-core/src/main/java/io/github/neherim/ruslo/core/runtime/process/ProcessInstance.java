@@ -60,17 +60,17 @@ public final class ProcessInstance {
             ProcessSpec spec,
             ProcessVariables variables,
             ProcessTimers timers,
-            ProcessMessages messages,
             String correlationId,
             Instant nextRunAt,
             Clock clock
     ) {
-        var process = new ProcessInstance(id, businessKey, spec, variables, timers, messages, correlationId, clock);
+        var process = new ProcessInstance(id, businessKey, spec, variables, timers, ProcessMessages.empty(),
+                correlationId, clock);
         process.changeState(spec.getInitialState(), nextRunAt);
         return process;
     }
 
-    public static ProcessInstance loadFromStorage(
+    static ProcessInstance loadFromStorage(
             UUID id,
             String businessKey,
             ProcessSpec spec,
@@ -132,59 +132,75 @@ public final class ProcessInstance {
     }
 
     /**
-     * Returns the current await's event for this message type. Empty if the current state does not await it,
-     * including a completed process: a terminal state awaits no messages. Status is ignored: a {@code FAILED}
-     * process still awaits the messages of its await.
-     */
-    public Optional<MessageEvent<?>> expectedMessageEvent(MessageType<?> type) {
-        return spec.getMessageEvent(type, state);
-    }
-
-    /**
      * Queues the message for the current await and updates its next run, subject to {@link #hasFailedAttempt()}.
-     * The event comes from {@link #expectedMessageEvent}, so the current state awaits it. A
-     * {@code FAILED} process only queues the message; it is handled after resume.
+     * The caller checks with {@link ProcessSpec#getMessageEvent(MessageType, ProcessState)} that the current
+     * state awaits the type. A {@code FAILED} process only queues the message; it is handled after resume.
      */
-    public void appendMessage(MessageEvent<?> event, Object payload, Instant receivedAt) {
-        messages.append(event.type(), payload, receivedAt);
+    public <T> void appendMessage(MessageType<T> type, T payload) {
+        messages.append(type, payload, clock.instant());
         updateNextRunAt();
     }
 
     /**
-     * Returns the kind of the earliest due await event; on a tie message, {@code every}, {@code after}, {@code at}.
+     * Selects the earliest due await event and prepares its timer without moving the next run; on a tie message,
+     * {@code every}, {@code after}, {@code at}. Moves {@code every} to the first grid point after now, skipping
+     * missed points, or disables {@code after}. Leaves {@code at} set for its handler to read or change.
+     * A handler failure discards the timer changes with the process instance.
      *
      * @return empty if no event is due
      */
-    public Optional<AwaitEventKind> findDueAwaitEventKind() {
+    public Optional<AwaitEventKind> prepareDueAwaitEvent() {
         var now = clock.instant();
-        return findEarliestAwaitEvent()
+        var kind = findEarliestAwaitEvent()
             .filter(event -> !event.dueAt().isAfter(now))
             .map(ScheduledAwaitEvent::kind);
+        kind.ifPresent(event -> {
+            switch (event) {
+                case EVERY -> {
+                    var interval = currentAwait().every().interval().period();
+                    var elapsedPeriods = Duration.between(everyDueAt, now).dividedBy(interval);
+                    everyDueAt = everyDueAt.plus(interval.multipliedBy(elapsedPeriods + 1));
+                }
+                case AFTER -> afterDueAt = null;
+                case MESSAGE, AT -> {
+                }
+            }
+        });
+        return kind;
     }
 
     /**
-     * Moves the due {@code every} to the first grid point after now before its handler runs, without moving the
-     * next run; missed points are skipped. A handler failure discards the change with the process instance.
+     * Returns and removes the selected await's queued message without moving the next run; a handler failure
+     * discards the change with the process instance.
      */
-    public void advanceEveryTimer() {
-        var interval = currentAwait().every().interval().period();
-        var elapsedPeriods = Duration.between(everyDueAt, clock.instant()).dividedBy(interval);
-        everyDueAt = everyDueAt.plus(interval.multipliedBy(elapsedPeriods + 1));
+    public ProcessMessages.PendingMessage takeMessage() {
+        return messages.takeFirst();
     }
 
     /**
-     * Disables {@code after} before its handler runs, without moving the next run; a handler failure discards the
-     * change with the process instance.
+     * Applies the error result: schedules a retry, stops in {@code FAILED}, or enters the definition's give-up
+     * state. Giving up without a target or in the give-up state stops in {@code FAILED}.
      */
-    public void disableAfterTimer() {
-        afterDueAt = null;
+    public void applyErrorResult(ErrorResult result, String error) {
+        switch (result) {
+            case ErrorResult.RetryAfter retry -> scheduleRetryAfter(retry.delay(), error);
+            case ErrorResult.Fail ignored -> markFailed(error);
+            case ErrorResult.GiveUp ignored -> {
+                var giveUpState = spec.getGiveUpState().orElse(null);
+                if (giveUpState != null && !state.equals(giveUpState)) {
+                    changeState(giveUpState);
+                } else {
+                    markFailed(error);
+                }
+            }
+        }
     }
 
     /**
      * Schedules the step or await to run again after {@code delay} of engine time and records a failed attempt,
      * see {@link #hasFailedAttempt()}.
      */
-    public void scheduleRetryAfter(Duration delay, String error) {
+    private void scheduleRetryAfter(Duration delay, String error) {
         nextRunAt = clock.instant().plus(delay);
         failedAttempts++;
         lastError = Objects.requireNonNull(error);
@@ -193,7 +209,7 @@ public final class ProcessInstance {
     /**
      * Stops the process in {@code FAILED} after an error, keeping the failed step or event.
      */
-    public void markFailed(String error) {
+    private void markFailed(String error) {
         failedAttempts++;
         lastError = Objects.requireNonNull(error);
         status = ProcessStatus.FAILED;
@@ -270,12 +286,13 @@ public final class ProcessInstance {
      * Returns whether the process has failed attempts that have not been cleared, including in {@code FAILED}
      * and after the retry time has passed. While {@code ACTIVE}, messages and timer changes preserve the scheduled
      * retry time until the attempts are cleared. An await selects its event by the usual rule when it runs,
-     * see {@link #findDueAwaitEventKind()}.
+     * see {@link #prepareDueAwaitEvent()}.
      */
-    public boolean hasFailedAttempt() {
+    private boolean hasFailedAttempt() {
         return failedAttempts > 0;
     }
 
+    /** Returns whether the active process has a scheduled run that is due. */
     public boolean isTimeToExecute() {
         return status == ProcessStatus.ACTIVE && nextRunAt != null && !nextRunAt.isAfter(clock.instant());
     }
@@ -288,15 +305,11 @@ public final class ProcessInstance {
         return spec;
     }
 
-    public ProcessErrorHandler getProcessErrorHandler() {
-        return spec.getProcessErrorHandler();
-    }
-
     public UUID getId() {
         return id;
     }
 
-    public Optional<String> getBusinessKey() {
+    Optional<String> getBusinessKey() {
         return Optional.ofNullable(businessKey);
     }
 
@@ -322,7 +335,7 @@ public final class ProcessInstance {
     /**
      * Returns the type as declared in the definition, for the public API.
      */
-    public ProcessType getDeclaredType() {
+    ProcessType getDeclaredType() {
         return spec.declaredType();
     }
 
@@ -337,42 +350,48 @@ public final class ProcessInstance {
     /**
      * Returns the current time of the engine clock.
      */
-    public Instant now() {
+    Instant now() {
         return clock.instant();
     }
 
-    public ProcessVariables getVariables() {
+    ProcessVariables getVariables() {
         return variables;
     }
 
-    public <T> Optional<T> findVariable(String name, Class<T> clazz) {
-        return variables.findVariable(name, clazz);
+    /** Returns the variable converted to the requested class, or empty if absent or set to JSON {@code null}. */
+    public <T> Optional<T> findVariable(VariableType<T> type) {
+        return variables.findVariable(type.name(), type.clazz());
     }
 
-    public void setVariable(String name, Object value) {
-        variables.setVariable(name, value);
+    /** Sets the process variable. */
+    public <T> void setVariable(VariableType<T> type, T value) {
+        variables.setVariable(type.name(), value);
     }
 
+    /** Removes the process variable, returning whether it was set. */
     public boolean removeVariable(String name) {
         return variables.removeVariable(name);
     }
 
-    public ProcessTimers getTimers() {
+    ProcessTimers getTimers() {
         return timers;
     }
 
     /**
      * Sets the process timer, truncated to microseconds. If the current await waits for it, the next run is updated
-     * subject to {@link #hasFailedAttempt()}; a {@code FAILED} process keeps its next run unset. Whether an {@code at}
-     * declares the timer is checked by the caller.
+     * subject to {@link #hasFailedAttempt()}; a {@code FAILED} process keeps its next run unset.
+     *
+     * @throws IllegalArgumentException if no {@code at} of the process uses the timer
      */
     public void setTimer(TimerType timer, Instant moment) {
+        spec.checkTimerDeclared(timer);
         timers.set(timer.name(), moment);
         updateNextRunAt();
     }
 
     /**
-     * Cancels the process timer; the next run is updated as in {@link #setTimer}.
+     * Cancels the process timer, including one no longer declared by the definition; the next run is updated as
+     * in {@link #setTimer}.
      *
      * @return {@code true} if the timer was set
      */
@@ -386,15 +405,15 @@ public final class ProcessInstance {
         return timers.get(timer.name());
     }
 
-    public ProcessMessages getMessages() {
+    ProcessMessages getMessages() {
         return messages;
     }
 
-    public int getFailedAttempts() {
+    int getFailedAttempts() {
         return failedAttempts;
     }
 
-    public Optional<String> getLastError() {
+    Optional<String> getLastError() {
         return Optional.ofNullable(lastError);
     }
 
@@ -402,11 +421,11 @@ public final class ProcessInstance {
         return Optional.ofNullable(nextRunAt);
     }
 
-    public Optional<Instant> getEveryDueAt() {
+    Optional<Instant> getEveryDueAt() {
         return Optional.ofNullable(everyDueAt);
     }
 
-    public Optional<Instant> getAfterDueAt() {
+    Optional<Instant> getAfterDueAt() {
         return Optional.ofNullable(afterDueAt);
     }
 
@@ -421,6 +440,7 @@ public final class ProcessInstance {
         });
     }
 
+    /** Returns whether the current state runs on the worker. */
     public boolean hasWorker(WorkerId workerId) {
         return getWorkerId().filter(w -> w.equals(workerId)).isPresent();
     }

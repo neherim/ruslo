@@ -7,6 +7,7 @@ import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.DefaultProcessContext;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
+import io.github.neherim.ruslo.core.runtime.process.ProcessMessages;
 import io.github.neherim.ruslo.core.runtime.process.ProcessMessages.PendingMessage;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import org.slf4j.Logger;
@@ -97,7 +98,7 @@ public class StepExecutor {
      * the previous error, e.g. after a manual change of {@code next_run_at}.
      */
     private boolean executeAwait(ProcessInstance process, AwaitState awaitStateSpec) {
-        var eventKind = process.findDueAwaitEventKind().orElse(null);
+        var eventKind = process.prepareDueAwaitEvent().orElse(null);
         if (eventKind == null) {
             process.changeState(process.getState());
             return false;
@@ -105,7 +106,7 @@ public class StepExecutor {
         log.debug("Starting event {} in {}", eventKind, process.getState().name());
         var context = new DefaultProcessContext(process);
         var target = switch (eventKind) {
-            case MESSAGE -> executeQueuedMessage(process, context, process.getMessages().takeFirst());
+            case MESSAGE -> executeQueuedMessage(process, context, process.takeMessage());
             case EVERY -> executeEveryEvent(process, context, awaitStateSpec.every());
             case AFTER -> executeAfterEvent(process, context, awaitStateSpec.after());
             case AT -> executeAtEvent(process, context, awaitStateSpec.at());
@@ -115,13 +116,11 @@ public class StepExecutor {
     }
 
     private static ProcessStateId executeEveryEvent(ProcessInstance process, ProcessContext context, EveryEvent every) {
-        process.advanceEveryTimer();
         var outcome = invokeHandler(() -> every.handler().apply(context));
         return resolveTargetState(every.exit(), outcome, process);
     }
 
     private static ProcessStateId executeAfterEvent(ProcessInstance process, ProcessContext context, AfterEvent after) {
-        process.disableAfterTimer();
         var outcome = invokeHandler(() -> after.handler().apply(context));
         return resolveTargetState(after.exit(), outcome, process);
     }
@@ -165,7 +164,7 @@ public class StepExecutor {
             MessageEvent<T> event,
             PendingMessage pendingMessage
     ) {
-        var message = process.getMessages().convert(pendingMessage, event.type());
+        var message = ProcessMessages.convert(pendingMessage, event.type());
         var outcome = invokeHandler(() -> event.handler().apply(context, message));
         return resolveTargetState(event.exit(), outcome, process);
     }

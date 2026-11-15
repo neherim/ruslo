@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -33,11 +32,11 @@ public class StepErrorHandler {
     private final ProcessEngineMetrics metrics;
 
     public StepErrorHandler(
-            Clock clock,
-            Database database,
-            ProcessInstanceDao processInstanceDao,
-            ProcessMdc processMdc,
-            ProcessEngineMetrics metrics
+        Clock clock,
+        Database database,
+        ProcessInstanceDao processInstanceDao,
+        ProcessMdc processMdc,
+        ProcessEngineMetrics metrics
     ) {
         this.clock = clock;
         this.database = database;
@@ -115,38 +114,29 @@ public class StepErrorHandler {
         var error = formatLastError(cause);
         ErrorResult result;
         try {
-            result = Objects.requireNonNull(process.getProcessErrorHandler()
-                .handle(new DefaultProcessContext(process), cause),
-                    "Process error handler returned null");
+            result = process.getProcessSpec()
+                .getProcessErrorHandler()
+                .handle(new DefaultProcessContext(process), cause);
+
+            if (result == null) {
+                throw new IllegalStateException("Process error handler returned null");
+            }
         } catch (RuntimeException ex) {
             log.error("Process error handler failed", ex);
             result = ErrorResult.retryAfter(SYSTEM_RETRY_DELAY);
         }
-        switch (result) {
-            case ErrorResult.RetryAfter retry -> process.scheduleRetryAfter(retry.delay(), error);
-            case ErrorResult.Fail ignored -> markFailed(process, error);
-            case ErrorResult.GiveUp ignored -> {
-                var giveUpState = process.getProcessSpec().getGiveUpState().orElse(null);
-                if (giveUpState != null && !process.getState().equals(giveUpState)) {
-                    process.changeState(giveUpState);
-                } else {
-                    markFailed(process, error);
-                }
-            }
+        process.applyErrorResult(result, error);
+        if (process.getStatus() == ProcessStatus.FAILED) {
+            database.doAfterCommit(() -> metrics.recordProcessFailed(process.getType()));
         }
-    }
-
-    private void markFailed(ProcessInstance process, String error) {
-        process.markFailed(error);
-        database.doAfterCommit(() -> metrics.recordProcessFailed(process.getType()));
     }
 
     private String formatLastError(Throwable ex) {
         var className = ex.getClass().getSimpleName();
         var message = ex.getMessage();
         var value = message == null || message.isBlank()
-                ? className
-                : className + ": " + message;
+            ? className
+            : className + ": " + message;
         if (value.length() <= MAX_LAST_ERROR_LENGTH) {
             return value;
         }

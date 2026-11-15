@@ -35,12 +35,12 @@ public class DefaultProcessContext implements ProcessContext {
 
     @Override
     public <T> Optional<T> findVariable(VariableType<T> type) {
-        return processInstance.findVariable(type.name(), type.clazz());
+        return processInstance.findVariable(type);
     }
 
     @Override
     public <T> void setVariable(VariableType<T> type, T value) {
-        processInstance.setVariable(type.name(), value);
+        processInstance.setVariable(type, value);
     }
 
     @Override
@@ -50,7 +50,6 @@ public class DefaultProcessContext implements ProcessContext {
 
     @Override
     public void setTimer(TimerType timer, Instant moment) {
-        processInstance.getProcessSpec().checkTimerDeclared(timer);
         processInstance.setTimer(timer, moment);
     }
 

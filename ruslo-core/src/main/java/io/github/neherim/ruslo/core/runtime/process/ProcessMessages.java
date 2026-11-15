@@ -49,7 +49,8 @@ public final class ProcessMessages {
         return DEFAULT_OBJECT_MAPPER.writeValueAsString(entries);
     }
 
-    public void append(MessageType<?> type, Object payload, Instant receivedAt) {
+    /** Queues the payload with its message type and reception time. */
+    public <T> void append(MessageType<T> type, T payload, Instant receivedAt) {
         Objects.requireNonNull(type);
         Objects.requireNonNull(receivedAt);
         var tree = DEFAULT_OBJECT_MAPPER.valueToTree(payload);
@@ -80,7 +81,8 @@ public final class ProcessMessages {
         return peekFirst().map(PendingMessage::receivedAt);
     }
 
-    public <T> IncomingMessage<T> convert(PendingMessage entry, MessageType<T> type) {
+    /** Converts the queued payload to the declared message class. */
+    public static <T> IncomingMessage<T> convert(PendingMessage entry, MessageType<T> type) {
         if (!entry.type().equals(type.name())) throw new IllegalArgumentException("Message type mismatch");
         T payload = entry.payload() == null || entry.payload().isNull()
                 ? null
@@ -88,7 +90,8 @@ public final class ProcessMessages {
         return new IncomingMessage<>(type, payload, entry.receivedAt());
     }
 
-    public Object normalizePayload(Object payload, Class<?> payloadClass) {
+    /** Converts a JSON-compatible payload to the declared message class. */
+    public static <T> T normalizePayload(Object payload, Class<T> payloadClass) {
         if (payload == null) return null;
         return DEFAULT_OBJECT_MAPPER.treeToValue(DEFAULT_OBJECT_MAPPER.valueToTree(payload), payloadClass);
     }

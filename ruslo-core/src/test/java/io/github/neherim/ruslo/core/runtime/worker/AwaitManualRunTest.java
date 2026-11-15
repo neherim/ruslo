@@ -23,15 +23,15 @@ class AwaitManualRunTest extends BaseTest {
         var fixture = WorkerTestFixture.with(database, definition);
         var process = fixture.insertNewProcess(ProcessType.of("MANUAL_RUN"), "correlation");
         // The database rounds the clock's nanoseconds, so the deadline is taken as stored.
-        var deadline = fixture.dao().findById(process.getId()).orElseThrow().getAfterDueAt().orElseThrow();
+        var deadline = fixture.details(process.getId()).nextRunAt().orElseThrow();
 
         fixture.transactionalWorker().tryExecute(fixture.task(process));
 
-        var stored = fixture.dao().findById(process.getId()).orElseThrow();
-        assertEquals("WAIT", stored.getState().name());
-        assertEquals(0, stored.getFailedAttempts());
-        assertTrue(stored.getLastError().isEmpty());
-        assertEquals(deadline, stored.getNextRunAt().orElseThrow());
+        var stored = fixture.details(process.getId());
+        assertEquals("WAIT", stored.state().name());
+        assertEquals(0, stored.attempt());
+        assertTrue(stored.lastError().isEmpty());
+        assertEquals(deadline, stored.nextRunAt().orElseThrow());
         assertEquals(1L, database.queryForObject(
                 "select count(*) from xs_process_state_hist where link_process_instance = ?",
                 rs -> rs.getLong(1), process.getId())

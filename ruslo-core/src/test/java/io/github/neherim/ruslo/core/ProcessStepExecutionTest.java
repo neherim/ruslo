@@ -7,6 +7,8 @@ import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -15,6 +17,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -149,8 +152,9 @@ class ProcessStepExecutionTest extends BaseTest {
         }
     }
 
-    @Test
-    void queuedMessagesKeepNestedDecimalValuesAcrossQueueUpdates() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void queuedMessagesKeepNestedDecimalValuesAcrossQueueUpdates(boolean administrative) {
         record Payment(BigDecimal amount, List<BigDecimal> parts) {
         }
         var type = MessageType.of("PAYMENT", Payment.class);
@@ -168,8 +172,14 @@ class ProcessStepExecutionTest extends BaseTest {
 
         try (var engine = newProcessEngineWith(definition)) {
             var id = engine.newProcess(ProcessType.of("DECIMAL_QUEUE")).start();
-            for (var payment : payments)
-                engine.sendMessage(id, type, payment);
+            for (var payment : payments) {
+                if (administrative) {
+                    new ProcessEngineAdmin(engine).sendMessage(id, type.name(),
+                            Map.of("amount", payment.amount(), "parts", payment.parts()));
+                } else {
+                    engine.sendMessage(id, type, payment);
+                }
+            }
 
             emulator(engine).runUntilStop(id);
 
@@ -520,9 +530,12 @@ class ProcessStepExecutionTest extends BaseTest {
             assertThrows(IllegalArgumentException.class,
                     () -> engine.sendMessage(id, MessageType.of("SIGNAL", Integer.class), 1));
             engine.sendMessage(id, SIGNAL, null);
+            new ProcessEngineAdmin(engine).sendMessage(id, SIGNAL.name(), null);
             emulator(engine).runOneStep(id);
-            assertEquals(1, received.size());
+            emulator(engine).runOneStep(id);
+            assertEquals(2, received.size());
             assertNull(received.getFirst());
+            assertNull(received.getLast());
         } finally {
             engine.close();
         }

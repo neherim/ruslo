@@ -78,7 +78,7 @@ public class ProcessInstanceFactory {
         });
 
         return ProcessInstance.createNew(id, businessKey, spec,
-                processVariables, processTimers, ProcessMessages.empty(),
+                processVariables, processTimers,
                 correlationId, nextRunAt, clock);
     }
 }

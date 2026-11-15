@@ -12,6 +12,7 @@ import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceDao;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceFactory;
+import io.github.neherim.ruslo.core.runtime.process.ProcessMessages;
 import io.github.neherim.ruslo.core.runtime.worker.HandlerException;
 import io.github.neherim.ruslo.core.runtime.worker.StepErrorHandler;
 import io.github.neherim.ruslo.core.runtime.worker.StepExecutor;
@@ -25,7 +26,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -84,13 +84,12 @@ public class ProcessRuntimeService {
      */
     public void resumeFailedProcess(UUID processId) {
         doInTransactionOrReject(() -> {
-            var process = findProcessWithLock(processId);
+            var process = getProcessWithLock(processId);
             if (!process.resume()) {
                 return new ProcessStatusException(processId, process.getStatus(),
                         "only a FAILED process can be resumed");
             }
-            processInstanceDao.update(process);
-            database.doAfterCommit(dispatchSignal::wakeUp);
+            saveAndWakeDispatcher(process);
             return null;
         });
     }
@@ -103,10 +102,9 @@ public class ProcessRuntimeService {
      */
     public void moveToState(UUID processId, ProcessState processState) {
         database.doInTransaction(() -> {
-            var process = findProcessWithLock(processId);
+            var process = getProcessWithLock(processId);
             process.changeState(processState);
-            processInstanceDao.update(process);
-            database.doAfterCommit(dispatchSignal::wakeUp);
+            saveAndWakeDispatcher(process);
         });
     }
 
@@ -119,10 +117,12 @@ public class ProcessRuntimeService {
      */
     public <T> void sendMessage(UUID processId, MessageType<T> type, T message) {
         doInTransactionOrReject(() -> {
-            var process = findProcessWithLock(processId);
-            var event = expectedMessageEvent(process, type);
+            var process = getProcessWithLock(processId);
+            var spec = process.getProcessSpec();
+            spec.checkMessageDeclared(type);
+            var event = spec.getMessageEvent(type, process.getState());
             if (event.isEmpty()) return messageNotExpected(process, type.name());
-            appendMessage(process, event.get(), message);
+            appendMessage(process, type, message);
             return null;
         });
     }
@@ -135,11 +135,11 @@ public class ProcessRuntimeService {
      */
     public void sendAdminMessage(UUID processId, String name, Object jsonPayload) {
         database.doInTransaction(() -> {
-            var process = findProcessWithLock(processId);
+            var process = getProcessWithLock(processId);
             var event = process.getProcessSpec()
                 .getMessageEvent(name, process.getState())
                 .orElseThrow(() -> messageNotExpected(process, name));
-            appendMessage(process, event, process.getMessages().normalizePayload(jsonPayload, event.type().clazz()));
+            appendJsonMessage(process, event.type(), jsonPayload);
         });
     }
 
@@ -155,16 +155,17 @@ public class ProcessRuntimeService {
     public <T> void sendMessageSync(UUID processId, MessageType<T> type, T message) {
         try {
             doInTransactionOrReject(() -> {
-                var process = findProcessWithLock(processId);
-                var event = expectedMessageEvent(process, type);
+                var process = getProcessWithLock(processId);
+                var spec = process.getProcessSpec();
+                spec.checkMessageDeclared(type);
+                var event = spec.getMessageEvent(type, process.getState());
                 if (event.isEmpty()) return messageNotExpected(process, type.name());
                 if (process.getStatus() == ProcessStatus.FAILED) {
                     return messageNotExpected(process, type.name(), "a FAILED process cannot handle a message "
                             + "synchronously; resume it or queue the message with sendMessage");
                 }
                 stepExecutor.executeMessageBypassingQueue(process, event.get(), message);
-                processInstanceDao.update(process);
-                database.doAfterCommit(dispatchSignal::wakeUp);
+                saveAndWakeDispatcher(process);
                 return null;
             });
         } catch (HandlerException ex) {
@@ -186,19 +187,18 @@ public class ProcessRuntimeService {
         var executedState = new AtomicReference<ProcessStateId>();
         try {
             return database.doInTransactionWithResult(() -> {
-                var process = findProcessWithLock(processId);
+                var process = getProcessWithLock(processId);
                 executedState.set(process.getState());
                 if (process.getStatus() != ProcessStatus.ACTIVE) {
                     throw new ProcessStatusException(processId, process.getStatus(),
                             "only an ACTIVE process runs steps");
                 }
                 if (process.getCurrentStateSpec() instanceof ProcessSpec.AwaitState
-                        && process.getNextRunAt().map(time -> time.isAfter(clock.instant())).orElse(true)) {
+                        && !process.isTimeToExecute()) {
                     return false;
                 }
                 stepExecutor.executeNext(process);
-                processInstanceDao.update(process);
-                database.doAfterCommit(dispatchSignal::wakeUp);
+                saveAndWakeDispatcher(process);
                 return process.isTimeToExecute();
             });
         } catch (HandlerException ex) {
@@ -211,8 +211,8 @@ public class ProcessRuntimeService {
      */
     public <T> void setVariable(UUID processId, VariableType<T> type, T value) {
         database.doInTransaction(() -> {
-            var process = findProcessWithLock(processId);
-            process.setVariable(type.name(), value);
+            var process = getProcessWithLock(processId);
+            process.setVariable(type, value);
             processInstanceDao.update(process);
         });
     }
@@ -224,7 +224,7 @@ public class ProcessRuntimeService {
      */
     public boolean removeVariable(UUID processId, String name) {
         return database.doInTransactionWithResult(() -> {
-            var process = findProcessWithLock(processId);
+            var process = getProcessWithLock(processId);
             var removed = process.removeVariable(name);
             if (removed) {
                 processInstanceDao.update(process);
@@ -241,11 +241,9 @@ public class ProcessRuntimeService {
     public void setTimer(UUID processId, TimerType timer, Instant moment) {
         Objects.requireNonNull(moment, "Timer moment cannot be null");
         database.doInTransaction(() -> {
-            var process = findProcessWithLock(processId);
-            process.getProcessSpec().checkTimerDeclared(timer);
+            var process = getProcessWithLock(processId);
             process.setTimer(timer, moment);
-            processInstanceDao.update(process);
-            database.doAfterCommit(dispatchSignal::wakeUp);
+            saveAndWakeDispatcher(process);
         });
     }
 
@@ -256,7 +254,7 @@ public class ProcessRuntimeService {
      */
     public boolean cancelTimer(UUID processId, TimerType timer) {
         return database.doInTransactionWithResult(() -> {
-            var process = findProcessWithLock(processId);
+            var process = getProcessWithLock(processId);
             var cancelled = process.cancelTimer(timer);
             if (cancelled) {
                 processInstanceDao.update(process);
@@ -294,22 +292,18 @@ public class ProcessRuntimeService {
         });
     }
 
-    private void appendMessage(ProcessInstance process, ProcessSpec.MessageEvent<?> event, @Nullable Object payload) {
-        process.appendMessage(event, payload, clock.instant());
-        processInstanceDao.update(process);
-        database.doAfterCommit(dispatchSignal::wakeUp);
+    private <T> void appendJsonMessage(ProcessInstance process, MessageType<T> type, @Nullable Object jsonPayload) {
+        appendMessage(process, type, ProcessMessages.normalizePayload(jsonPayload, type.clazz()));
     }
 
-    /**
-     * Returns the current state's event if the process awaits this message. A type not declared in the definition
-     * is a caller bug, not a race outcome, so it throws.
-     */
-    private Optional<ProcessSpec.MessageEvent<?>> expectedMessageEvent(ProcessInstance process, MessageType<?> type) {
-        if (!process.getProcessSpec().declaresMessage(type)) {
-            throw new IllegalArgumentException("Message " + type.name() + " with payload " + type.clazz().getName()
-                    + " is not declared in process " + process.getProcessSpec().getType().name());
-        }
-        return process.expectedMessageEvent(type);
+    private <T> void appendMessage(ProcessInstance process, MessageType<T> type, @Nullable T payload) {
+        process.appendMessage(type, payload);
+        saveAndWakeDispatcher(process);
+    }
+
+    private void saveAndWakeDispatcher(ProcessInstance process) {
+        processInstanceDao.update(process);
+        database.doAfterCommit(dispatchSignal::wakeUp);
     }
 
     private static MessageNotExpectedException messageNotExpected(ProcessInstance process, String messageName) {
@@ -342,7 +336,7 @@ public class ProcessRuntimeService {
         if (rejection != null) throw rejection;
     }
 
-    private ProcessInstance findProcessWithLock(UUID processId) {
+    private ProcessInstance getProcessWithLock(UUID processId) {
         return processInstanceDao.findWithLockById(processId)
             .orElseThrow(() -> new ProcessNotFoundException(processId));
     }

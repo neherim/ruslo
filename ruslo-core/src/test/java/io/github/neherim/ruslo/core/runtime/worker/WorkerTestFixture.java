@@ -5,6 +5,7 @@ import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
+import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
 import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceDao;
@@ -17,6 +18,7 @@ import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceDao;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceFactory;
 import io.github.neherim.ruslo.core.runtime.worker.impl.ProcessWorker;
+import io.github.neherim.ruslo.core.search.ProcessSearchService;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.thread.CurrentThreadExecutorService;
@@ -34,6 +36,7 @@ public final class WorkerTestFixture {
     private final Database database;
     private final ProcessInstanceFactory processInstanceFactory;
     private final ProcessInstanceDao processInstanceDao;
+    private final ProcessSearchService processSearchService;
     private final ProcessEngineMetrics metrics = new ProcessEngineMetrics() {
     };
     private final ProcessMdc processMdc;
@@ -46,6 +49,7 @@ public final class WorkerTestFixture {
         var registry = new ProcessDefinitionRegistry(List.of(definitions));
         this.processInstanceFactory = new ProcessInstanceFactory(clock, registry);
         this.processInstanceDao = new ProcessInstanceDao(database, clock, processInstanceFactory, true, metrics);
+        this.processSearchService = new ProcessSearchService(database, registry);
         this.processMdc = new ProcessMdc(MdcKeys.defaults());
         this.leaseDao = new LeaseDao(database, TestDatabases.dialect());
         new ApplicationInstanceDao(database).register(instanceId, INSTANCE_TIMEOUT);
@@ -57,6 +61,11 @@ public final class WorkerTestFixture {
 
     public ProcessInstanceDao dao() {
         return processInstanceDao;
+    }
+
+    /** Returns the stored process through the read-only query API. */
+    public ProcessInstanceDetails details(UUID processId) {
+        return processSearchService.processes().byId(processId).singleDetails().orElseThrow();
     }
 
     public ProcessInstance newProcess(ProcessType type, String correlationId) {
