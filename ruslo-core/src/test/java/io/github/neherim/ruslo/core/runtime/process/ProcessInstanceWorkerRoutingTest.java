@@ -19,6 +19,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
     private static final ProcessType TYPE = ProcessType.of("ROUTING");
     private static final WorkerId ACTION_WORKER = new WorkerId("ACTION");
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
+    private static final TimerType DUE = TimerType.of("DUE");
 
     private final MutableClock clock = new MutableClock();
 
@@ -62,6 +63,74 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
         assertEquals(ProcessStatus.COMPLETED, dao.findById(process.getId()).orElseThrow().getStatus());
     }
 
+    @Test
+    void timerChangesPreserveDelayedStepStart() {
+        var now = clock.instant();
+        var startAt = now.plusSeconds(60);
+        var process = factory().newInstance(TYPE, startAt, null, "routing", Map.of(), Map.of());
+        clock.fastForwardTime(Duration.ofSeconds(1));
+
+        process.setTimer(DUE, now);
+        assertEquals(startAt, process.getNextRunAt().orElseThrow());
+        assertTrue(process.cancelTimer(DUE));
+        assertFalse(process.cancelTimer(DUE));
+        assertEquals(startAt, process.getNextRunAt().orElseThrow());
+        assertFalse(process.isTimeToExecute());
+
+        process.changeState(State.START);
+        assertEquals(clock.instant(), process.getNextRunAt().orElseThrow());
+        assertTrue(process.isTimeToExecute());
+        assertEquals(1, process.drainPendingHistoryEntries().size());
+    }
+
+    @Test
+    void messagesAndTimersPreserveExpiredRetryUntilStateIsReactivated() {
+        var now = clock.instant();
+        var process = factory().newInstance(TYPE, now, null, "routing", Map.of(), Map.of());
+        process.changeState(State.WAIT);
+        process.scheduleRetryAfter(Duration.ofSeconds(10), "retry");
+        clock.fastForwardTime(Duration.ofSeconds(20));
+
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "payload", clock.instant());
+        process.setTimer(DUE, now.plusSeconds(1));
+        assertEquals(now.plusSeconds(10), process.getNextRunAt().orElseThrow());
+        assertTrue(process.cancelTimer(DUE));
+        assertEquals(now.plusSeconds(10), process.getNextRunAt().orElseThrow());
+        assertEquals(1, process.getFailedAttempts());
+        assertEquals("retry", process.getLastError().orElseThrow());
+
+        process.markFailed("failed");
+        process.setTimer(DUE, now.plusSeconds(1));
+        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "another", clock.instant());
+        assertTrue(process.getNextRunAt().isEmpty());
+
+        assertTrue(process.resume());
+        assertEquals(ProcessStatus.ACTIVE, process.getStatus());
+        assertEquals(now.plusSeconds(1), process.getNextRunAt().orElseThrow());
+        assertEquals(now.plusSeconds(2), process.getAfterDueAt().orElseThrow());
+        assertEquals(0, process.getFailedAttempts());
+        assertTrue(process.getLastError().isEmpty());
+        assertFalse(process.getMessages().isEmpty());
+        assertEquals(2, process.drainPendingHistoryEntries().size());
+    }
+
+    @Test
+    void resumingFailedStepRunsItImmediately() {
+        var process = factory().newInstance(TYPE, clock.instant(), null, "routing", Map.of(), Map.of());
+        process.markFailed("failed");
+        clock.fastForwardTime(Duration.ofSeconds(10));
+        process.setTimer(DUE, clock.instant());
+        assertTrue(process.getNextRunAt().isEmpty());
+
+        assertTrue(process.resume());
+        assertEquals(ProcessStatus.ACTIVE, process.getStatus());
+        assertEquals(clock.instant(), process.getNextRunAt().orElseThrow());
+        assertEquals(0, process.getFailedAttempts());
+        assertTrue(process.getLastError().isEmpty());
+        assertFalse(process.resume());
+        assertEquals(1, process.drainPendingHistoryEntries().size());
+    }
+
     private ProcessInstanceFactory factory() {
         ProcessDefinition definition = builder -> builder.type(TYPE)
             .defaultWorker(ACTION_WORKER)
@@ -69,7 +138,8 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
             .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL,
                     (context, message) -> {}, State.WAIT)
-                .after(Duration.ofSeconds(2), State.DONE))
+                .after(Duration.ofSeconds(2), State.DONE)
+                .at(DUE, State.DONE))
             .terminal(State.DONE)
             .build();
         return new ProcessInstanceFactory(clock,

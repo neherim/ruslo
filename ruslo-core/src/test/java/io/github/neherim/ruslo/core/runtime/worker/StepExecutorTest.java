@@ -132,8 +132,11 @@ class StepExecutorTest {
         process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "future", NOW.plus(messageDelay));
 
         assertEquals(Optional.of(NOW.plusSeconds(1)), process.getNextRunAt());
+        process.scheduleRetryAfter(Duration.ZERO, "retry without a due event");
         assertFalse(executor.executeNext(process));
         assertEquals(Optional.of(NOW.plusSeconds(1)), process.getNextRunAt());
+        assertEquals(0, process.getFailedAttempts());
+        assertTrue(process.getLastError().isEmpty());
 
         clock.now = NOW.plusSeconds(1);
         assertEquals(Optional.of(earliest), process.findDueAwaitEventKind());

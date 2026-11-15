@@ -114,32 +114,21 @@ public final class ProcessInstance {
         }
         var targetStateId = target.id();
         var targetStateSpec = spec.getStateSpec(targetStateId);
-        if (state != null && state.equals(targetStateId)) {
-            activateCurrentState(now);
-            return;
-        }
-        messages.clear();
-        state = targetStateId;
-        pendingHistory.add(new ProcessStateHist(targetStateId, now));
-        resetAttemptsAndError();
-        everyDueAt = null;
-        afterDueAt = null;
-        switch (targetStateSpec) {
-            case StepState ignored -> {
-                status = ProcessStatus.ACTIVE;
-                nextRunAt = now;
-            }
-            case AwaitState await -> {
-                status = ProcessStatus.ACTIVE;
+        if (!targetStateId.equals(state)) {
+            messages.clear();
+            state = targetStateId;
+            pendingHistory.add(new ProcessStateHist(targetStateId, now));
+            everyDueAt = null;
+            afterDueAt = null;
+            if (targetStateSpec instanceof AwaitState await) {
                 if (await.every() != null) everyDueAt = now.plus(await.every().interval().firstAfter());
                 if (await.after() != null) afterDueAt = now.plus(await.after().delay());
-                updateAwaitNextRunAt();
-            }
-            case TerminalState ignored -> {
-                status = ProcessStatus.COMPLETED;
-                nextRunAt = null;
             }
         }
+        status = targetStateSpec instanceof TerminalState ? ProcessStatus.COMPLETED : ProcessStatus.ACTIVE;
+        resetAttemptsAndError();
+        nextRunAt = now;
+        updateNextRunAt();
     }
 
     /**
@@ -158,9 +147,7 @@ public final class ProcessInstance {
      */
     public void appendMessage(MessageEvent<?> event, Object payload, Instant receivedAt) {
         messages.append(event.type(), payload, receivedAt);
-        if (status == ProcessStatus.ACTIVE && !hasFailedAttempt()) {
-            updateAwaitNextRunAt();
-        }
+        updateNextRunAt();
     }
 
     /**
@@ -194,26 +181,6 @@ public final class ProcessInstance {
     }
 
     /**
-     * Finishes an await run without a due event, e.g. after a manual change of {@code next_run_at}: clears the
-     * attempts and error of a failed event and recomputes the next run, so an event that is no longer due is not
-     * retried.
-     */
-    public void finishAwaitRunWithoutEvent() {
-        resetAttemptsAndError();
-        updateAwaitNextRunAt();
-    }
-
-    private void activateCurrentState(Instant now) {
-        status = ProcessStatus.ACTIVE;
-        resetAttemptsAndError();
-        if (getCurrentStateSpec() instanceof StepState) {
-            nextRunAt = now;
-        } else {
-            updateAwaitNextRunAt();
-        }
-    }
-
-    /**
      * Schedules the step or await to run again after {@code delay} of engine time and records a failed attempt,
      * see {@link #hasFailedAttempt()}.
      */
@@ -230,7 +197,7 @@ public final class ProcessInstance {
         failedAttempts++;
         lastError = Objects.requireNonNull(error);
         status = ProcessStatus.FAILED;
-        nextRunAt = null;
+        updateNextRunAt();
     }
 
     /**
@@ -242,16 +209,28 @@ public final class ProcessInstance {
         if (status != ProcessStatus.FAILED) {
             return false;
         }
-        activateCurrentState(clock.instant());
+        changeState(state);
         return true;
     }
 
     /**
-     * Sets the next run to the earliest await event's time, or {@code null} without an event; the caller decides
-     * whether rescheduling is allowed.
+     * Recomputes the next run from the status and current state, preserving retry backoff and the schedule of a
+     * step or removed state.
      */
-    private void updateAwaitNextRunAt() {
-        nextRunAt = findEarliestAwaitEvent().map(ScheduledAwaitEvent::dueAt).orElse(null);
+    private void updateNextRunAt() {
+        if (status != ProcessStatus.ACTIVE) {
+            nextRunAt = null;
+            return;
+        }
+        if (hasFailedAttempt()) {
+            return;
+        }
+        nextRunAt = switch (spec.findStateSpec(state).orElse(null)) {
+            case StepState ignored -> nextRunAt;
+            case AwaitState ignored -> findEarliestAwaitEvent().map(ScheduledAwaitEvent::dueAt).orElse(null);
+            case TerminalState ignored -> null;
+            case null -> nextRunAt;
+        };
     }
 
     private Optional<ScheduledAwaitEvent> findEarliestAwaitEvent() {
@@ -267,16 +246,6 @@ public final class ProcessInstance {
         return events.stream()
             .min(Comparator.comparing(ScheduledAwaitEvent::dueAt)
                 .thenComparing(ScheduledAwaitEvent::kind));
-    }
-
-    /**
-     * Updates the next run after a change of {@code timer} if the current await waits for it, subject to
-     * {@link #hasFailedAttempt()}; a {@code FAILED} process keeps its next run unset.
-     */
-    private void timerChanged(TimerType timer) {
-        var await = currentAwait();
-        if (await == null || await.at() == null || !await.at().timer().equals(timer)) return;
-        if (status == ProcessStatus.ACTIVE && !hasFailedAttempt()) updateAwaitNextRunAt();
     }
 
     /**
@@ -399,7 +368,7 @@ public final class ProcessInstance {
      */
     public void setTimer(TimerType timer, Instant moment) {
         timers.set(timer.name(), moment);
-        timerChanged(timer);
+        updateNextRunAt();
     }
 
     /**
@@ -409,7 +378,7 @@ public final class ProcessInstance {
      */
     public boolean cancelTimer(TimerType timer) {
         var cancelled = timers.cancel(timer.name());
-        if (cancelled) timerChanged(timer);
+        updateNextRunAt();
         return cancelled;
     }
 

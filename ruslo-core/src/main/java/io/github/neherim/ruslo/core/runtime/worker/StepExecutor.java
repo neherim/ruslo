@@ -99,7 +99,7 @@ public class StepExecutor {
     private boolean executeAwait(ProcessInstance process, AwaitState awaitStateSpec) {
         var eventKind = process.findDueAwaitEventKind().orElse(null);
         if (eventKind == null) {
-            process.finishAwaitRunWithoutEvent();
+            process.changeState(process.getState());
             return false;
         }
         log.debug("Starting event {} in {}", eventKind, process.getState().name());
