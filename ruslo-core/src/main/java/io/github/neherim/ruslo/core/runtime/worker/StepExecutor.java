@@ -96,9 +96,10 @@ public class StepExecutor {
     /**
      * Executes the selected due event and enters its target. Without a due event, recomputes the next run and clears
      * the previous error, e.g. after a manual change of {@code next_run_at}.
+     * A handler failure discards timer and queue changes with the process instance in the caller.
      */
     private boolean executeAwait(ProcessInstance process, AwaitState awaitStateSpec) {
-        var eventKind = process.prepareDueAwaitEvent().orElse(null);
+        var eventKind = process.findDueAwaitEvent().orElse(null);
         if (eventKind == null) {
             process.changeState(process.getState());
             return false;
@@ -116,11 +117,13 @@ public class StepExecutor {
     }
 
     private static ProcessStateId executeEveryEvent(ProcessInstance process, ProcessContext context, EveryEvent every) {
+        process.advanceEveryTimer();
         var outcome = invokeHandler(() -> every.handler().apply(context));
         return resolveTargetState(every.exit(), outcome, process);
     }
 
     private static ProcessStateId executeAfterEvent(ProcessInstance process, ProcessContext context, AfterEvent after) {
+        process.disableAfterTimer();
         var outcome = invokeHandler(() -> after.handler().apply(context));
         return resolveTargetState(after.exit(), outcome, process);
     }

@@ -142,31 +142,34 @@ public final class ProcessInstance {
     }
 
     /**
-     * Selects the earliest due await event and prepares its timer without moving the next run; on a tie message,
-     * {@code every}, {@code after}, {@code at}. Moves {@code every} to the first grid point after now, skipping
-     * missed points, or disables {@code after}. Leaves {@code at} set for its handler to read or change.
-     * A handler failure discards the timer changes with the process instance.
+     * Returns the earliest due await event without changing the process; on a tie message, {@code every},
+     * {@code after}, {@code at}.
      *
      * @return empty if no event is due
      */
-    public Optional<AwaitEventKind> prepareDueAwaitEvent() {
+    public Optional<AwaitEventKind> findDueAwaitEvent() {
         var now = clock.instant();
-        var kind = findEarliestAwaitEvent()
+        return findEarliestAwaitEvent()
             .filter(event -> !event.dueAt().isAfter(now))
             .map(ScheduledAwaitEvent::kind);
-        kind.ifPresent(event -> {
-            switch (event) {
-                case EVERY -> {
-                    var interval = currentAwait().every().interval().period();
-                    var elapsedPeriods = Duration.between(everyDueAt, now).dividedBy(interval);
-                    everyDueAt = everyDueAt.plus(interval.multipliedBy(elapsedPeriods + 1));
-                }
-                case AFTER -> afterDueAt = null;
-                case MESSAGE, AT -> {
-                }
-            }
-        });
-        return kind;
+    }
+
+    /**
+     * Moves the due {@code every} timer to the first grid point after now, skipping missed points without moving
+     * the next run.
+     */
+    public void advanceEveryTimer() {
+        var now = clock.instant();
+        var interval = currentAwait().every().interval().period();
+        var elapsedPeriods = Duration.between(everyDueAt, now).dividedBy(interval);
+        everyDueAt = everyDueAt.plus(interval.multipliedBy(elapsedPeriods + 1));
+    }
+
+    /**
+     * Disables the {@code after} timer without moving the next run.
+     */
+    public void disableAfterTimer() {
+        afterDueAt = null;
     }
 
     /**
@@ -286,7 +289,7 @@ public final class ProcessInstance {
      * Returns whether the process has failed attempts that have not been cleared, including in {@code FAILED}
      * and after the retry time has passed. While {@code ACTIVE}, messages and timer changes preserve the scheduled
      * retry time until the attempts are cleared. An await selects its event by the usual rule when it runs,
-     * see {@link #prepareDueAwaitEvent()}.
+     * see {@link #findDueAwaitEvent()}.
      */
     private boolean hasFailedAttempt() {
         return failedAttempts > 0;
