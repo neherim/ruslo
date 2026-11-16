@@ -32,11 +32,11 @@ public class StepErrorHandler {
     private final ProcessEngineMetrics metrics;
 
     public StepErrorHandler(
-        Clock clock,
-        Database database,
-        ProcessInstanceDao processInstanceDao,
-        ProcessMdc processMdc,
-        ProcessEngineMetrics metrics
+            Clock clock,
+            Database database,
+            ProcessInstanceDao processInstanceDao,
+            ProcessMdc processMdc,
+            ProcessEngineMetrics metrics
     ) {
         this.clock = clock;
         this.database = database;
@@ -135,8 +135,8 @@ public class StepErrorHandler {
         var className = ex.getClass().getSimpleName();
         var message = ex.getMessage();
         var value = message == null || message.isBlank()
-            ? className
-            : className + ": " + message;
+                ? className
+                : className + ": " + message;
         if (value.length() <= MAX_LAST_ERROR_LENGTH) {
             return value;
         }
