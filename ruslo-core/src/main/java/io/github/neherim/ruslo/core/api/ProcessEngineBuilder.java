@@ -7,11 +7,7 @@ import io.github.neherim.ruslo.core.database.DatabaseDialectResolver;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchScheduler;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
-import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceDao;
-import io.github.neherim.ruslo.core.dispatcher.lease.ApplicationInstanceLifecycle;
-import io.github.neherim.ruslo.core.dispatcher.lease.LeaseDao;
-import io.github.neherim.ruslo.core.dispatcher.lease.LeaseDispatcher;
-import io.github.neherim.ruslo.core.dispatcher.lease.LeaseReleaser;
+import io.github.neherim.ruslo.core.dispatcher.lease.*;
 import io.github.neherim.ruslo.core.management.ManagementService;
 import io.github.neherim.ruslo.core.metrics.FailSafeProcessEngineMetrics;
 import io.github.neherim.ruslo.core.runtime.ProcessRuntimeService;
@@ -29,12 +25,7 @@ import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Configures and builds a {@link ProcessEngine}. A transactional {@link WorkerId#DEFAULT} worker is required.
@@ -88,20 +79,26 @@ public class ProcessEngineBuilder {
         return this;
     }
 
-    /** Adds a definition registered and validated by {@link #build()}. */
+    /**
+     * Adds a definition registered and validated by {@link #build()}.
+     */
     public ProcessEngineBuilder addProcessDefinition(ProcessDefinition processDefinition) {
         processDefinitions.add(Objects.requireNonNull(processDefinition, "ProcessDefinition must not be null"));
         return this;
     }
 
-    /** Adds definitions registered and validated by {@link #build()}. */
+    /**
+     * Adds definitions registered and validated by {@link #build()}.
+     */
     public ProcessEngineBuilder addProcessDefinitions(Collection<? extends ProcessDefinition> processDefinitions) {
         Objects.requireNonNull(processDefinitions, "ProcessDefinitions must not be null")
             .forEach(this::addProcessDefinition);
         return this;
     }
 
-    /** Sets the engine clock used for timers, retries and timestamps; system clock by default. */
+    /**
+     * Sets the engine clock used for timers, retries and timestamps; system clock by default.
+     */
     public ProcessEngineBuilder withClock(Clock clock) {
         this.clock = Objects.requireNonNull(clock, "Clock must not be null");
         return this;
@@ -110,7 +107,7 @@ public class ProcessEngineBuilder {
     /**
      * Sets the maximum polling backoff when there is no work; 10 s by default.
      *
-     * @throws NullPointerException if the interval is null
+     * @throws NullPointerException     if the interval is null
      * @throws IllegalArgumentException if the interval is outside the range described by {@link ProcessEngineBuilder}
      */
     public ProcessEngineBuilder withMaxProcessDispatchInterval(Duration maxDispatchInterval) {
@@ -122,7 +119,7 @@ public class ProcessEngineBuilder {
     /**
      * Sets the initial polling backoff after an empty cycle; 100 ms by default. Successful cycles continue immediately.
      *
-     * @throws NullPointerException if the interval is null
+     * @throws NullPointerException     if the interval is null
      * @throws IllegalArgumentException if the interval is outside the range described by {@link ProcessEngineBuilder}
      */
     public ProcessEngineBuilder withMinProcessDispatchInterval(Duration minDispatchInterval) {
@@ -131,7 +128,9 @@ public class ProcessEngineBuilder {
         return this;
     }
 
-    /** Sets the instance heartbeat interval; 15 s by default. */
+    /**
+     * Sets the instance heartbeat interval; 15 s by default.
+     */
     public ProcessEngineBuilder withInstanceHeartbeatInterval(Duration interval) {
         this.instanceHeartbeatInterval = requirePositive(interval, "Instance heartbeat interval");
         return this;
@@ -146,7 +145,9 @@ public class ProcessEngineBuilder {
         return this;
     }
 
-    /** Enables schema migration in {@link ProcessEngine#start()}; enabled by default. */
+    /**
+     * Enables schema migration in {@link ProcessEngine#start()}; enabled by default.
+     */
     public ProcessEngineBuilder withDatabaseMigrationEnabled(boolean databaseMigrationEnabled) {
         this.databaseMigrationEnabled = databaseMigrationEnabled;
         return this;
@@ -161,7 +162,9 @@ public class ProcessEngineBuilder {
         return this;
     }
 
-    /** Sets the metrics sink; no-op by default. */
+    /**
+     * Sets the metrics sink; no-op by default.
+     */
     public ProcessEngineBuilder withMetrics(ProcessEngineMetrics metrics) {
         this.metrics = Objects.requireNonNull(metrics, "Metrics must not be null");
         return this;
@@ -176,19 +179,25 @@ public class ProcessEngineBuilder {
         return this;
     }
 
-    /** Sets the MDC key for the process id; {@code process_id} by default, also for a blank key. */
+    /**
+     * Sets the MDC key for the process id; {@code process_id} by default, also for a blank key.
+     */
     public ProcessEngineBuilder withProcessIdMdcKey(String key) {
         this.processIdMdcKey = key;
         return this;
     }
 
-    /** Sets the MDC key for the process type; {@code process_type} by default, also for a blank key. */
+    /**
+     * Sets the MDC key for the process type; {@code process_type} by default, also for a blank key.
+     */
     public ProcessEngineBuilder withProcessTypeMdcKey(String key) {
         this.processTypeMdcKey = key;
         return this;
     }
 
-    /** Enables writing state history to {@code xs_process_state_hist}; enabled by default. */
+    /**
+     * Enables writing state history to {@code xs_process_state_hist}; enabled by default.
+     */
     public ProcessEngineBuilder withHistoryEnabled(boolean historyEnabled) {
         this.saveProcessHistory = historyEnabled;
         return this;

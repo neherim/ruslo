@@ -18,6 +18,8 @@ public interface ProcessVariablesView {
      */
     <T> Optional<T> find(VariableType<T> type);
 
-    /** Returns an immutable map of variable names to JSON text. */
+    /**
+     * Returns an immutable map of variable names to JSON text.
+     */
     Map<String, String> asJsonMap();
 }

@@ -20,16 +20,17 @@ class LastErrorDiagnosticsTest extends BaseTest {
         fixture.transactionalWorker().tryExecute(fixture.task(process));
         var stored = fixture.dao().findById(process.getId()).orElseThrow();
         assertEquals(ProcessStatus.FAILED, stored.getStatus());
-        assertEquals(1, stored.getFailedAttempts());
-        assertTrue(stored.getLastError().orElseThrow().contains("step failed"));
+        var failed = fixture.details(process.getId());
+        assertEquals(1, failed.attempt());
+        assertTrue(failed.lastError().orElseThrow().contains("step failed"));
         fail.set(false);
         stored.resume();
         fixture.dao().update(stored);
         fixture.transactionalWorker().tryExecute(fixture.task(process));
-        var completed = fixture.dao().findById(process.getId()).orElseThrow();
-        assertEquals(ProcessStatus.COMPLETED, completed.getStatus());
-        assertEquals(0, completed.getFailedAttempts());
-        assertTrue(completed.getLastError().isEmpty());
+        var completed = fixture.details(process.getId());
+        assertEquals(ProcessStatus.COMPLETED, completed.status());
+        assertEquals(0, completed.attempt());
+        assertTrue(completed.lastError().isEmpty());
     }
 
     @Test
@@ -39,9 +40,9 @@ class LastErrorDiagnosticsTest extends BaseTest {
         var task = fixture.task(process);
         var nextRun = fixture.dao().findById(process.getId()).orElseThrow().getNextRunAt().orElseThrow();
         fixture.stepErrorHandler().handleSystemError(new IllegalStateException("system failed"), task);
-        var stored = fixture.dao().findById(process.getId()).orElseThrow();
-        assertTrue(stored.getNextRunAt().orElseThrow().isAfter(nextRun));
-        assertEquals(1, stored.getFailedAttempts());
+        var stored = fixture.details(process.getId());
+        assertTrue(stored.nextRunAt().orElseThrow().isAfter(nextRun));
+        assertEquals(1, stored.attempt());
     }
 
     @Test
@@ -78,11 +79,11 @@ class LastErrorDiagnosticsTest extends BaseTest {
         var fixture = WorkerTestFixture.with(database, definition);
         var process = fixture.insertNewProcess(ProcessType.of("ERROR_HANDLER_FAILS"), "correlation");
         fixture.transactionalWorker().tryExecute(fixture.task(process));
-        var stored = fixture.dao().findById(process.getId()).orElseThrow();
-        assertEquals(ProcessStatus.ACTIVE, stored.getStatus());
-        assertEquals(1, stored.getFailedAttempts());
-        assertTrue(stored.getLastError().orElseThrow().contains("step failed"));
-        assertTrue(stored.getNextRunAt().orElseThrow().isAfter(Instant.now().plus(Duration.ofSeconds(59))));
+        var stored = fixture.details(process.getId());
+        assertEquals(ProcessStatus.ACTIVE, stored.status());
+        assertEquals(1, stored.attempt());
+        assertTrue(stored.lastError().orElseThrow().contains("step failed"));
+        assertTrue(stored.nextRunAt().orElseThrow().isAfter(Instant.now().plus(Duration.ofSeconds(59))));
     }
 
     private ProcessDefinition definition(AtomicBoolean fail) {

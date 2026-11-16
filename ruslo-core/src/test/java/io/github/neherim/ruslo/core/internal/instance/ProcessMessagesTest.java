@@ -23,8 +23,8 @@ class ProcessMessagesTest {
         assertTrue(json.startsWith("["));
         var restored = ProcessMessages.fromString(json);
         var first = restored.takeFirst();
-        assertEquals("one", restored.convert(first, FIRST).payload());
-        assertEquals("two", restored.convert(restored.peekFirst().orElseThrow(), SECOND).payload());
+        assertEquals("one", ProcessMessages.convert(first, FIRST).payload());
+        assertEquals("two", ProcessMessages.convert(restored.peekFirst().orElseThrow(), SECOND).payload());
         restored.clear();
         assertEquals("[]", restored.serializeToString());
     }
@@ -36,7 +36,7 @@ class ProcessMessagesTest {
         messages.append(FIRST, null, now);
         messages.append(FIRST, null, now);
         var first = messages.peekFirst().orElseThrow();
-        assertNull(messages.convert(first, FIRST).payload());
+        assertNull(ProcessMessages.convert(first, FIRST).payload());
         messages.takeFirst();
         assertFalse(messages.isEmpty());
     }
@@ -64,7 +64,7 @@ class ProcessMessagesTest {
         var restored = ProcessMessages.fromString(
                 messages.serializeToString());
 
-        assertEquals(amount, restored.convert(restored.peekFirst().orElseThrow(), type).payload());
+        assertEquals(amount, ProcessMessages.convert(restored.peekFirst().orElseThrow(), type).payload());
     }
 
     @Test
@@ -77,6 +77,6 @@ class ProcessMessagesTest {
         var restored = ProcessMessages.fromString(
                 messages.serializeToString());
 
-        assertEquals(amount, restored.convert(restored.peekFirst().orElseThrow(), type).payload());
+        assertEquals(amount, ProcessMessages.convert(restored.peekFirst().orElseThrow(), type).payload());
     }
 }

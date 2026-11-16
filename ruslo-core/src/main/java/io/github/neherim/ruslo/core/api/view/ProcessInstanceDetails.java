@@ -78,7 +78,9 @@ public record ProcessInstanceDetails(
         return skipped == 0 ? states : "(" + skipped + " earlier) -> " + states;
     }
 
-    /** State history entry: the state and when it was entered. */
+    /**
+     * State history entry: the state and when it was entered.
+     */
     public record StateHistoryEntry(ProcessState state, Instant changedAt) {
     }
 }

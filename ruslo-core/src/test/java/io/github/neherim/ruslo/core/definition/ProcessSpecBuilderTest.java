@@ -53,6 +53,30 @@ class ProcessSpecBuilderTest {
     }
 
     @Test
+    void checksMessageDeclarationSeparatelyFromStateLookup() {
+        var spec = new ProcessSpecBuilder().type(TYPE)
+            .initialState(State.START)
+            .step(State.START, STEP, State.WAIT)
+            .await(State.WAIT, await -> await.message(MESSAGE, ON_MESSAGE, State.DONE))
+            .terminal(State.DONE)
+            .build();
+        var unknown = MessageType.of("UNKNOWN", String.class);
+        var wrongPayload = MessageType.of(MESSAGE.name(), Integer.class);
+
+        assertDoesNotThrow(() -> spec.checkMessageDeclared(MESSAGE));
+        var error = assertThrows(IllegalArgumentException.class, () -> spec.checkMessageDeclared(unknown));
+        assertEquals("Message UNKNOWN with payload java.lang.String is not declared in process TEST",
+                error.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> spec.checkMessageDeclared(wrongPayload));
+
+        assertTrue(spec.getMessageEvent(MESSAGE, State.START).isEmpty());
+        assertTrue(spec.getMessageEvent(MESSAGE, State.WAIT).isPresent());
+        assertTrue(spec.getMessageEvent(MESSAGE, State.DONE).isEmpty());
+        assertTrue(spec.getMessageEvent(unknown, State.WAIT).isEmpty());
+        assertTrue(spec.getMessageEvent(wrongPayload, State.WAIT).isEmpty());
+    }
+
+    @Test
     void combinesAllTimersAndAllowsSelfTargetWithHandler() {
         var spec = new ProcessSpecBuilder().type(TYPE)
             .initialState(State.WAIT)

@@ -11,7 +11,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Creates and starts a process. */
+/**
+ * Creates and starts a process.
+ */
 public class ProcessStartBuilder {
     private final ProcessType type;
     private final ProcessStarter processStarter;
@@ -37,25 +39,33 @@ public class ProcessStartBuilder {
         return processStarter.start(type, businessKey, correlationId, variables, timers);
     }
 
-    /** Sets the application's own key of the process, used in search; it need not be unique. */
+    /**
+     * Sets the application's own not be unique key of the process, used in search.
+     */
     public ProcessStartBuilder businessKey(String businessKey) {
         this.businessKey = businessKey;
         return this;
     }
 
-    /** Sets the correlation id used in logs and search. */
+    /**
+     * Sets the correlation id used in logs and search.
+     */
     public ProcessStartBuilder correlationId(String correlationId) {
         this.correlationId = correlationId;
         return this;
     }
 
-    /** Sets an initial variable; the value is serialized to JSON. */
+    /**
+     * Sets an initial variable.
+     */
     public ProcessStartBuilder variable(String name, Object value) {
         this.variables.put(name, value);
         return this;
     }
 
-    /** Sets an initial variable; the value is serialized to JSON. */
+    /**
+     * Sets an initial variable.
+     */
     public <T> ProcessStartBuilder variable(VariableType<T> type, T value) {
         this.variables.put(type.name(), value);
         return this;
@@ -64,8 +74,6 @@ public class ProcessStartBuilder {
     /**
      * Sets an initial process timer, as {@link io.github.neherim.ruslo.core.api.definition.ProcessContext#setTimer}
      * does in a step.
-     *
-     * @throws NullPointerException if {@code moment} is {@code null}
      */
     public ProcessStartBuilder timer(TimerType timer, Instant moment) {
         this.timers.put(Objects.requireNonNull(timer, "Timer type cannot be null"),
@@ -73,7 +81,9 @@ public class ProcessStartBuilder {
         return this;
     }
 
-    /** Engine callback that starts the process from the collected data. */
+    /**
+     * Engine callback that starts the process from the collected data.
+     */
     @FunctionalInterface
     public interface ProcessStarter {
 

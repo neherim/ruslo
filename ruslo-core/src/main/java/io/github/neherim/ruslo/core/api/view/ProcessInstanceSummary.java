@@ -9,9 +9,6 @@ import java.util.UUID;
 
 /**
  * Process instance in search results.
- *
- * @param nextRunAt when the engine next takes the process: a step, a retry, a queued message or a timer; empty if it
- *                  waits only for messages, is {@code FAILED} or completed
  */
 public record ProcessInstanceSummary(
         UUID id,

@@ -7,6 +7,7 @@ import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
 import io.github.neherim.ruslo.core.runtime.process.DefaultProcessContext;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
+import io.github.neherim.ruslo.core.runtime.process.ProcessMessages;
 import io.github.neherim.ruslo.core.runtime.process.ProcessMessages.PendingMessage;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import org.slf4j.Logger;
@@ -74,7 +75,7 @@ public class StepExecutor {
             var outcome = invokeHandler(() -> event.handler().apply(context, message));
             var target = resolveTargetState(event.exit(), outcome, process);
             if (!process.getState().equals(target)) {
-                process.enterState(target);
+                process.changeState(target);
             }
             recordStepExecuted(process, executedState, startedAtNanos);
         } catch (HandlerException ex) {
@@ -88,29 +89,30 @@ public class StepExecutor {
         var context = new DefaultProcessContext(process);
         var outcome = invokeHandler(() -> stepStateSpec.step().apply(context));
         var target = resolveTargetState(stepStateSpec.exit(), outcome, process);
-        process.enterState(target);
+        process.changeState(target);
         return true;
     }
 
     /**
      * Executes the selected due event and enters its target. Without a due event, recomputes the next run and clears
      * the previous error, e.g. after a manual change of {@code next_run_at}.
+     * A handler failure discards timer and queue changes with the process instance in the caller.
      */
     private boolean executeAwait(ProcessInstance process, AwaitState awaitStateSpec) {
-        var eventKind = process.findDueAwaitEventKind().orElse(null);
+        var eventKind = process.findDueAwaitEvent().orElse(null);
         if (eventKind == null) {
-            process.finishAwaitRunWithoutEvent();
+            process.changeState(process.getState());
             return false;
         }
         log.debug("Starting event {} in {}", eventKind, process.getState().name());
         var context = new DefaultProcessContext(process);
         var target = switch (eventKind) {
-            case MESSAGE -> executeQueuedMessage(process, context, process.getMessages().takeFirst());
+            case MESSAGE -> executeQueuedMessage(process, context, process.takeMessage());
             case EVERY -> executeEveryEvent(process, context, awaitStateSpec.every());
             case AFTER -> executeAfterEvent(process, context, awaitStateSpec.after());
             case AT -> executeAtEvent(process, context, awaitStateSpec.at());
         };
-        process.enterState(target);
+        process.changeState(target);
         return true;
     }
 
@@ -165,7 +167,7 @@ public class StepExecutor {
             MessageEvent<T> event,
             PendingMessage pendingMessage
     ) {
-        var message = process.getMessages().convert(pendingMessage, event.type());
+        var message = ProcessMessages.convert(pendingMessage, event.type());
         var outcome = invokeHandler(() -> event.handler().apply(context, message));
         return resolveTargetState(event.exit(), outcome, process);
     }

@@ -11,7 +11,9 @@ import java.util.Optional;
 
 import static io.github.neherim.ruslo.core.utils.JsonUtils.DEFAULT_OBJECT_MAPPER;
 
-/** Stores process variables as one JSON object: variable name to its JSON value. */
+/**
+ * Stores process variables as one JSON object: variable name to its JSON value.
+ */
 public class ProcessVariables {
     private static final ObjectReader JSON_READER = DEFAULT_OBJECT_MAPPER.readerFor(
             new TypeReference<HashMap<String, JsonNode>>() {
@@ -23,7 +25,9 @@ public class ProcessVariables {
         this.variables = variables;
     }
 
-    /** Creates an empty set of variables. */
+    /**
+     * Creates an empty set of variables.
+     */
     public static ProcessVariables empty() {
         return new ProcessVariables(new HashMap<>());
     }
@@ -38,14 +42,18 @@ public class ProcessVariables {
         return new ProcessVariables(JSON_READER.readValue(json));
     }
 
-    /** Creates variables from their initial values. */
+    /**
+     * Creates variables from their initial values.
+     */
     public static ProcessVariables fromMap(Map<String, Object> variables) {
         var processVariables = ProcessVariables.empty();
         variables.forEach(processVariables::setVariable);
         return processVariables;
     }
 
-    /** Serializes the variables; an empty set is stored as {@code null} (the {@code variables} column is nullable). */
+    /**
+     * Serializes the variables; an empty set is stored as {@code null} (the {@code variables} column is nullable).
+     */
     public String serializeToString() {
         if (variables.isEmpty()) {
             return null;
@@ -67,7 +75,9 @@ public class ProcessVariables {
         return variables.remove(name) != null;
     }
 
-    /** Returns the variable, empty if it is not set or holds JSON {@code null}. */
+    /**
+     * Returns the variable, empty if it is not set or holds JSON {@code null}.
+     */
     public <T> Optional<T> findVariable(String name, Class<T> clazz) {
         var jsonValue = variables.get(name);
         if (jsonValue == null) {
@@ -76,14 +86,18 @@ public class ProcessVariables {
         return Optional.ofNullable(DEFAULT_OBJECT_MAPPER.treeToValue(jsonValue, clazz));
     }
 
-    /** Returns an immutable map of variable name to the JSON text of its value. */
+    /**
+     * Returns an immutable map of variable name to the JSON text of its value.
+     */
     public Map<String, String> asMap() {
         var result = new LinkedHashMap<String, String>();
         variables.forEach((name, value) -> result.put(name, DEFAULT_OBJECT_MAPPER.writeValueAsString(value)));
         return Map.copyOf(result);
     }
 
-    /** Variables are equal if their names and JSON values are equal. */
+    /**
+     * Variables are equal if their names and JSON values are equal.
+     */
     @Override
     public boolean equals(Object o) {
         return o instanceof ProcessVariables other && variables.equals(other.variables);

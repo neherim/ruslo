@@ -19,6 +19,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
     private static final ProcessType TYPE = ProcessType.of("ROUTING");
     private static final WorkerId ACTION_WORKER = new WorkerId("ACTION");
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
+    private static final TimerType DUE = TimerType.of("DUE");
 
     private final MutableClock clock = new MutableClock();
 
@@ -35,31 +36,131 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
         assertEquals(now, process.getNextRunAt().orElseThrow());
         dao.insert(process);
 
-        process.enterState(State.WAIT);
+        process.changeState(State.WAIT);
         assertEquals(WorkerId.DEFAULT, process.getWorkerId().orElseThrow());
         assertEquals(now.plusSeconds(2), process.getAfterDueAt().orElseThrow());
         assertTrue(process.getEveryDueAt().isEmpty());
-        process.appendMessage(process.expectedMessageEvent(SIGNAL).orElseThrow(), "payload",
-                now.plusSeconds(1));
+        clock.setTime(now.plusSeconds(1));
+        process.appendMessage(SIGNAL, "payload");
         assertEquals(now.plusSeconds(1), process.getNextRunAt().orElseThrow());
         dao.update(process);
         var restored = dao.findById(process.getId()).orElseThrow();
         assertEquals("payload",
-                restored.getMessages().convert(restored.getMessages().peekFirst().orElseThrow(), SIGNAL).payload());
+                ProcessMessages.convert(restored.getMessages().peekFirst().orElseThrow(), SIGNAL).payload());
 
         clock.setTime(now.plusSeconds(3));
-        restored.enterState(State.WAIT);
+        restored.changeState(State.WAIT);
         assertFalse(restored.getMessages().isEmpty());
         assertEquals(now.plusSeconds(2), restored.getAfterDueAt().orElseThrow());
         assertEquals(now.plusSeconds(1), restored.getNextRunAt().orElseThrow());
         clock.setTime(now.plusSeconds(4));
-        restored.enterState(State.DONE);
+        restored.changeState(State.DONE);
         assertEquals(ProcessStatus.COMPLETED, restored.getStatus());
         assertTrue(restored.getWorkerId().isEmpty());
         assertTrue(restored.getNextRunAt().isEmpty());
         assertTrue(restored.getAfterDueAt().isEmpty());
         dao.update(restored);
         assertEquals(ProcessStatus.COMPLETED, dao.findById(process.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void timerChangesPreserveDelayedStepStart() {
+        var now = clock.instant();
+        var startAt = now.plusSeconds(60);
+        var process = factory().newInstance(TYPE, startAt, null, "routing", Map.of(), Map.of());
+        clock.fastForwardTime(Duration.ofSeconds(1));
+
+        process.setTimer(DUE, now);
+        assertEquals(startAt, process.getNextRunAt().orElseThrow());
+        assertTrue(process.cancelTimer(DUE));
+        assertFalse(process.cancelTimer(DUE));
+        assertEquals(startAt, process.getNextRunAt().orElseThrow());
+        assertFalse(process.isTimeToExecute());
+
+        process.changeState(State.START);
+        assertEquals(clock.instant(), process.getNextRunAt().orElseThrow());
+        assertTrue(process.isTimeToExecute());
+        assertEquals(1, process.drainPendingHistoryEntries().size());
+    }
+
+    @Test
+    void messagesAndTimersPreserveExpiredRetryUntilStateIsReactivated() {
+        var now = clock.instant();
+        var process = factory().newInstance(TYPE, now, null, "routing", Map.of(), Map.of());
+        process.changeState(State.WAIT);
+        process.applyErrorResult(ErrorResult.retryAfter(Duration.ofSeconds(10)), "retry");
+        clock.fastForwardTime(Duration.ofSeconds(20));
+
+        process.appendMessage(SIGNAL, "payload");
+        process.setTimer(DUE, now.plusSeconds(1));
+        assertEquals(now.plusSeconds(10), process.getNextRunAt().orElseThrow());
+        assertTrue(process.cancelTimer(DUE));
+        assertEquals(now.plusSeconds(10), process.getNextRunAt().orElseThrow());
+        assertEquals(1, process.getFailedAttempts());
+        assertEquals("retry", process.getLastError().orElseThrow());
+
+        process.applyErrorResult(ErrorResult.fail(), "failed");
+        process.setTimer(DUE, now.plusSeconds(1));
+        process.appendMessage(SIGNAL, "another");
+        assertTrue(process.getNextRunAt().isEmpty());
+
+        assertTrue(process.resume());
+        assertEquals(ProcessStatus.ACTIVE, process.getStatus());
+        assertEquals(now.plusSeconds(1), process.getNextRunAt().orElseThrow());
+        assertEquals(now.plusSeconds(2), process.getAfterDueAt().orElseThrow());
+        assertEquals(0, process.getFailedAttempts());
+        assertTrue(process.getLastError().isEmpty());
+        assertFalse(process.getMessages().isEmpty());
+        assertEquals(2, process.drainPendingHistoryEntries().size());
+    }
+
+    @Test
+    void resumingFailedStepRunsItImmediately() {
+        var process = factory().newInstance(TYPE, clock.instant(), null, "routing", Map.of(), Map.of());
+        process.applyErrorResult(ErrorResult.fail(), "failed");
+        clock.fastForwardTime(Duration.ofSeconds(10));
+        process.setTimer(DUE, clock.instant());
+        assertTrue(process.getNextRunAt().isEmpty());
+
+        assertTrue(process.resume());
+        assertEquals(ProcessStatus.ACTIVE, process.getStatus());
+        assertEquals(clock.instant(), process.getNextRunAt().orElseThrow());
+        assertEquals(0, process.getFailedAttempts());
+        assertTrue(process.getLastError().isEmpty());
+        assertFalse(process.resume());
+        assertEquals(1, process.drainPendingHistoryEntries().size());
+    }
+
+    @Test
+    void messageLookupDependsOnStateButNotProcessStatus() {
+        var process = factory().newInstance(TYPE, clock.instant(), null, "routing", Map.of(), Map.of());
+        var spec = process.getProcessSpec();
+
+        assertTrue(spec.getMessageEvent(SIGNAL, process.getState()).isEmpty());
+
+        process.changeState(State.WAIT);
+        assertTrue(spec.getMessageEvent(SIGNAL, process.getState()).isPresent());
+        process.applyErrorResult(ErrorResult.fail(), "failed");
+        assertTrue(spec.getMessageEvent(SIGNAL, process.getState()).isPresent());
+        process.changeState(State.DONE);
+        assertTrue(spec.getMessageEvent(SIGNAL, process.getState()).isEmpty());
+    }
+
+    @Test
+    void undeclaredTimerCannotBeSetButStoredTimerCanBeReadAndCancelled() {
+        var now = clock.instant();
+        var process = factory().newInstance(TYPE, now, null, "routing", Map.of(), Map.of());
+        var old = TimerType.of("OLD");
+
+        assertThrows(IllegalArgumentException.class, () -> process.setTimer(old, now.plusSeconds(1)));
+        assertTrue(process.getTimer(old).isEmpty());
+        assertEquals(now, process.getNextRunAt().orElseThrow());
+
+        process.getTimers().set(old.name(), now);
+        assertEquals(now, process.getTimer(old).orElseThrow());
+        assertTrue(process.cancelTimer(old));
+        assertTrue(process.getTimer(old).isEmpty());
+        assertEquals(now, process.getNextRunAt().orElseThrow());
     }
 
     private ProcessInstanceFactory factory() {
@@ -69,7 +170,8 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
             .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.message(SIGNAL,
                     (context, message) -> {}, State.WAIT)
-                .after(Duration.ofSeconds(2), State.DONE))
+                .after(Duration.ofSeconds(2), State.DONE)
+                .at(DUE, State.DONE))
             .terminal(State.DONE)
             .build();
         return new ProcessInstanceFactory(clock,

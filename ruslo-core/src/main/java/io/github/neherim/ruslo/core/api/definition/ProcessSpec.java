@@ -139,6 +139,18 @@ public class ProcessSpec {
     }
 
     /**
+     * Checks that an await of the process declares the message type.
+     *
+     * @throws IllegalArgumentException if no await of the process declares this type
+     */
+    public void checkMessageDeclared(MessageType<?> type) {
+        if (!declaresMessage(type)) {
+            throw new IllegalArgumentException("Message " + type.name() + " with payload " + type.clazz().getName()
+                    + " is not declared in process " + getType().name());
+        }
+    }
+
+    /**
      * Returns the message names the state accepts; empty for non-await states.
      */
     public Set<String> getApplicableMessageTypeNames(ProcessState state) {
