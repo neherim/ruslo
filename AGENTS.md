@@ -53,7 +53,7 @@ the related Spring properties in the starter.
 ```bash
 ./mvnw clean install                                    # Build and install all modules
 ./mvnw test -pl ruslo-core                              # Tests of one module (add -am if upstream modules changed)
-./mvnw test -Dtest=TestClassName#methodName             # One test class or method
+./mvnw test -pl ruslo-core '-Dtest=TestClassName#methodName' # One core test class or method
 ./mvnw test -pl ruslo-core -Ppostgresql-tests           # Core tests against PostgreSQL (Testcontainers, needs Docker)
 ./mvnw test -Pperf-tests                                # Performance tests only (excluded by default)
 ./mvnw verify                                           # Full build with tests and checks, as in CI
@@ -64,7 +64,12 @@ the related Spring properties in the starter.
 - Core tests extend `BaseTest` and run on H2 by default. `postgresql-tests` starts one PostgreSQL container per JVM
   and gives every test its own schema. Get databases and the dialect from `TestDatabases`, never hardcode H2.
 - Spring integration tests use `@ProcessEngineTest` from `ruslo-spring-boot-starter-test`: the dispatcher is
-  disabled and steps run through `ProcessEngineEmulator`. Control time only through the emulator.
+  disabled and steps run through `ProcessEngineEmulator`. Control time only through the emulator. The engine clock
+  resets before each test by default; use `@ProcessEngineTest(resetTimeBeforeEachTest = false)` to preserve time
+  between test methods, or `emulator.resetTime()` to reset it explicitly.
+- The emulator joins an enclosing transaction, including a test's Spring `@Transactional` transaction. Run it
+  outside an enclosing transaction when testing retries and rollback behavior; use a running dispatcher to verify
+  production transaction boundaries.
 
 ### Definition of done
 
@@ -88,13 +93,13 @@ Engine operations join the caller's transaction, and in Spring any exception esc
 
 - **An exception means an error**: a bug in the caller or definition, a broken invariant or an infrastructure failure (unknown process, undeclared message type, DB error, user handler failure). Rolling back the caller's transaction is the correct reaction.
 - **An expected outcome is an exception thrown after the engine's transaction**: anything that depends on process state the caller does not control and that may change concurrently (the process left the await, completed, or was stopped in `FAILED` by the dispatcher). The transactional action returns the rejection and the engine throws it only after leaving its transaction (`ProcessRuntimeService.doInTransactionOrReject`), so a caught rejection does not mark the caller's transaction rollback-only, while an uncaught one rolls it back like any exception. Examples: `sendMessage` and `sendMessageSync` throw `MessageNotExpectedException` (also for a `FAILED` process in `sendMessageSync`), `resumeFailedProcess` throws `ProcessStatusException`. Never throw such an outcome from inside the engine's transaction, and never report it as a `boolean`: it is easy to ignore and carries no diagnostics.
-- **Operator and test APIs may throw on unexpected state** (`ProcessEngineAdmin`, `ProcessEngineEmulator`): they run outside business transactions and their caller needs a diagnostic, not a flag.
+- **Operator and test APIs may throw on unexpected state** (`ProcessEngineAdmin`, `ProcessEngineEmulator`): their caller needs a diagnostic, not a flag.
 
 ### Execution model invariants
 
 - Handlers report a result, the definition declares the target (`ProcessStep` returns nothing, `BranchingStep<O>`
   returns an outcome).
-- Every transition is committed in its own transaction; if the next state uses the same worker, execution continues
+- Workers commit each transition in its own transaction; if the next state uses the same worker, execution continues
   under the same lease. Await handlers always run on the transactional `DEFAULT` worker.
 - A transition to the same state is not a state change: the queue, `every`, `after` and history are kept, the error
   is cleared; a step runs again, an await keeps waiting. The rule lives in `ProcessInstance.enterState`, the single
