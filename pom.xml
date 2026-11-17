@@ -51,10 +51,7 @@
         <!-- Shared dependencies are versioned independently of Spring Boot. -->
         <assertj.version>3.27.7</assertj.version>
         <awaitility.version>4.3.0</awaitility.version>
-        <byte-buddy.version>1.17.8</byte-buddy.version>
-        <commons-lang3.version>3.19.0</commons-lang3.version>
         <h2.version>2.4.240</h2.version>
-        <hamcrest.version>3.0</hamcrest.version>
         <hikaricp.version>7.0.2</hikaricp.version>
         <jackson.version>3.1.5</jackson.version>
         <jspecify.version>1.0.1</jspecify.version>
@@ -138,28 +135,6 @@
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-core</artifactId>
                 <version>${logback.version}</version>
-            </dependency>
-
-            <!-- Keep transitive test dependencies aligned across standalone and Spring builds. -->
-            <dependency>
-                <groupId>net.bytebuddy</groupId>
-                <artifactId>byte-buddy</artifactId>
-                <version>${byte-buddy.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>net.bytebuddy</groupId>
-                <artifactId>byte-buddy-agent</artifactId>
-                <version>${byte-buddy.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-lang3</artifactId>
-                <version>${commons-lang3.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.hamcrest</groupId>
-                <artifactId>hamcrest</artifactId>
-                <version>${hamcrest.version}</version>
             </dependency>
 
             <!-- Internal Dependencies -->
