@@ -40,6 +40,8 @@ Root [AGENTS.md](../AGENTS.md) rules still apply. This file adds module-specific
 - Preserve CSRF support for mutating htmx requests. Pages already expose CSRF metadata and body-level htmx headers when Spring Security provides `_csrf`.
 - Keep mutation workflows in native `<dialog>` modals when changing the current modal-driven UI.
 - Keep read-only process details visible on the page; use modals for state, message, and variable mutations.
+- Keep every action visible across process states. Disable inapplicable actions and show a short reason.
+- Give each action one place in the UI. Send message belongs in the Actions menu.
 - Use the existing shared fragments for shell-level UI such as sidebar, theme bootstrap, and theme toggle.
 - htmx fragments should be meaningful refresh boundaries. Avoid splitting one page into many load-on-open fragments unless there is a clear runtime reason.
 - The process details page should fetch the process once during initial page render and use a single whole-details refresh endpoint for follow-up htmx updates.
@@ -132,5 +134,6 @@ For public API or starter interaction changes, run a broader reactor compile or 
 
 - Keep `ruslo-admin-ui/README.md` aligned with real module behavior.
 - User-facing admin UI behavior belongs in `docs/en/admin-ui.md` and `docs/ru/admin-ui.md`; keep both versions aligned.
+- Describe what operators can do in the UI and keep implementation details in the module.
 - Update docs when changing properties, security assumptions, local dev workflow, public URLs, or packaged assets.
 - If examples need to demonstrate admin UI behavior, prefer updating `ruslo-examples` rather than adding example-only production code here.

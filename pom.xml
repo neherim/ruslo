@@ -208,7 +208,6 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!-- Sources and Javadoc jars: IDEs and coding agents read the library from them -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -245,11 +244,6 @@
                 <configuration>
                     <java>
                         <removeUnusedImports/>
-                        <eclipse>
-                            <version>4.41</version>
-                            <file>${maven.multiModuleProjectDirectory}/eclipse-formatter.xml</file>
-                        </eclipse>
-                        <!-- IntelliJ IDEA default layout: other imports, then javax/java, then static -->
                         <importOrder>
                             <order>,javax|java,\#</order>
                         </importOrder>
