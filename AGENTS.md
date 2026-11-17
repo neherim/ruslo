@@ -1,188 +1,107 @@
 # AGENTS.md
 
-ruslo is a Java library for long-running business processes stored in a relational database. A process is a state
-machine: steps run code and move it to the next state, awaits wait for messages and timers. State lives in `xs_*`
-tables, a lease dispatcher runs ready processes on one or many nodes. Supported databases: H2 and PostgreSQL.
-
-The project is before 1.0: public API may change incompatibly when it makes the library simpler.
+Ruslo is a Java library for long-running business processes on H2 and PostgreSQL. Steps and awaits form a state
+machine. State lives in `xs_*` tables and a lease dispatcher runs ready processes across one or more nodes.
+The project is before 1.0 and may break public API compatibility to simplify the library.
 
 ## Project Structure
 
-Maven multi-module project (`Java 21`, Spring Boot 4.0 baseline):
+Maven multi-module project with Java 21 and a Spring Boot 4.0 baseline.
 
-- **`ruslo-core`**: engine, runtime, lease dispatcher, DAO layer, metrics and public API. Primary business logic
-  lives here; start here unless the task is clearly about Spring, admin UI, examples or test support.
-- **`ruslo-spring-boot-starter`**: auto-configuration, property binding, JDBC and Micrometer integration.
-- **`ruslo-spring-boot-starter-test`**: test support for Spring Boot integration tests.
-- **`ruslo-admin-ui`**: Thymeleaf + Pico CSS admin UI and REST endpoints for process management.
-- **`ruslo-examples`**: `quickstart` (tutorial code), `cookbook` (recipes, one package per recipe; also the runnable
-  demo), `standalone-core` (no Spring).
-- **`ruslo-performance-test`**: performance and load scenarios.
-- **`skills/ruslo/SKILL.md`**: agent skill for library users.
-- **`docs/`**: user documentation, published as a site.
+- Start engine work in `ruslo-core`. For execution issues, check `core.runtime`, `core.runtime.worker`,
+  `core.dispatcher` and the related starter properties.
+- The public core API is `core.api.*` and `core.spi.*`. Examples and user-facing code in other modules must use
+  those packages for core imports.
+- Spring integration lives in `ruslo-spring-boot-starter` and test support in `ruslo-spring-boot-starter-test`.
+- See [Admin UI instructions](ruslo-admin-ui/AGENTS.md) and [benchmark instructions](ruslo-performance-test/AGENTS.md)
+  for module-specific rules. See the [examples README](ruslo-examples/README.md) for tutorials, recipes and the demo.
 
-### Packages in `ruslo-core`
+## Build and Test
 
-Public API is `core.api.*` and `core.spi.*`; everything else is internal. Examples and user-facing code of other
-modules must not import internal packages.
-
-| Package | Responsibility |
-|---|---|
-| `core.api` | Engine entry points and setup: `ProcessEngine`, `ProcessEngineBuilder`, `ProcessEngineAdmin`, `ProcessEngineEmulator` |
-| `core.api.definition` | Process description: definitions, states, handlers, error policy, `ProcessContext` |
-| `core.api.view` | Reading process state and search queries |
-| `core.api.exception` | Public exceptions |
-| `core.api.test` | Test support: `MutableClock`, `TestProcessContext` |
-| `core.spi` | Extension contracts: `Database`, `RowMapper`, `ProcessEngineMetrics`; `PlainJdbcDatabase` |
-| `core.database` | SQL dialect detection |
-| `core.definition` | Definition registration and validation |
-| `core.runtime` | `ProcessRuntimeService`: start, message delivery, resume |
-| `core.runtime.process` | Process instance model and DAO |
-| `core.runtime.worker` | Step execution, workers, runtime error handling |
-| `core.dispatcher` | Polling scheduler and dispatcher abstraction |
-| `core.dispatcher.lease` | Lease claim, instance registration, recovery and multi-node dispatching |
-| `core.search` | Process search |
-| `core.management` | Schema migration and management operations |
-| `core.metrics` | Metrics abstraction, in-memory and no-op implementations |
-
-For process execution issues, inspect the runtime path (`core.runtime`, `core.runtime.worker`, `core.dispatcher`) and
-the related Spring properties in the starter.
-
-## Build & Test
-
-```bash
-./mvnw clean install                                    # Build and install all modules
-./mvnw test -pl ruslo-core                              # Tests of one module (add -am if upstream modules changed)
-./mvnw test -pl ruslo-core '-Dtest=TestClassName#methodName' # One core test class or method
-./mvnw test -pl ruslo-core -Ppostgresql-tests           # Core tests against PostgreSQL (Testcontainers, needs Docker)
-./mvnw test -Pperf-tests                                # Performance tests only (excluded by default)
-./mvnw verify                                           # Full build with tests and checks, as in CI
-./mvnw spotless:apply                                   # Format code
-./mvnw spring-boot:run -pl ruslo-examples/cookbook -am  # Demo app: http://localhost:8080, admin UI at /ruslo
-```
-
-- Core tests extend `BaseTest` and run on H2 by default. `postgresql-tests` starts one PostgreSQL container per JVM
-  and gives every test its own schema. Get databases and the dialect from `TestDatabases`, never hardcode H2.
-- Spring integration tests use `@ProcessEngineTest` from `ruslo-spring-boot-starter-test`: the dispatcher is
-  disabled and steps run through `ProcessEngineEmulator`. Control time only through the emulator. The engine clock
-  resets before each test by default; use `@ProcessEngineTest(resetTimeBeforeEachTest = false)` to preserve time
-  between test methods, or `emulator.resetTime()` to reset it explicitly.
+- Run core tests with `./mvnw test -pl ruslo-core`. Select a test with `'-Dtest=ClassName#methodName'` and add
+  `-am` when upstream modules need rebuilding.
+- Use `BaseTest` for DB-backed engine tests and obtain databases and dialects from `TestDatabases`. H2 is the
+  default. For PostgreSQL, run `./mvnw test -pl ruslo-core -Ppostgresql-tests` with Docker.
+- Use `@ProcessEngineTest` for Spring integration tests and control time through the emulator. See the
+  [testing guide](docs/en/testing.md) for clock reset options.
 - The emulator joins an enclosing transaction, including a test's Spring `@Transactional` transaction. Run it
-  outside an enclosing transaction when testing retries and rollback behavior; use a running dispatcher to verify
-  production transaction boundaries.
+  outside an enclosing transaction to test retries and rollback, and use a running dispatcher to verify production
+  transaction boundaries.
 
-### Definition of done
+### Definition of Done
 
-- A behavior change or bug fix comes with a test that fails without it.
-- `./mvnw spotless:apply` is run; formatting is owned by Spotless (Eclipse formatter `eclipse-formatter.xml` and
-  import order, configured in the root `pom.xml`); `verify` and CI fail on unformatted code.
-- Tests of the affected modules pass; for changes across modules or in SQL, run `./mvnw verify`.
-- After a docs change, `mkdocs build --strict` passes (see [Documentation site](#documentation-site)).
-- Docs, examples, `SKILL.md` and configuration metadata are updated as required by [Working Rules](#working-rules).
+- A behavior change or bug fix includes a test that fails without it.
+- For code changes, run `./mvnw spotless:apply` and test the affected modules. For cross-module code changes or
+  SQL changes, run `./mvnw verify`.
+- For user documentation changes, install dependencies from `docs/requirements.txt` as needed and run
+  `mkdocs build --strict`.
 
 ## Design Principles
 
-- Simplicity is the main value of this library, in the public API and in the implementation. Choose the simplest, most direct and maintainable solution that works; do not add extra abstractions, wrapper classes, design patterns or future-proofing unless explicitly asked. Over-engineering is a defect.
-- Validate external input at system boundaries. Internal code must rely on invariants already guaranteed by its callers and types. Do not repeat null checks, range checks or other validation without a concrete current call path that requires them. A public modifier on an internal class does not make it an external API boundary. Checks of mutable concurrent state, such as `row_version`, remain necessary.
-- When choosing between solutions, prefer the one with fewer independent concepts, allowed combinations and special rules. The number of types or lines is not the goal: one class with nullable fields and many valid combinations is more complex than three small records.
-- Simplicity of execution rules matters most: how the engine selects events, commits transitions and handles errors. Every new rule or exception to a rule must be justified by a real requirement.
+- Prefer direct implementations with fewer independent concepts, valid combinations and special cases. Add
+  abstractions and execution rules only for current requirements.
+- Validate input at external boundaries. Internal code relies on caller and type invariants. Check mutable
+  concurrent state where needed, such as `row_version`.
 
-### Exceptions vs. return values in the public API
+### Public API Rejections
 
-Engine operations join the caller's transaction, and in Spring any exception escaping them marks that transaction rollback-only. So:
+Throw caller errors, invariant violations and infrastructure failures inside the engine transaction so it rolls
+back. For expected rejections that depend on current process state, return the rejection from the transactional
+action and throw it after the engine leaves its transaction via `ProcessRuntimeService.doInTransactionOrReject`.
+This lets a Spring caller catch the rejection without marking its transaction rollback-only. Use a diagnostic
+exception for these outcomes, including unexpected state in operator and test APIs. See
+[application transactions](docs/en/spring.md#application-transactions) for examples.
 
-- **An exception means an error**: a bug in the caller or definition, a broken invariant or an infrastructure failure (unknown process, undeclared message type, DB error, user handler failure). Rolling back the caller's transaction is the correct reaction.
-- **An expected outcome is an exception thrown after the engine's transaction**: anything that depends on process state the caller does not control and that may change concurrently (the process left the await, completed, or was stopped in `FAILED` by the dispatcher). The transactional action returns the rejection and the engine throws it only after leaving its transaction (`ProcessRuntimeService.doInTransactionOrReject`), so a caught rejection does not mark the caller's transaction rollback-only, while an uncaught one rolls it back like any exception. Examples: `sendMessage` and `sendMessageSync` throw `MessageNotExpectedException` (also for a `FAILED` process in `sendMessageSync`), `resumeFailedProcess` throws `ProcessStatusException`. Never throw such an outcome from inside the engine's transaction, and never report it as a `boolean`: it is easy to ignore and carries no diagnostics.
-- **Operator and test APIs may throw on unexpected state** (`ProcessEngineAdmin`, `ProcessEngineEmulator`): their caller needs a diagnostic, not a flag.
+### Execution Invariants
 
-### Execution model invariants
-
-- Handlers report a result, the definition declares the target (`ProcessStep` returns nothing, `BranchingStep<O>`
-  returns an outcome).
-- Workers commit each transition in its own transaction; if the next state uses the same worker, execution continues
-  under the same lease. Await handlers always run on the transactional `DEFAULT` worker.
-- A transition to the same state is not a state change: the queue, `every`, `after` and history are kept, the error
-  is cleared; a step runs again, an await keeps waiting. The rule lives in `ProcessInstance.enterState`, the single
-  path for every transition.
+- Handlers report outcomes and definitions declare targets. `ProcessStep` returns `void` and `BranchingStep<O>`
+  returns an outcome.
+- Each worker transition commits in its own transaction. A transition to a state on the same worker continues under
+  the same lease. Await handlers always run on the transactional `DEFAULT` worker.
+- A transition to the current state preserves the message queue, `every` and `after` timers, and history, and clears
+  errors and retry attempts. A step runs again and an await keeps waiting. All transitions go through
+  `ProcessInstance.changeState`.
 
 ## Working Rules
 
-- Implementation plans go to `plans/` at the repository root; the folder is not committed. Everything worth keeping from a plan moves into code, Javadoc, docs and the commit message.
-- If you change public API, configuration properties, database schema, test utilities or behavior, also update affected callers and relevant Javadoc in the same change.
-- Update user documentation, examples and `skills/ruslo/SKILL.md` only when a change affects the public contract, recommended usage, or what a library user should write, configure or do. Internal refactorings and bug fixes that restore existing invariants do not require user-facing documentation changes unless existing guidance becomes incorrect. Keep implementation details and internal concurrency safeguards in code, internal Javadoc and tests.
-- If you add, rename, remove, or change defaults/semantics of Spring Boot configuration properties, also update `ruslo-spring-boot-starter/src/main/resources/META-INF/additional-spring-configuration-metadata.json`.
-- Database migrations are append-only: never edit or delete an existing `V<n>__*.sql`. Add the next version for every
-  supported database (`ruslo-core/src/main/resources/db/migration/h2/` and `.../postgresql/`, auto-discovered by
-  `V<version>__<name>.sql`) and verify the affected DAO/query code. All engine tables use the `xs_` prefix.
+- Keep implementation plans in the ignored `plans/` directory. Record lasting decisions in code, Javadoc, docs or
+  the commit message.
+- Update affected callers and Javadoc alongside API, configuration, schema, test utility or behavior changes.
+- Update user docs, examples and `skills/ruslo/SKILL.md` where the public contract or recommended usage changes.
+  Document internal safeguards in code and tests.
+- For changes to Spring Boot properties, also update
+  `ruslo-spring-boot-starter/src/main/resources/META-INF/additional-spring-configuration-metadata.json`.
+- Migrations are append-only. Add the next `V<version>__<name>.sql` to both `h2/` and `postgresql/` under
+  `ruslo-core/src/main/resources/db/migration/` and verify affected DAO queries. All engine tables use `xs_`.
 
 ### Examples
 
-- `define()` reads as a plain state graph: no inline lambdas in it. A small step or handler becomes a method of the
-  definition, referenced as `Definition::onPayment` (static) or `this::reserveSeat` (uses an injected bean).
-- Raw types and casts on handlers are forbidden in production code, tests and examples.
-- A cookbook recipe shows one engine pattern. Steps that are not the point of the recipe only log; no application DB
-  work or service stubs unless the pattern needs them. Recipe tests use no Mockito and do not emulate failures with
-  mocks: outcomes and errors come from input data, and tests check process state and variables.
-
-### Admin UI
-
-- Actions do not appear or disappear with process state: every action is always shown and disabled with a short
-  reason when it does not apply (`disabled` instead of `th:if`).
-- Each action lives in one place (e.g. Send message only in the Actions menu, not also as a toolbar button).
+- Keep example `define()` methods readable as state graphs. Use method references for steps and handlers.
+- Use fully typed handlers in production code, tests and examples. Raw types and casts on handlers are forbidden.
+- Show one pattern per cookbook recipe. Steps outside that pattern only log. Add database work or service stubs
+  only if the pattern requires them. Recipe tests drive outcomes and errors through input data, use no mocks, and
+  assert process state and variables.
 
 ## Code Style
 
-- **Language**: code, Javadoc, comments, log and exception messages are in English.
-- **Public methods with business logic** must have a Javadoc comment. Simple getters and setters do not require Javadoc.
+- Write code, Javadoc, comments, log and exception messages in English.
+- Document public methods with business logic. Start Javadoc with a short third-person summary and cover the
+  observable result, side effects, transactions and threading as relevant.
+- Document shared rules once and link to them with `{@link}`. Use `@param` and `@return` for details beyond the
+  signature and `@throws` for exceptions callers may need to handle. For internal classes, explain the reason
+  for the design.
 
-### Javadoc
+## Documentation
 
-Javadoc is a technical contract, not prose. Write the minimum the caller needs, by default one sentence.
-
-- The first sentence says what the element does, in third person: `Starts…`, `Returns…`.
-- Describe what the caller observes: result, exceptions, side effects, transaction and threading behavior. Do not retell the implementation.
-- Describe a rule shared by several methods once (class, exception or `package-info` Javadoc) and link to it with `{@link}`.
-- Write `@param` and `@return` only when they add something to the name and type. Keep `@throws` for every exception the caller may need to handle. Do not repeat names, types or tag content in the prose.
-- Internal classes: explain why, not what the code does. A short class Javadoc is usually enough.
-
-### Documentation
-
-- English is the primary version: `README.md`, `docs/en/*.md`. The Russian translation lives next to it: `README.ru.md`, `docs/ru/*.md`.
-- Change the English version first, then update the Russian one in the same change so they say the same thing.
-- Documentation may explain in more detail than Javadoc, but stays technical: no filler, no marketing.
-- Documentation describes the model and the recommended usage. Exact edge cases of a method (argument checks,
-  truncation, behavior in rare states) belong in its Javadoc, not in `docs/`.
-- Every fact has one home page; other pages link to it instead of restating it. Update that page when behavior
-  changes, not every page that mentions the feature.
-
-| Topic | Home in `docs/<lang>/` |
-|---|---|
-| Process description, transitions, start, `ProcessContext`, status, process search, definition evolution | `processes.md` |
-| Linear and branching steps, step worker, repeated execution | `steps.md` |
-| Await events, messages and their acceptance, `every`/`after`/`at` timers, event order, `sendMessageSync` | `awaits.md` |
-| Workers, execution modes, transactions and at-least-once, capacity | `workers.md` |
-| Error policy, give-up state, retries in an await, `FAILED` | `error-handling.md` |
-| `next_run_at`, pickup, timer accuracy, multiple nodes, node failure, clocks | `dispatcher.md` |
-| Starter, `SpringProcessDefinition`, application transactions in Spring | `spring.md` |
-| Properties and builder methods | `configuration.md` |
-| Emulator and `TestProcessContext` | `testing.md` |
-| Production checklist, editing a process in SQL, retention | `operations.md` |
-| Admin UI pages and actions | `admin-ui.md` |
-| Metrics | `metrics.md` |
-
-- `README.md` and `docs/en/quickstart.md` show only the main path and link to the home pages; Admin UI pages are
-  described by what the user can do, not by how the page works.
-
-#### Documentation site
-
-`docs/` is published to GitHub Pages (`https://neherim.github.io/ruslo/`) with MkDocs Material by
-`.github/workflows/docs.yml`; the configuration is `mkdocs.yml`.
-
-- `docs/en/` and `docs/ru/` hold the same file names; the site language switcher maps pages by name.
-  `docs/<lang>/index.md` is the site home page. Images shared by both languages are in `docs/images/`.
-- A new page goes to both language folders and to `nav` in `mkdocs.yml`; translate its section names in
-  `nav_translations`.
-- Links between pages are relative (`steps.md#anchor`). Links to the rest of the repository (modules, examples)
-  are absolute GitHub URLs: the site contains only `docs/`.
-- The build is strict: a broken link or anchor fails CI. Check locally:
-  `pip install -r docs/requirements.txt && mkdocs build --strict`, preview with `mkdocs serve` (http://localhost:8000).
+- Edit English first and keep `README.ru.md` and `docs/ru/` aligned with `README.md` and `docs/en/` in the same change.
+- Keep docs focused on the model and recommended usage. Put exact method edge cases in Javadoc. Give each topic
+  one home page. Keep the README and quickstart focused on the main path and link to those pages for details.
+- In `docs/<lang>/`, process start, state, transitions, `ProcessContext` and search go in `processes.md`. Steps go
+  in `steps.md`. Messages, events,
+  timers and `sendMessageSync` go in `awaits.md`. Retries and `FAILED` go in `error-handling.md`. Worker modes go
+  in `workers.md`, and pickup, leases, clocks and node failure in `dispatcher.md`.
+- Spring integration and application transactions go in `spring.md`. Settings go in `configuration.md`, test
+  tools in `testing.md`, maintenance in `operations.md`, UI actions in `admin-ui.md` and metrics in `metrics.md`.
+- Add new pages under the same filename in both languages. Update `nav` and `nav_translations` in `mkdocs.yml`.
+  Keep shared images in `docs/images/`. Use relative links within the site and absolute GitHub links to files
+  outside `docs/`.
