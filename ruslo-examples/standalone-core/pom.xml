@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.github.neherim</groupId>
         <artifactId>ruslo-examples</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>standalone-core</artifactId>

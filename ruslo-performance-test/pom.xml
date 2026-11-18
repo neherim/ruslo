@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.github.neherim</groupId>
         <artifactId>ruslo-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>ruslo-performance-test</artifactId>
@@ -16,6 +16,7 @@
         <!-- Performance tests are not published -->
         <maven.source.skip>true</maven.source.skip>
         <maven.javadoc.skip>true</maven.javadoc.skip>
+        <maven.deploy.skip>true</maven.deploy.skip>
         <maven.build.timestamp.format>yyyyMMdd-HHmmss</maven.build.timestamp.format>
         <perf.groups></perf.groups>
         <perf.excludedGroups>performance</perf.excludedGroups>
