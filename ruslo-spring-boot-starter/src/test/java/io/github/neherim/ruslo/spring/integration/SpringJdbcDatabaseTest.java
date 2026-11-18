@@ -10,9 +10,12 @@ import io.github.neherim.ruslo.core.api.exception.TooManyRowsException;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +26,32 @@ class SpringJdbcDatabaseTest {
     private static final ProcessType SEARCH_TYPE = ProcessType.of("SEARCH");
     private static final ProcessState SEARCH_START = ProcessState.of("START");
     private static final ProcessState SEARCH_DONE = ProcessState.of("DONE");
+
+    @Test
+    void bindsInstantInUpdatesQueriesAndBatches() {
+        var database = System.getProperty("test.db", "h2").equals("postgresql")
+                ? postgresqlDatabase()
+                : database();
+        var first = Instant.parse("2026-11-18T21:08:58.428123Z");
+        var second = first.plusSeconds(1);
+        Object[] cutoff = new Instant[]{second};
+
+        database.doInTransaction(() -> {
+            database.update("create table scheduled_work (id int primary key, run_at timestamp with time zone)");
+            assertEquals(1, database.update("insert into scheduled_work values (?, ?)", 1, first));
+            database.batchInsert("insert into scheduled_work values (?, ?)",
+                    List.of(new Object[]{2, second}, new Object[]{3, null}));
+
+            assertEquals(List.of(first, second), database.queryForList(
+                    "select run_at from scheduled_work where run_at <= ? order by id",
+                    rs -> rs.getObject(1, OffsetDateTime.class).toInstant(), cutoff));
+        });
+    }
+
+    private static SpringJdbcDatabase postgresqlDatabase() {
+        var dataSource = new DriverManagerDataSource("jdbc:tc:postgresql:18.4-alpine:///ruslo");
+        return new SpringJdbcDatabase(new DataSourceTransactionManager(dataSource), dataSource);
+    }
 
     @Test
     void singleDetailsWorksWithoutAnOuterTransactionWithOnePooledConnection() {

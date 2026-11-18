@@ -9,6 +9,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -31,17 +34,31 @@ public class SpringJdbcDatabase implements Database {
 
     @Override
     public int update(String sql, Object... params) {
-        return jdbcTemplate.update(sql, params);
+        return jdbcTemplate.update(sql, jdbcParameters(params));
     }
 
     @Override
     public <T> List<T> queryForList(String sql, RowMapper<T> rowMapper, Object... params) {
-        return jdbcTemplate.query(sql, (rs, rn) -> rowMapper.mapRow(rs), params);
+        return jdbcTemplate.query(sql, (rs, rn) -> rowMapper.mapRow(rs), jdbcParameters(params));
     }
 
     @Override
     public void batchInsert(String sql, List<Object[]> params) {
-        jdbcTemplate.batchUpdate(sql, params);
+        jdbcTemplate.batchUpdate(sql, params.stream().map(SpringJdbcDatabase::jdbcParameters).toList());
+    }
+
+    private static Object[] jdbcParameters(Object[] params) {
+        if (params == null) {
+            return null;
+        }
+        var jdbcParams = Arrays.copyOf(params, params.length, Object[].class);
+        for (int i = 0; i < jdbcParams.length; i++) {
+            // PostgreSQL JDBC supports OffsetDateTime for TIMESTAMP WITH TIME ZONE.
+            if (jdbcParams[i] instanceof Instant instant) {
+                jdbcParams[i] = instant.atOffset(ZoneOffset.UTC);
+            }
+        }
+        return jdbcParams;
     }
 
     @Override
