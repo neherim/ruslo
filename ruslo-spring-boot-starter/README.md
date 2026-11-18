@@ -68,7 +68,7 @@ or `ApplicationReadyEvent`.
 
 | What | How |
 |---|---|
-| Engine clock | a `Clock` bean named `rusloProcessEngineClock` (default `Clock.systemDefaultZone()`). Other `Clock` beans of the application do not affect the engine, and the engine clock is not injected by type: declare and inject it with `@Bean(defaultCandidate = false)` / `@Qualifier("rusloProcessEngineClock")` |
+| Engine clock | a `Clock` bean named `rusloClock` (default `Clock.systemDefaultZone()`). Other `Clock` beans of the application do not affect the engine, and the engine clock is not injected by type: declare and inject it with `@Bean(defaultCandidate = false)` / `@Qualifier("rusloClock")` |
 | A worker that YAML cannot describe (e.g. with its own executor) | a `WorkerSpec` bean; an entry with the same id in `ruslo.workers.*` takes precedence |
 | A separate connection pool for the engine | your own `Database` bean: `new SpringJdbcDatabase(transactionManager, dataSource)` |
 | Full control | your own `ProcessEngine` bean; the starter only starts and stops it, register definitions yourself |

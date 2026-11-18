@@ -42,10 +42,10 @@ public class ProcessEngineAutoConfiguration {
     /**
      * Returns the system clock as the engine clock. The bean is not a candidate for injection by type: other
      * {@link Clock} beans of the application do not replace it, and it is not injected into the application.
-     * To replace the engine clock, declare a bean named {@code rusloProcessEngineClock}.
+     * To replace the engine clock, declare a bean named {@code rusloClock}.
      */
-    @Bean(name = "rusloProcessEngineClock", defaultCandidate = false)
-    @ConditionalOnMissingBean(name = "rusloProcessEngineClock")
+    @Bean(name = "rusloClock", defaultCandidate = false)
+    @ConditionalOnMissingBean(name = "rusloClock")
     public Clock processEngineClock() {
         return Clock.systemDefaultZone();
     }
@@ -75,7 +75,7 @@ public class ProcessEngineAutoConfiguration {
 
         @Bean("rusloProcessEngine")
         public ProcessEngine processEngine(
-                @Qualifier("rusloProcessEngineClock") Clock processEngineClock,
+                @Qualifier("rusloClock") Clock processEngineClock,
                 Database database,
                 List<WorkerSpec> workerSpecs,
                 ProcessEngineProperties props,

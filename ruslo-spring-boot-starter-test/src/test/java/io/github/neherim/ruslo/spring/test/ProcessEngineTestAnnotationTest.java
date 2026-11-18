@@ -36,7 +36,7 @@ class ProcessEngineTestAnnotationTest {
     private ProcessEngineProperties properties;
 
     @Autowired
-    @Qualifier("rusloProcessEngineClock")
+    @Qualifier("rusloClock")
     private Clock processEngineClock;
 
     @Test

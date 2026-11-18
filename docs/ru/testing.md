@@ -97,6 +97,6 @@ production используйте работающий диспетчер.
   `@ImportAutoConfiguration(ProcessEngineTestConfiguration.class)` вместо `@ProcessEngineTest`.
   Эта конфигурация также оставляет сброс часов тесту; при необходимости вызывайте `emulator.resetTime()`.
 - Чтобы начать со своего начального времени, объявите в тестовой конфигурации бин `MutableClock` с именем
-  `rusloProcessEngineClock` и `@Bean(defaultCandidate = false)`.
+  `rusloClock` и `@Bean(defaultCandidate = false)`.
 - Без Spring постройте движок с `MutableClock` (`ProcessEngineBuilder.withClock`) и создайте эмулятор через
   `new ProcessEngineEmulator(engine)`.

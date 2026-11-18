@@ -330,7 +330,7 @@ class ProcessEngineAutoConfigurationTest {
             .run(context -> {
                 assertThat(context).hasNotFailed();
                 assertThat(context.getBean(Clock.class)).isSameAs(ApplicationClockConfiguration.CLOCK);
-                assertThat(context.getBean("rusloProcessEngineClock", Clock.class))
+                assertThat(context.getBean("rusloClock", Clock.class))
                     .isNotSameAs(ApplicationClockConfiguration.CLOCK);
 
                 var processEngine = context.getBean(ProcessEngine.class);
