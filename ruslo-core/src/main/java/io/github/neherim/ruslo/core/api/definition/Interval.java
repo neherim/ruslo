@@ -1,5 +1,7 @@
 package io.github.neherim.ruslo.core.api.definition;
 
+import io.github.neherim.ruslo.core.utils.EngineTime;
+
 import java.time.Duration;
 
 import static java.util.Objects.requireNonNull;
@@ -21,6 +23,8 @@ public record Interval(Duration period, Duration firstAfter) {
         if (firstAfter.isNegative()) {
             throw new IllegalArgumentException("First check delay cannot be negative: " + firstAfter);
         }
+        period = EngineTime.roundDelayUp(period);
+        firstAfter = EngineTime.roundDelayUp(firstAfter);
     }
 
     /**

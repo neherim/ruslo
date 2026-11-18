@@ -14,10 +14,10 @@ import io.github.neherim.ruslo.core.management.ManagementService;
 import io.github.neherim.ruslo.core.runtime.ProcessRuntimeService;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
 import io.github.neherim.ruslo.core.search.ProcessSearchService;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Clock;
 import java.util.UUID;
 
 /**
@@ -34,7 +34,7 @@ public class ProcessEngine implements AutoCloseable {
     private final ManagementService managementService;
     private final ProcessRuntimeService processRuntimeService;
     private final ApplicationInstanceLifecycle applicationInstanceLifecycle;
-    private final Clock clock;
+    private final EngineTime engineTime;
     private final boolean databaseMigrationEnabled;
     private final boolean dispatcherEnabled;
     private volatile boolean started;
@@ -47,7 +47,7 @@ public class ProcessEngine implements AutoCloseable {
             ManagementService managementService,
             ProcessRuntimeService processRuntimeService,
             ApplicationInstanceLifecycle applicationInstanceLifecycle,
-            Clock clock,
+            EngineTime engineTime,
             boolean databaseMigrationEnabled,
             boolean dispatcherEnabled
     ) {
@@ -58,7 +58,7 @@ public class ProcessEngine implements AutoCloseable {
         this.managementService = managementService;
         this.processRuntimeService = processRuntimeService;
         this.applicationInstanceLifecycle = applicationInstanceLifecycle;
-        this.clock = clock;
+        this.engineTime = engineTime;
         this.databaseMigrationEnabled = databaseMigrationEnabled;
         this.dispatcherEnabled = dispatcherEnabled;
     }
@@ -219,7 +219,7 @@ public class ProcessEngine implements AutoCloseable {
         return applicationInstanceLifecycle;
     }
 
-    Clock clock() {
-        return clock;
+    EngineTime engineTime() {
+        return engineTime;
     }
 }

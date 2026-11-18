@@ -3,6 +3,7 @@ package io.github.neherim.ruslo.core.api.test;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.runtime.process.ProcessTimers;
 import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -20,7 +21,7 @@ public final class TestProcessContext implements ProcessContext {
     private final ProcessState state;
     private final int attempt;
     private final String businessKey;
-    private final Clock clock;
+    private final EngineTime engineTime;
     private final ProcessVariables variables;
     private final ProcessTimers timers;
 
@@ -31,7 +32,7 @@ public final class TestProcessContext implements ProcessContext {
         this.state = builder.state;
         this.attempt = builder.attempt;
         this.businessKey = builder.businessKey;
-        this.clock = builder.clock;
+        this.engineTime = new EngineTime(builder.clock);
         this.variables = ProcessVariables.fromMap(builder.variables);
         this.timers = ProcessTimers.empty();
         builder.timers.forEach(timers::set);
@@ -128,7 +129,7 @@ public final class TestProcessContext implements ProcessContext {
 
     @Override
     public Instant now() {
-        return clock.instant();
+        return engineTime.now();
     }
 
     public static final class Builder {
@@ -198,7 +199,7 @@ public final class TestProcessContext implements ProcessContext {
         }
 
         /**
-         * Sets an initial timer, truncated to microseconds by {@link #build()}.
+         * Sets an initial timer.
          */
         public Builder timer(TimerType timer, Instant moment) {
             this.timers.put(Objects.requireNonNull(timer, "Timer type must not be null").name(),

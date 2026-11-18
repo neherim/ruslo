@@ -10,10 +10,10 @@ import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
 import io.github.neherim.ruslo.core.runtime.process.ProcessMessages;
 import io.github.neherim.ruslo.core.runtime.process.ProcessMessages.PendingMessage;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.util.function.Supplier;
 
@@ -25,12 +25,12 @@ public class StepExecutor {
     private static final Logger log = LoggerFactory.getLogger(StepExecutor.class);
     private final ProcessMdc processMdc;
     private final ProcessEngineMetrics metrics;
-    private final Clock clock;
+    private final EngineTime engineTime;
 
-    public StepExecutor(ProcessMdc processMdc, ProcessEngineMetrics metrics, Clock clock) {
+    public StepExecutor(ProcessMdc processMdc, ProcessEngineMetrics metrics, EngineTime engineTime) {
         this.processMdc = processMdc;
         this.metrics = metrics;
-        this.clock = clock;
+        this.engineTime = engineTime;
     }
 
     /**
@@ -70,7 +70,7 @@ public class StepExecutor {
         var startedAtNanos = System.nanoTime();
         try (var ignored = processMdc.open(process)) {
             log.debug("Starting message {} in {}", event.type().name(), executedState.name());
-            var message = new IncomingMessage<>(event.type(), event.type().clazz().cast(payload), clock.instant());
+            var message = new IncomingMessage<>(event.type(), event.type().clazz().cast(payload), engineTime.now());
             var context = new DefaultProcessContext(process);
             var outcome = invokeHandler(() -> event.handler().apply(context, message));
             var target = resolveTargetState(event.exit(), outcome, process);

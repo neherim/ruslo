@@ -59,6 +59,36 @@ class AwaitTimersTest extends BaseTest {
     }
 
     @Test
+    void fractionalDelaysUseWholeMicrosecondsForTheEntireTimerGrid() {
+        ProcessDefinition definition = builder -> builder.type("FRACTIONAL_TIMERS")
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await
+                .every(Interval.of(Duration.ofNanos(1500)).firstAfter(Duration.ofNanos(100)),
+                        context -> log.add("every"), State.WAIT)
+                .after(Duration.ofNanos(3100), State.TIMEOUT_DONE))
+            .terminal(State.TIMEOUT_DONE)
+            .build();
+        try (var engine = engine(definition)) {
+            var emulator = emulator(engine);
+            var startTime = Instant.parse("2026-09-24T11:00:00Z");
+            clock.now = startTime;
+            var id = engine.newProcess(ProcessType.of("FRACTIONAL_TIMERS")).start();
+            var first = startTime.plusNanos(1000);
+            var second = startTime.plusNanos(3000);
+            var after = startTime.plusNanos(4000);
+
+            assertEquals(first, emulator.runUntilStop(id).nextRunAt().orElseThrow());
+            clock.now = first;
+            assertEquals(second, emulator.runUntilStop(id).nextRunAt().orElseThrow());
+            clock.now = second;
+            assertEquals(after, emulator.runUntilStop(id).nextRunAt().orElseThrow());
+            assertEquals(List.of("every", "every"), log);
+            clock.now = after;
+            assertEquals(ProcessStatus.COMPLETED, emulator.runUntilStop(id).status());
+        }
+    }
+
+    @Test
     void messageBeforeDeadlineWinsEvenIfHandledAfterIt() {
         var engine = engine("T1", (context, message) -> handled(message), null, null, noRetry());
         try {

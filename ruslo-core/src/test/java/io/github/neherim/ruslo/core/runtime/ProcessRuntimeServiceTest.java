@@ -12,6 +12,7 @@ import io.github.neherim.ruslo.core.runtime.worker.StepErrorHandler;
 import io.github.neherim.ruslo.core.runtime.worker.StepExecutor;
 import io.github.neherim.ruslo.core.search.ProcessSearchService;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -58,7 +59,7 @@ class ProcessRuntimeServiceTest extends BaseTest {
     @Test
     void processStartShouldUseInjectedClockForAllPersistedTimestamps() {
         var initial = Instant.parse("2026-07-20T10:15:30Z");
-        var clock = new CountingClock(initial);
+        var clock = new CountingClock(initial.plusNanos(600));
         var runtime = runtime(new ProcessDispatchSignal(), clock);
 
         var processId = runtime.newProcess(SimpleProcessDefinition.TYPE).start();
@@ -109,17 +110,18 @@ class ProcessRuntimeServiceTest extends BaseTest {
     }
 
     private ProcessRuntimeService runtime(ProcessDispatchSignal signal, Clock clock) {
+        var engineTime = new EngineTime(clock);
         var registry = new ProcessDefinitionRegistry(List.of(new SimpleProcessDefinition()));
-        var factory = new ProcessInstanceFactory(clock, registry);
-        var dao = new ProcessInstanceDao(database, clock, factory, true,
+        var factory = new ProcessInstanceFactory(engineTime, registry);
+        var dao = new ProcessInstanceDao(database, engineTime, factory, true,
                 new io.github.neherim.ruslo.core.spi.ProcessEngineMetrics() {
                 });
         ProcessEngineMetrics metrics = new ProcessEngineMetrics() {
         };
         var processMdc = new ProcessMdc(MdcKeys.defaults());
-        var stepExecutor = new StepExecutor(processMdc, metrics, clock);
-        return new ProcessRuntimeService(clock, database, dao, factory, signal,
-                metrics, processMdc, stepExecutor, new StepErrorHandler(clock, database, dao, processMdc, metrics));
+        var stepExecutor = new StepExecutor(processMdc, metrics, engineTime);
+        return new ProcessRuntimeService(engineTime, database, dao, factory, signal,
+                metrics, processMdc, stepExecutor, new StepErrorHandler(engineTime, database, dao, processMdc, metrics));
     }
 
     private Instant timestamp(String sql, java.util.UUID processId) {

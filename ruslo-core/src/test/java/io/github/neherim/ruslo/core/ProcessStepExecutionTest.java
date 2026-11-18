@@ -15,6 +15,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ProcessStepExecutionTest extends BaseTest {
+    private static final Instant ENGINE_TIME = Instant.parse("2026-11-18T07:20:57.645772Z");
+    private static final Clock SUB_MICROSECOND_CLOCK =
+            Clock.fixed(ENGINE_TIME.plusNanos(600), ZoneOffset.UTC);
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
     private static final VariableType<String> PAYLOAD = VariableType.of("payload", String.class);
     private static final VariableType<String> TEMPORARY = VariableType.of("temporary", String.class);
@@ -81,18 +85,53 @@ class ProcessStepExecutionTest extends BaseTest {
             .initialState(State.START)
             .step(State.START, context -> {}, State.AFTER)
             .step(State.AFTER, context -> {}, State.WAIT)
-            .await(State.WAIT, await -> await.message(SIGNAL,
-                    (context, message) -> {}, State.DONE))
+            .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
+                assertEquals(ENGINE_TIME, message.receivedAt());
+            }, State.DONE))
             .terminal(State.DONE)
             .build();
-        var engine = newProcessEngineWith(definition);
-        try {
+        try (var engine = newProcessEngineWith(SUB_MICROSECOND_CLOCK, definition)) {
+            var emulator = emulator(engine);
             var id = engine.newProcess(ProcessType.of("CHAIN")).start();
-            assertEquals(State.WAIT.name(), emulator(engine).runUntilStop(id).state().name());
-            var completed = emulator(engine).sendMessageAndRunUntilStop(id, SIGNAL, "go");
+            assertEquals(State.WAIT.name(), emulator.runUntilStop(id).state().name());
+            var completed = emulator.sendMessageAndRunUntilStop(id, SIGNAL, "go");
             assertEquals(ProcessStatus.COMPLETED, completed.status());
-        } finally {
-            engine.close();
+        }
+    }
+
+    @Test
+    void zeroDelayMessageRetryIsReadyWithSubMicrosecondClock() {
+        var fail = new AtomicBoolean(true);
+        ProcessDefinition definition = builder -> builder.type("MESSAGE_RETRY")
+            .onError(ProcessErrorHandler.fixed(1, Duration.ZERO))
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
+                if (fail.getAndSet(false)) throw new IllegalStateException("boom");
+            }, State.DONE))
+            .terminal(State.DONE)
+            .build();
+        try (var engine = newProcessEngineWith(SUB_MICROSECOND_CLOCK, definition)) {
+            var id = engine.newProcess(ProcessType.of("MESSAGE_RETRY")).start();
+            engine.sendMessage(id, SIGNAL, "go");
+
+            var emulator = emulator(engine);
+            assertEquals(1, emulator.runOneStep(id).attempt());
+            assertEquals(ProcessStatus.COMPLETED, emulator.runUntilStop(id).status());
+        }
+    }
+
+    @Test
+    void zeroDelayFirstTimerIsReadyWithSubMicrosecondClock() {
+        ProcessDefinition definition = builder -> builder.type("IMMEDIATE_TIMER")
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.every(Interval.of(Duration.ofMinutes(1)).firstAfter(Duration.ZERO),
+                    context -> {}, State.DONE))
+            .terminal(State.DONE)
+            .build();
+        try (var engine = newProcessEngineWith(SUB_MICROSECOND_CLOCK, definition)) {
+            var id = engine.newProcess(ProcessType.of("IMMEDIATE_TIMER")).start();
+
+            assertEquals(ProcessStatus.COMPLETED, emulator(engine).runUntilStop(id).status());
         }
     }
 

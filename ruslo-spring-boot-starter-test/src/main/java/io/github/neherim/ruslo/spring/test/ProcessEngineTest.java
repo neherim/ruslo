@@ -17,7 +17,8 @@ import static org.springframework.test.context.TestExecutionListeners.MergeMode.
  * <ul>
  *   <li>Registers a {@code ProcessEngineEmulator} bean.</li>
  *   <li>Disables the dispatcher: steps run only when the emulator runs them.</li>
- *   <li>The emulator controls the engine clock and, by default, resets it to the initial time before each test.</li>
+ *   <li>Provides a mutable time source named {@code processEngineClock} unless a bean with that name exists.</li>
+ *   <li>Resets the engine's time source before each test by default if it is a mutable clock.</li>
  * </ul>
  *
  * <pre>{@code
@@ -45,6 +46,6 @@ import static org.springframework.test.context.TestExecutionListeners.MergeMode.
 @TestExecutionListeners(listeners = ProcessEngineTestExecutionListener.class, mergeMode = MERGE_WITH_DEFAULTS)
 public @interface ProcessEngineTest {
 
-    /** Enables resetting the engine clock to its initial time before each test method. */
+    /** Enables resetting the engine's mutable time source to its initial time before each test method. */
     boolean resetTimeBeforeEachTest() default true;
 }

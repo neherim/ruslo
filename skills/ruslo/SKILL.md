@@ -110,8 +110,7 @@ The builder checks that all enum constants are routed when the routes callback r
   `context.cancelTimer(T)`; `context.findTimer(T)` returns `Optional<Instant>`. It fires when the process is in that
   await and the timer is set and due; a past moment fires right away; `setTimer` moves it earlier or later without
   re-entry. No timer set, no `at`. `T` must be used by some `at` of the process, otherwise these methods and the
-  start throw `IllegalArgumentException`; `setTimer(T, null)` throws `NullPointerException`. Moments are truncated
-  to microseconds.
+  start throw `IllegalArgumentException`; `setTimer(T, null)` throws `NullPointerException`.
 - **A fired process timer stays set while its handler runs**: `findTimer(T)` returns the fired moment. Moving the
   timer makes a schedule; count the next moment from the fired one, not from `now()`. A timer the handler left
   unchanged (or set to the same moment) is cancelled after it, and the await waits for its other events (no error).
@@ -149,7 +148,7 @@ variables), `setVariable(type, value)`, `removeVariable(type)`, `findTimer(timer
 `processType()`, `state()`, `businessKey()`, `correlationId()`, `attempt()`, `now()`.
 
 - Take the time from `context.now()` (the engine clock), never `Instant.now()`: timers compare with the engine
-  clock, and in tests the emulator controls it. A deadline for `at`:
+  clock, and tests control time through the emulator. A deadline for `at`:
   `context.setTimer(DUE, context.now().plus(Duration.ofMinutes(15)))`.
 - Variables and message payloads use ruslo's built-in Jackson configuration, shared by the engine and
   `TestProcessContext`. Use JSON-compatible DTOs, preferably records. Their class must be concrete and non-generic:
@@ -329,9 +328,8 @@ class OrderProcessTest {
 - Assert the state as `assertEquals(State.X, details.state())`, expected value first: the failure shows the
   actual state. `details.toString()` summarizes status, `lastError`, recent history, variables and timers: pass
   `details::toString` as the message, and read it when `runUntilState` throws.
-- Control time **only** through the emulator; the application's own `Clock` beans do not affect engine timers.
-  For an `at` deadline: `emulator.setTime(start)`, start and run the process (its step sets the timer from
-  `context.now()`), then `setTime(deadline)`.
+- Control test time through the emulator. For an `at` deadline, call `emulator.setTime(start)`, start and run the
+  process (its step sets the timer from `context.now()`), then call `emulator.setTime(deadline)`.
 - `runUntilStop` stops at a step waiting for a retry delay; `runOneStep` runs it at once.
 - Unit-test a single handler with `TestProcessContext.builder().variable(TYPE, value).attempt(1).now(instant).build()`;
   it round-trips variables through JSON like the engine does. `Builder.timer(T, moment)` and `timers()` cover process

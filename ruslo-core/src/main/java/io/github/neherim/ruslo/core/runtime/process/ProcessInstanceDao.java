@@ -8,11 +8,11 @@ import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.DateTimeUtils;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import io.github.neherim.ruslo.core.utils.UUIDGenerator;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -88,20 +88,20 @@ public class ProcessInstanceDao {
             """;
 
     private final Database database;
-    private final Clock clock;
+    private final EngineTime engineTime;
     private final ProcessInstanceFactory processInstanceFactory;
     private final boolean historyEnabled;
     private final ProcessEngineMetrics metrics;
 
     public ProcessInstanceDao(
             Database database,
-            Clock clock,
+            EngineTime engineTime,
             ProcessInstanceFactory processInstanceFactory,
             boolean historyEnabled,
             ProcessEngineMetrics metrics
     ) {
         this.database = database;
-        this.clock = clock;
+        this.engineTime = engineTime;
         this.processInstanceFactory = processInstanceFactory;
         this.historyEnabled = historyEnabled;
         this.metrics = metrics;
@@ -165,7 +165,7 @@ public class ProcessInstanceDao {
     /** Inserts a new process. */
     public void insert(ProcessInstance process) {
         database.doInTransaction(() -> {
-            database.update(INSERT_PROCESS_SQL, stateParams(process, clock.instant(), process.getId(),
+            database.update(INSERT_PROCESS_SQL, stateParams(process, engineTime.now(), process.getId(),
                     process.getBusinessKey().orElse(null), process.getType().name(), process.getCorrelationId()));
             recordTransitions(process);
         });
@@ -174,7 +174,7 @@ public class ProcessInstanceDao {
     /** Stores the process state without changing the lease owner. */
     public void update(ProcessInstance process) {
         database.doInTransaction(() -> {
-            var updated = database.update(UPDATE_PROCESS_SQL, stateParams(process, clock.instant(), process.getId()));
+            var updated = database.update(UPDATE_PROCESS_SQL, stateParams(process, engineTime.now(), process.getId()));
             if (updated != 1) {
                 throw new IllegalArgumentException("Process not found in database: " + process.getId());
             }
@@ -203,7 +203,7 @@ public class ProcessInstanceDao {
     private void updateClaimed(ClaimedProcess claimed, String updateSql) {
         var process = claimed.process();
         var lease = claimed.lease();
-        var updated = database.update(updateSql, stateParams(process, clock.instant(),
+        var updated = database.update(updateSql, stateParams(process, engineTime.now(),
                 process.getId(), lease.ownerId(), claimed.expectedRowVersion()));
         if (updated != 1) {
             throw new LeaseLostException(lease.processId());
@@ -219,7 +219,7 @@ public class ProcessInstanceDao {
      */
     public void postponeClaimed(ProcessLease lease, Instant nextRunAt, String error) {
         var updated = database.update(POSTPONE_CLAIMED_PROCESS_SQL,
-                error, nextRunAt, clock.instant(), lease.processId(), lease.ownerId());
+                error, nextRunAt, engineTime.now(), lease.processId(), lease.ownerId());
         if (updated != 1) {
             throw new LeaseLostException(lease.processId());
         }
@@ -257,7 +257,7 @@ public class ProcessInstanceDao {
     /** Returns the number of ready processes of the worker that no lease holds. */
     public long countReadyForWorker(WorkerId workerId) {
         return database.queryForObject(COUNT_READY_FOR_WORKER_SQL, rs -> rs.getLong(1),
-                workerId.name(), clock.instant())
+                workerId.name(), engineTime.now())
             .orElse(0L);
     }
 
@@ -266,7 +266,7 @@ public class ProcessInstanceDao {
      * zero if there is none.
      */
     public Duration oldestReadyAgeForWorker(WorkerId workerId) {
-        var now = clock.instant();
+        var now = engineTime.now();
         return database.queryForObject(OLDEST_READY_FOR_WORKER_SQL,
                 rs -> DateTimeUtils.toInstant(rs.getTimestamp(1)), workerId.name(), now)
             .map(oldest -> Duration.between(oldest, now))

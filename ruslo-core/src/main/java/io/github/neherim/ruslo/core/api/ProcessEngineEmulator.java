@@ -9,6 +9,7 @@ import io.github.neherim.ruslo.core.api.test.MutableClock;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.runtime.ProcessRuntimeService;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -21,18 +22,20 @@ import java.util.UUID;
  * Runs processes synchronously in the calling thread for tests. Each step runs directly: worker routing,
  * concurrency limits and production transaction boundaries are not reproduced.
  * <p>
+ * The emulator checks readiness using the engine clock at microsecond precision. To control time, build the
+ * engine with a {@link MutableClock} via {@link ProcessEngineBuilder#withClock(Clock)}.
+ * <p>
  * Operations that take a process id throw {@link ProcessNotFoundException} if no such process exists.
  */
 public class ProcessEngineEmulator {
     public static final int DEFAULT_MAX_STEPS = 1000;
     private final ProcessEngine processEngine;
     private final ProcessRuntimeService runtime;
-    private final Clock clock;
+    private final EngineTime engineTime;
     private final int maxSteps;
 
     /**
-     * Creates an emulator with {@link #DEFAULT_MAX_STEPS}. Time control requires an engine built with
-     * {@link MutableClock}.
+     * Creates an emulator with {@link #DEFAULT_MAX_STEPS}.
      */
     public ProcessEngineEmulator(ProcessEngine processEngine) {
         this(processEngine, DEFAULT_MAX_STEPS);
@@ -50,7 +53,7 @@ public class ProcessEngineEmulator {
         }
         this.processEngine = Objects.requireNonNull(processEngine, "ProcessEngine must not be null");
         this.runtime = processEngine.processRuntimeService();
-        this.clock = processEngine.clock();
+        this.engineTime = processEngine.engineTime();
         this.maxSteps = maxSteps;
     }
 
@@ -119,36 +122,37 @@ public class ProcessEngineEmulator {
     }
 
     /**
-     * Advances the engine clock. Due timers and retries run on the next emulator call.
+     * Advances the engine's time source. Due timers and retries can run on the next emulator call.
      *
-     * @throws IllegalStateException if the engine clock is not a {@link MutableClock}
+     * @throws IllegalStateException if the source is not a {@link MutableClock}
      */
     public void fastForwardTime(Duration duration) {
         mutableClock().fastForwardTime(duration);
     }
 
     /**
-     * Sets the engine clock.
+     * Sets the engine's time source to the given instant.
      *
-     * @throws IllegalStateException if the engine clock is not a {@link MutableClock}
+     * @throws IllegalStateException if the source is not a {@link MutableClock}
      */
     public void setTime(Instant time) {
         mutableClock().setTime(time);
     }
 
-    /** Resets the engine clock to its initial time; does nothing if it is not a {@link MutableClock}. */
+    /** Resets the time source to its initial time if it is a {@link MutableClock}. */
     public void resetTime() {
-        if (clock instanceof MutableClock mutableClock) {
-            mutableClock.reset();
+        if (engineTime.sourceClock() instanceof MutableClock clock) {
+            clock.reset();
         }
     }
 
     private MutableClock mutableClock() {
-        if (clock instanceof MutableClock mutableClock) {
-            return mutableClock;
+        var source = engineTime.sourceClock();
+        if (source instanceof MutableClock clock) {
+            return clock;
         }
         throw new IllegalStateException(
-                "Time can be changed only when the engine is created with MutableClock, but was " + clock);
+                "Time can be changed only when the engine is created with MutableClock, but was " + source);
     }
 
     private ProcessInstanceDetails findProcess(UUID processId) {
@@ -162,7 +166,7 @@ public class ProcessEngineEmulator {
         if (process.status() != ProcessStatus.ACTIVE) {
             return false;
         }
-        return process.nextRunAt().filter(time -> !time.isAfter(clock.instant())).isPresent();
+        return process.nextRunAt().filter(time -> !time.isAfter(engineTime.now())).isPresent();
     }
 
     /**

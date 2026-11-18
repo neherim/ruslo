@@ -1,5 +1,7 @@
 package io.github.neherim.ruslo.core.api.definition;
 
+import io.github.neherim.ruslo.core.utils.EngineTime;
+
 import java.time.Duration;
 import java.util.Objects;
 
@@ -34,6 +36,7 @@ public sealed interface ErrorResult permits ErrorResult.RetryAfter, ErrorResult.
         public RetryAfter {
             Objects.requireNonNull(delay, "Delay cannot be null");
             if (delay.isNegative()) throw new IllegalArgumentException("Retry delay cannot be negative");
+            delay = EngineTime.roundDelayUp(delay);
         }
     }
 
