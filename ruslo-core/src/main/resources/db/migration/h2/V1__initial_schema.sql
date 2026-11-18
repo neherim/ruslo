@@ -25,10 +25,10 @@ create table xs_process_instance (
     row_version bigint not null default 0
 );
 
-create index i_process_instance$lease_owner
+create index xs_process_instance_lease_owner_idx
     on xs_process_instance (lease_owner);
 
-create index i_process_instance$business_key
+create index xs_process_instance_business_key_idx
     on xs_process_instance (business_key);
 
 create table xs_process_state_hist (
@@ -40,8 +40,8 @@ create table xs_process_state_hist (
         foreign key (link_process_instance) references xs_process_instance (id) on delete cascade
 );
 
-create index i_process_state_hist$link_process_instance
+create index xs_process_state_hist_link_process_instance_idx
     on xs_process_state_hist (link_process_instance);
 
-create index i_process_instance$worker_id$next_run_at$id
+create index xs_process_instance_worker_id_next_run_at_id_idx
     on xs_process_instance (worker_id, next_run_at, id);
