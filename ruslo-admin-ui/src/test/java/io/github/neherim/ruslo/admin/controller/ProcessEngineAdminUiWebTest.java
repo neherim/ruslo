@@ -4,6 +4,7 @@ import io.github.neherim.ruslo.admin.dev.process.OrderProcessDefinition;
 import io.github.neherim.ruslo.admin.dto.ProcessPageResponse;
 import io.github.neherim.ruslo.admin.dto.ProcessSummaryResponse;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
+import org.jsoup.Jsoup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,6 +83,38 @@ class ProcessEngineAdminUiWebTest {
             .andExpect(status().isNotFound());
         mockMvc.perform(get("/ruslo/htmx/processes/{id}/details", UUID.randomUUID()))
             .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldRenderVariablesOnInitialDetailsPageAndSaveChangesThroughItsForm() throws Exception {
+        var name = "customer";
+        var processId = processEngine.newProcess(OrderProcessDefinition.TYPE).variable(name, "Ada").start();
+
+        var response = mockMvc.perform(get("/ruslo/processes/{id}", processId))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse();
+        var page = Jsoup.parse(response.getContentAsString());
+
+        assertThat(page.select("[hx-trigger]")).noneMatch(element ->
+                element.attr("hx-trigger").matches("(?s)(?:.*,)?\\s*load\\b.*"));
+        assertThat(page.select("button[data-variable-add]")).hasSize(1);
+        assertThat(page.select("tr[data-variable-name=customer]:has(button[data-variable-edit])"))
+            .singleElement()
+            .satisfies(row -> assertThat(row.attr("data-variable-value")).isEqualTo("\"Ada\""));
+
+        var form = page.expectFirst("dialog form:has(textarea[name=jsonValue])");
+        assertThat(form.select("input[name=name]")).hasSize(1);
+        assertThat(form.select("button[type=submit]")).hasSize(1);
+        assertThat(form.attr("hx-post")).isEqualTo("htmx/processes/" + processId + "/variables");
+
+        mockMvc.perform(post("/ruslo/" + form.attr("hx-post"))
+            .param("name", name)
+            .param("jsonValue", "\"Grace\""))
+            .andExpect(status().isOk());
+
+        assertThat(processEngine.processes().byId(processId).singleDetails().orElseThrow().variables().asJsonMap())
+            .containsEntry(name, "\"Grace\"");
     }
 
     @Test
