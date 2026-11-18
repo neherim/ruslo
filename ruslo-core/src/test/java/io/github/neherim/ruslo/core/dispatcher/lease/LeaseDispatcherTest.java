@@ -13,6 +13,7 @@ import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.spi.RowMapper;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.junit.jupiter.api.Test;
 
 import javax.sql.DataSource;
@@ -44,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LeaseDispatcherTest extends BaseTest {
     private static final Instant TEST_NOW = Instant.parse("2026-07-19T10:15:30.123456Z");
-    private static final Clock CLOCK = Clock.fixed(TEST_NOW, ZoneOffset.UTC);
+    private static final EngineTime ENGINE_TIME = new EngineTime(Clock.fixed(TEST_NOW, ZoneOffset.UTC));
     private static final Duration LEASE_DURATION = Duration.ofMinutes(1);
     private static final ProcessType FIRST_TYPE = ProcessType.of("FIRST");
     private static final ProcessType SECOND_TYPE = ProcessType.of("SECOND");
@@ -81,7 +82,7 @@ class LeaseDispatcherTest extends BaseTest {
         };
         var leaseDao = new LeaseDao(forbiddenDatabase, TestDatabases.dialect());
         var dispatcher = new LeaseDispatcher(UUID::randomUUID, leaseDao, new LeaseReleaser(leaseDao, metrics),
-                new TestWorkerRegistry(List.of(worker)), metrics, CLOCK);
+                new TestWorkerRegistry(List.of(worker)), metrics, ENGINE_TIME);
 
         assertFalse(dispatcher.dispatch());
         assertTrue(dispatcher.nextRunAt().isEmpty());
@@ -367,7 +368,7 @@ class LeaseDispatcherTest extends BaseTest {
         new ApplicationInstanceDao(dispatcherDatabase).register(ownerId, LEASE_DURATION);
         var leaseDao = new LeaseDao(dispatcherDatabase, TestDatabases.dialect());
         var dispatcher = new LeaseDispatcher(() -> ownerId, leaseDao, new LeaseReleaser(leaseDao, metrics),
-                registry, metrics, CLOCK);
+                registry, metrics, ENGINE_TIME);
         return new DispatcherFixture(dispatcher, ownerId);
     }
 

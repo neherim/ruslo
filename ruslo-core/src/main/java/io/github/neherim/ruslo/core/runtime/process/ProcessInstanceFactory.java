@@ -5,24 +5,24 @@ import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.TimerType;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import io.github.neherim.ruslo.core.utils.UUIDGenerator;
 import org.jspecify.annotations.Nullable;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
 /** Creates new process instances and restores them from storage. */
 public class ProcessInstanceFactory {
-    private final Clock clock;
+    private final EngineTime engineTime;
     private final ProcessDefinitionRegistry processDefinitionRegistry;
 
     public ProcessInstanceFactory(
-            Clock clock,
+            EngineTime engineTime,
             ProcessDefinitionRegistry processDefinitionRegistry
     ) {
-        this.clock = clock;
+        this.engineTime = engineTime;
         this.processDefinitionRegistry = processDefinitionRegistry;
     }
 
@@ -52,7 +52,7 @@ public class ProcessInstanceFactory {
         var messages = ProcessMessages.fromString(messagesStr);
 
         return ProcessInstance.loadFromStorage(id, businessKey, spec, state, status, variables, timers, messages,
-                correlationId, failedAttempts, lastError, nextRunAt, everyDueAt, afterDueAt, clock);
+                correlationId, failedAttempts, lastError, nextRunAt, everyDueAt, afterDueAt, engineTime);
     }
 
     /**
@@ -79,6 +79,6 @@ public class ProcessInstanceFactory {
 
         return ProcessInstance.createNew(id, businessKey, spec,
                 processVariables, processTimers,
-                correlationId, nextRunAt, clock);
+                correlationId, nextRunAt, engineTime);
     }
 }

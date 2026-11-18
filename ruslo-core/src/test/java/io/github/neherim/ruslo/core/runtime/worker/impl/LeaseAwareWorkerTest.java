@@ -17,8 +17,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -492,7 +494,8 @@ class LeaseAwareWorkerTest extends BaseTest {
             }, CheckpointState.DONE)
             .terminal(CheckpointState.DONE)
             .build();
-        var fixture = WorkerTestFixture.with(database, definition);
+        var clock = Clock.fixed(Instant.parse("2026-11-18T07:20:57.645772600Z"), ZoneOffset.UTC);
+        var fixture = WorkerTestFixture.with(database, clock, definition);
         var process = fixture.insertNewProcess(type, "chain");
         var task = fixture.task(process);
 

@@ -8,6 +8,7 @@ import io.github.neherim.ruslo.core.runtime.process.ProcessInstance.AwaitEventKi
 import io.github.neherim.ruslo.core.runtime.worker.HandlerException;
 import io.github.neherim.ruslo.core.runtime.worker.StepExecutor;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -26,9 +27,10 @@ class StepExecutorTest {
     private static final Instant NOW = Instant.parse("2026-09-24T10:00:00Z");
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
     private final MutableClock clock = new MutableClock();
+    private final EngineTime engineTime = new EngineTime(clock);
     private final StepExecutor executor = new StepExecutor(new ProcessMdc(MdcKeys.defaults()),
             new ProcessEngineMetrics() {
-            }, clock);
+            }, engineTime);
 
     @Test
     void stepEntersTarget() {
@@ -168,7 +170,7 @@ class StepExecutorTest {
         return ProcessInstance.createNew(UUID.randomUUID(), null, spec,
                 ProcessVariables.empty(),
                 ProcessTimers.empty(),
-                "correlation", NOW, clock);
+                "correlation", NOW, engineTime);
     }
 
     private static final class MutableClock extends Clock {

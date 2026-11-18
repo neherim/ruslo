@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static java.time.temporal.ChronoUnit.MICROS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -32,9 +33,9 @@ class TestProcessContextTest {
     @Test
     void nowIsFixedByBuilderAndSystemTimeByDefault() {
         var fixed = Instant.parse("2026-10-07T10:00:00Z");
-        assertEquals(fixed, TestProcessContext.builder().now(fixed).build().now());
+        assertEquals(fixed, TestProcessContext.builder().now(fixed.plusNanos(600)).build().now());
 
-        var before = Instant.now();
+        var before = Instant.now().truncatedTo(MICROS);
         var now = TestProcessContext.create().now();
         assertFalse(now.isBefore(before));
     }

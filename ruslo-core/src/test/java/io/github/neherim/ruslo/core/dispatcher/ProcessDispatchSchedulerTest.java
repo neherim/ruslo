@@ -1,5 +1,6 @@
 package io.github.neherim.ruslo.core.dispatcher;
 
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -17,13 +18,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProcessDispatchSchedulerTest {
+    private static final EngineTime ENGINE_TIME = new EngineTime(Clock.systemUTC());
 
     @Test
     void wakeUpShouldInterruptPollingDelayWithoutLosingSignal() {
         var dispatcher = new BacklogDispatcher(0);
         var signal = new ProcessDispatchSignal();
         var scheduler = new ProcessDispatchScheduler(Duration.ofSeconds(30), Duration.ofSeconds(30), dispatcher, signal,
-                Clock.systemUTC());
+                ENGINE_TIME);
         try {
             scheduler.start();
             await().atMost(Duration.ofSeconds(2)).until(() -> dispatcher.cycles.get() == 1);
@@ -40,7 +42,7 @@ class ProcessDispatchSchedulerTest {
     void backlogShouldDrainWithoutWaitingBetweenSuccessfulCycles() {
         var dispatcher = new BacklogDispatcher(3);
         var scheduler = new ProcessDispatchScheduler(Duration.ofSeconds(30), Duration.ofSeconds(30), dispatcher,
-                new ProcessDispatchSignal(), Clock.systemUTC());
+                new ProcessDispatchSignal(), ENGINE_TIME);
         try {
             scheduler.start();
 
@@ -55,7 +57,7 @@ class ProcessDispatchSchedulerTest {
         var dispatcher = new BacklogDispatcher(0);
         dispatcher.nextRunAt = Instant.now().plusMillis(300);
         var scheduler = new ProcessDispatchScheduler(Duration.ofSeconds(30), Duration.ofSeconds(30), dispatcher,
-                new ProcessDispatchSignal(), Clock.systemUTC());
+                new ProcessDispatchSignal(), ENGINE_TIME);
         try {
             scheduler.start();
 
@@ -70,7 +72,7 @@ class ProcessDispatchSchedulerTest {
         var dispatcher = new BacklogDispatcher(0);
         dispatcher.nextRunAt = Instant.now().minusSeconds(1);
         var scheduler = new ProcessDispatchScheduler(Duration.ofSeconds(30), Duration.ofSeconds(30), dispatcher,
-                new ProcessDispatchSignal(), Clock.systemUTC());
+                new ProcessDispatchSignal(), ENGINE_TIME);
         try {
             scheduler.start();
             await().atMost(Duration.ofSeconds(2)).until(() -> dispatcher.cycles.get() == 1);
@@ -103,7 +105,7 @@ class ProcessDispatchSchedulerTest {
             }
         };
         var scheduler = new ProcessDispatchScheduler(Duration.ofMillis(10), Duration.ofMillis(10), dispatcher,
-                new ProcessDispatchSignal(), Clock.systemUTC());
+                new ProcessDispatchSignal(), ENGINE_TIME);
         scheduler.start();
         assertTrue(dispatchEntered.await(10, TimeUnit.SECONDS));
 

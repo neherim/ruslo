@@ -8,7 +8,6 @@ import org.springframework.test.context.TestExecutionListener;
 /**
  * Resets the engine clock to the initial time before each test method when enabled by {@link ProcessEngineTest}.
  * Spring reuses test contexts, so without the reset time moved in one test would leak into the next.
- * Contexts without {@link ProcessEngineEmulator} are not affected.
  */
 public class ProcessEngineTestExecutionListener implements TestExecutionListener {
 

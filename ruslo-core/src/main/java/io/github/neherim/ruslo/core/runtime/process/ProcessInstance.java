@@ -4,8 +4,8 @@ import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec.*;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -21,7 +21,7 @@ public final class ProcessInstance {
     private final ProcessTimers timers;
     private final ProcessMessages messages;
     private final ProcessSpec spec;
-    private final Clock clock;
+    private final EngineTime engineTime;
     private final List<ProcessStateHist> pendingHistory = new ArrayList<>();
     private ProcessStateId state;
     private ProcessStatus status;
@@ -39,7 +39,7 @@ public final class ProcessInstance {
             ProcessTimers timers,
             ProcessMessages messages,
             String correlationId,
-            Clock clock
+            EngineTime engineTime
     ) {
         this.id = Objects.requireNonNull(id);
         this.businessKey = businessKey;
@@ -48,7 +48,7 @@ public final class ProcessInstance {
         this.timers = Objects.requireNonNull(timers);
         this.messages = Objects.requireNonNull(messages);
         this.correlationId = correlationId;
-        this.clock = Objects.requireNonNull(clock);
+        this.engineTime = Objects.requireNonNull(engineTime);
     }
 
     /**
@@ -62,10 +62,10 @@ public final class ProcessInstance {
             ProcessTimers timers,
             String correlationId,
             Instant nextRunAt,
-            Clock clock
+            EngineTime engineTime
     ) {
         var process = new ProcessInstance(id, businessKey, spec, variables, timers, ProcessMessages.empty(),
-                correlationId, clock);
+                correlationId, engineTime);
         process.changeState(spec.getInitialState(), nextRunAt);
         return process;
     }
@@ -85,9 +85,9 @@ public final class ProcessInstance {
             Instant nextRunAt,
             Instant everyDueAt,
             Instant afterDueAt,
-            Clock clock
+            EngineTime engineTime
     ) {
-        var process = new ProcessInstance(id, businessKey, spec, variables, timers, messages, correlationId, clock);
+        var process = new ProcessInstance(id, businessKey, spec, variables, timers, messages, correlationId, engineTime);
         process.state = state;
         process.status = status;
         process.failedAttempts = failedAttempts;
@@ -104,7 +104,7 @@ public final class ProcessInstance {
      * runs again and an await keeps waiting.
      */
     public void changeState(ProcessState target) {
-        changeState(target, clock.instant());
+        changeState(target, engineTime.now());
     }
 
     private void changeState(ProcessState target, Instant now) {
@@ -137,7 +137,7 @@ public final class ProcessInstance {
      * state awaits the type. A {@code FAILED} process only queues the message; it is handled after resume.
      */
     public <T> void appendMessage(MessageType<T> type, T payload) {
-        messages.append(type, payload, clock.instant());
+        messages.append(type, payload, engineTime.now());
         updateNextRunAt();
     }
 
@@ -148,7 +148,7 @@ public final class ProcessInstance {
      * @return empty if no event is due
      */
     public Optional<AwaitEventKind> findDueAwaitEvent() {
-        var now = clock.instant();
+        var now = engineTime.now();
         return findEarliestAwaitEvent()
             .filter(event -> !event.dueAt().isAfter(now))
             .map(ScheduledAwaitEvent::kind);
@@ -159,7 +159,7 @@ public final class ProcessInstance {
      * the next run.
      */
     public void advanceEveryTimer() {
-        var now = clock.instant();
+        var now = engineTime.now();
         var interval = currentAwait().every().interval().period();
         var elapsedPeriods = Duration.between(everyDueAt, now).dividedBy(interval);
         everyDueAt = everyDueAt.plus(interval.multipliedBy(elapsedPeriods + 1));
@@ -204,7 +204,7 @@ public final class ProcessInstance {
      * see {@link #hasFailedAttempt()}.
      */
     private void scheduleRetryAfter(Duration delay, String error) {
-        nextRunAt = clock.instant().plus(delay);
+        nextRunAt = engineTime.now().plus(delay);
         failedAttempts++;
         lastError = Objects.requireNonNull(error);
     }
@@ -297,7 +297,7 @@ public final class ProcessInstance {
 
     /** Returns whether the active process has a scheduled run that is due. */
     public boolean isTimeToExecute() {
-        return status == ProcessStatus.ACTIVE && nextRunAt != null && !nextRunAt.isAfter(clock.instant());
+        return status == ProcessStatus.ACTIVE && nextRunAt != null && !nextRunAt.isAfter(engineTime.now());
     }
 
     public StateSpec getCurrentStateSpec() {
@@ -354,7 +354,7 @@ public final class ProcessInstance {
      * Returns the current time of the engine clock.
      */
     Instant now() {
-        return clock.instant();
+        return engineTime.now();
     }
 
     ProcessVariables getVariables() {
@@ -381,7 +381,7 @@ public final class ProcessInstance {
     }
 
     /**
-     * Sets the process timer, truncated to microseconds. If the current await waits for it, the next run is updated
+     * Sets the process timer. If the current await waits for it, the next run is updated
      * subject to {@link #hasFailedAttempt()}; a {@code FAILED} process keeps its next run unset.
      *
      * @throws IllegalArgumentException if no {@code at} of the process uses the timer

@@ -4,10 +4,10 @@ import io.github.neherim.ruslo.core.dispatcher.ProcessDispatcher;
 import io.github.neherim.ruslo.core.runtime.worker.Worker;
 import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
@@ -27,7 +27,7 @@ public final class LeaseDispatcher implements ProcessDispatcher {
     private final LeaseReleaser leaseReleaser;
     private final WorkerRegistry workerRegistry;
     private final ProcessEngineMetrics metrics;
-    private final Clock clock;
+    private final EngineTime engineTime;
 
     /**
      * Creates a lease dispatcher.
@@ -40,14 +40,14 @@ public final class LeaseDispatcher implements ProcessDispatcher {
             LeaseReleaser leaseReleaser,
             WorkerRegistry workerRegistry,
             ProcessEngineMetrics metrics,
-            Clock clock
+            EngineTime engineTime
     ) {
         this.ownerId = Objects.requireNonNull(ownerId, "Lease owner id supplier must not be null");
         this.leaseDao = Objects.requireNonNull(leaseDao, "Lease DAO must not be null");
         this.leaseReleaser = Objects.requireNonNull(leaseReleaser, "Lease releaser must not be null");
         this.workerRegistry = Objects.requireNonNull(workerRegistry, "Worker registry must not be null");
         this.metrics = Objects.requireNonNull(metrics, "Metrics must not be null");
-        this.clock = Objects.requireNonNull(clock, "Clock must not be null");
+        this.engineTime = Objects.requireNonNull(engineTime, "Engine time must not be null");
     }
 
     /**
@@ -93,7 +93,7 @@ public final class LeaseDispatcher implements ProcessDispatcher {
         if (capacity <= 0) {
             return false;
         }
-        var now = clock.instant();
+        var now = engineTime.now();
         var anySubmitted = false;
         for (var lease : leaseDao.claimReadyForWorker(ownerId.get(), worker.getId(), capacity, now)) {
             anySubmitted |= submit(worker, lease);

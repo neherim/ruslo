@@ -10,38 +10,26 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static java.time.temporal.ChronoUnit.NANOS;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ProcessEngineEmulatorClockTest extends BaseTest {
 
     @Test
-    void emulatorChangesMutableClock() {
-        var clock = new MutableClock(ZoneOffset.UTC, Instant.parse("2026-10-07T10:00:00Z"), ChronoUnit.MICROS);
-        try (var engine = newProcessEngine(clock)) {
+    void emulatorResetsMutableClockAndItsZonedView() {
+        var start = Instant.parse("2026-10-07T10:00:00.000000600Z");
+        var clock = new MutableClock(ZoneOffset.UTC, start, NANOS);
+        var zone = ZoneOffset.ofHours(3);
+        var zonedClock = clock.withZone(zone);
+
+        try (var engine = newProcessEngineWith(clock)) {
             var emulator = new ProcessEngineEmulator(engine);
-
-            emulator.fastForwardTime(Duration.ofMinutes(5));
-            assertEquals(Instant.parse("2026-10-07T10:05:00Z"), clock.instant());
-
-            emulator.setTime(Instant.parse("2026-10-08T00:00:00Z"));
-            assertEquals(Instant.parse("2026-10-08T00:00:00Z"), clock.instant());
-        }
-    }
-
-    @Test
-    void emulatorResetsMutableClockToInitialTime() {
-        var start = Instant.parse("2026-10-07T10:00:00Z");
-        var clock = new MutableClock(ZoneOffset.UTC, start, ChronoUnit.MICROS);
-        var zonedClock = clock.withZone(ZoneOffset.ofHours(3));
-        try (var engine = newProcessEngine(clock)) {
-            var emulator = new ProcessEngineEmulator(engine);
-
             emulator.fastForwardTime(Duration.ofHours(1));
+            assertEquals(zone, zonedClock.getZone());
             assertEquals(start.plus(Duration.ofHours(1)), zonedClock.instant());
 
             emulator.resetTime();
@@ -51,67 +39,68 @@ class ProcessEngineEmulatorClockTest extends BaseTest {
     }
 
     @Test
-    void emulatorRejectsTimeChangeForNonMutableClock() {
-        try (var engine = newProcessEngine(Clock.systemUTC())) {
+    void emulatorRejectsTimeChangesAndIgnoresResetWithFixedClock() {
+        try (var engine = newProcessEngineWith(Clock.fixed(Instant.EPOCH, ZoneOffset.UTC))) {
             var emulator = new ProcessEngineEmulator(engine);
 
             assertThrows(IllegalStateException.class, () -> emulator.fastForwardTime(Duration.ofSeconds(1)));
-            assertThrows(IllegalStateException.class, () -> emulator.setTime(Instant.EPOCH));
+            assertThrows(IllegalStateException.class, () -> emulator.setTime(Instant.EPOCH.plusSeconds(1)));
+            assertDoesNotThrow(emulator::resetTime);
         }
     }
 
     @Test
-    void contextNowReturnsEngineClock() {
-        var clock = new MutableClock(ZoneOffset.UTC, Instant.parse("2026-10-07T10:00:00Z"), ChronoUnit.MICROS);
+    void contextNowUsesMicrosecondsFromUpdatedMutableClock() {
+        var start = Instant.parse("2026-10-07T10:00:00.000000600Z");
+        var clock = new MutableClock(ZoneOffset.UTC, start, NANOS);
         var seen = VariableType.of("seen", Instant.class);
         ProcessDefinition definition = builder -> builder.type("NOW")
             .initialState(State.START)
             .step(State.START, context -> context.setVariable(seen, context.now()), State.DONE)
             .terminal(State.DONE)
             .build();
-        try (var engine = newProcessEngine(clock, definition)) {
+        try (var engine = newProcessEngineWith(clock, definition)) {
             var emulator = new ProcessEngineEmulator(engine);
             var id = engine.newProcess(ProcessType.of("NOW")).start();
-            emulator.setTime(Instant.parse("2030-01-01T00:00:00Z"));
+            var advance = Duration.ofHours(3);
+            emulator.fastForwardTime(advance);
+            assertEquals(start.plus(advance), clock.instant());
 
             var done = emulator.runUntilStop(id);
 
-            assertEquals(Instant.parse("2030-01-01T00:00:00Z"), done.variables().find(seen).orElseThrow());
+            assertEquals(Instant.parse("2026-10-07T13:00:00Z"), done.variables().find(seen).orElseThrow());
         }
     }
 
     @Test
     void runUntilStopWaitsForStepRetryDelay() {
-        var clock = new MutableClock(ZoneOffset.UTC, Instant.parse("2026-10-07T10:00:00Z"), ChronoUnit.MICROS);
+        var start = Instant.parse("2026-10-07T10:00:00.000000600Z");
+        var clock = new MutableClock(ZoneOffset.UTC, start, NANOS);
+        var retryDelay = Duration.ofMinutes(5).plusNanos(100);
         var fail = new AtomicBoolean(true);
         ProcessDefinition definition = builder -> builder.type("STEP_RETRY")
-            .onError(ProcessErrorHandler.fixed(1, Duration.ofMinutes(5)))
+            .onError(ProcessErrorHandler.fixed(1, retryDelay))
             .initialState(State.START)
             .step(State.START, context -> {
                 if (fail.getAndSet(false)) throw new IllegalStateException("boom");
             }, State.DONE)
             .terminal(State.DONE)
             .build();
-        try (var engine = newProcessEngine(clock, definition)) {
+        try (var engine = newProcessEngineWith(clock, definition)) {
             var emulator = new ProcessEngineEmulator(engine);
             var id = engine.newProcess(ProcessType.of("STEP_RETRY")).start();
 
-            assertEquals(1, emulator.runUntilStop(id).attempt());
-            assertEquals(1, emulator.runUntilStop(id).attempt());
+            var failed = emulator.runUntilStop(id);
+            assertEquals(1, failed.attempt());
+            var deadline = Instant.parse("2026-10-07T10:05:00.000001Z");
+            assertEquals(deadline, failed.nextRunAt().orElseThrow());
 
-            emulator.fastForwardTime(Duration.ofMinutes(5));
+            emulator.setTime(deadline.minusNanos(1));
+            assertEquals(deadline.minusNanos(1), clock.instant());
+            assertEquals(1, emulator.runUntilStop(id).attempt());
+            emulator.setTime(deadline);
             assertEquals(ProcessStatus.COMPLETED, emulator.runUntilStop(id).status());
         }
-    }
-
-    private ProcessEngine newProcessEngine(Clock clock, ProcessDefinition... definitions) {
-        return new ProcessEngineBuilder(database)
-            .addProcessDefinitions(List.of(definitions))
-            .withClock(clock)
-            .withDispatcherEnabled(false)
-            .withDatabaseMigrationEnabled(false)
-            .build()
-            .start();
     }
 
     private enum State implements ProcessState {

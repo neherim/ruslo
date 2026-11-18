@@ -11,10 +11,10 @@ import io.github.neherim.ruslo.core.runtime.process.ProcessInstance;
 import io.github.neherim.ruslo.core.runtime.process.ProcessInstanceDao;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.util.UUID;
 
@@ -25,20 +25,20 @@ public class StepErrorHandler {
     private static final Logger log = LoggerFactory.getLogger(StepErrorHandler.class);
     private static final Duration SYSTEM_RETRY_DELAY = Duration.ofSeconds(60);
     private static final int MAX_LAST_ERROR_LENGTH = 1024;
-    private final Clock clock;
+    private final EngineTime engineTime;
     private final Database database;
     private final ProcessInstanceDao processInstanceDao;
     private final ProcessMdc processMdc;
     private final ProcessEngineMetrics metrics;
 
     public StepErrorHandler(
-            Clock clock,
+            EngineTime engineTime,
             Database database,
             ProcessInstanceDao processInstanceDao,
             ProcessMdc processMdc,
             ProcessEngineMetrics metrics
     ) {
-        this.clock = clock;
+        this.engineTime = engineTime;
         this.database = database;
         this.processInstanceDao = processInstanceDao;
         this.processMdc = processMdc;
@@ -53,7 +53,7 @@ public class StepErrorHandler {
     public void handleSystemError(Throwable ex, ProcessLease lease) {
         log.error("System error in process {}: {}", lease.processId(), ex.getMessage(), ex);
         metrics.recordSystemError();
-        processInstanceDao.postponeClaimed(lease, clock.instant().plus(SYSTEM_RETRY_DELAY), formatLastError(ex));
+        processInstanceDao.postponeClaimed(lease, engineTime.now().plus(SYSTEM_RETRY_DELAY), formatLastError(ex));
     }
 
     /**

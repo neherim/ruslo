@@ -1,9 +1,9 @@
 package io.github.neherim.ruslo.core.dispatcher;
 
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -22,7 +22,7 @@ public class ProcessDispatchScheduler {
     private final long maxIntervalMs;
     private final ProcessDispatcher processDispatcher;
     private final ProcessDispatchSignal dispatchSignal;
-    private final Clock clock;
+    private final EngineTime engineTime;
     private Thread thread;
     private volatile boolean running;
 
@@ -31,20 +31,20 @@ public class ProcessDispatchScheduler {
      *
      * @param minInterval minimum fallback interval
      * @param maxInterval maximum fallback interval
-     * @param clock       the engine clock that {@code next_run_at} is compared against
+     * @param engineTime  the engine time that {@code next_run_at} is compared against
      */
     public ProcessDispatchScheduler(
             Duration minInterval,
             Duration maxInterval,
             ProcessDispatcher processDispatcher,
             ProcessDispatchSignal dispatchSignal,
-            Clock clock
+            EngineTime engineTime
     ) {
         this.processDispatcher = processDispatcher;
         this.minIntervalMs = minInterval.toMillis();
         this.maxIntervalMs = maxInterval.toMillis();
         this.dispatchSignal = dispatchSignal;
-        this.clock = clock;
+        this.engineTime = engineTime;
     }
 
     /**
@@ -96,7 +96,7 @@ public class ProcessDispatchScheduler {
             return backoffMs;
         }
         // +1 ms: next_run_at may be stored with sub-millisecond precision, and a claim requires next_run_at <= now.
-        long untilNextMs = Duration.between(clock.instant(), nextRunAt).toMillis() + 1;
+        long untilNextMs = Duration.between(engineTime.now(), nextRunAt).toMillis() + 1;
         return untilNextMs > 0 ? Math.min(backoffMs, untilNextMs) : backoffMs;
     }
 

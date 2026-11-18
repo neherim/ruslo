@@ -21,6 +21,7 @@ import io.github.neherim.ruslo.core.runtime.worker.impl.ProcessWorker;
 import io.github.neherim.ruslo.core.search.ProcessSearchService;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import io.github.neherim.ruslo.core.utils.thread.CurrentThreadExecutorService;
 
 import java.time.Clock;
@@ -42,13 +43,14 @@ public final class WorkerTestFixture {
     private final ProcessMdc processMdc;
     private final LeaseDao leaseDao;
     private final UUID instanceId = UUID.randomUUID();
-    private final Clock clock = Clock.systemUTC();
+    private final EngineTime engineTime;
 
-    private WorkerTestFixture(Database database, ProcessDefinition... definitions) {
+    private WorkerTestFixture(Database database, EngineTime engineTime, ProcessDefinition... definitions) {
         this.database = database;
+        this.engineTime = engineTime;
         var registry = new ProcessDefinitionRegistry(List.of(definitions));
-        this.processInstanceFactory = new ProcessInstanceFactory(clock, registry);
-        this.processInstanceDao = new ProcessInstanceDao(database, clock, processInstanceFactory, true, metrics);
+        this.processInstanceFactory = new ProcessInstanceFactory(engineTime, registry);
+        this.processInstanceDao = new ProcessInstanceDao(database, engineTime, processInstanceFactory, true, metrics);
         this.processSearchService = new ProcessSearchService(database, registry);
         this.processMdc = new ProcessMdc(MdcKeys.defaults());
         this.leaseDao = new LeaseDao(database, TestDatabases.dialect());
@@ -56,7 +58,11 @@ public final class WorkerTestFixture {
     }
 
     public static WorkerTestFixture with(Database database, ProcessDefinition... definitions) {
-        return new WorkerTestFixture(database, definitions);
+        return with(database, Clock.systemUTC(), definitions);
+    }
+
+    public static WorkerTestFixture with(Database database, Clock clock, ProcessDefinition... definitions) {
+        return new WorkerTestFixture(database, new EngineTime(clock), definitions);
     }
 
     public ProcessInstanceDao dao() {
@@ -69,7 +75,7 @@ public final class WorkerTestFixture {
     }
 
     public ProcessInstance newProcess(ProcessType type, String correlationId) {
-        return processInstanceFactory.newInstance(type, Instant.now(), null, correlationId, Map.of(), Map.of());
+        return processInstanceFactory.newInstance(type, now(), null, correlationId, Map.of(), Map.of());
     }
 
     public ProcessInstance insertNewProcess(ProcessType type, String correlationId) {
@@ -109,7 +115,7 @@ public final class WorkerTestFixture {
     }
 
     public StepErrorHandler stepErrorHandler() {
-        return new StepErrorHandler(clock, database, processInstanceDao, processMdc, metrics);
+        return new StepErrorHandler(engineTime, database, processInstanceDao, processMdc, metrics);
     }
 
     public ProcessWorker transactionalLeaseWorker(
@@ -149,16 +155,16 @@ public final class WorkerTestFixture {
             ProcessDispatchSignal dispatchSignal
     ) {
         return new ProcessWorker(spec, executorService, ownsExecutor, database, processInstanceDao,
-                new StepExecutor(processMdc, metrics, clock), stepErrorHandler(), metrics,
+                new StepExecutor(processMdc, metrics, engineTime), stepErrorHandler(), metrics,
                 new LeaseReleaser(leaseDao, metrics), dispatchSignal);
     }
 
     public WorkerFactory workerFactory() {
-        return new WorkerFactory(database, processInstanceDao, new StepExecutor(processMdc, metrics, clock),
+        return new WorkerFactory(database, processInstanceDao, new StepExecutor(processMdc, metrics, engineTime),
                 stepErrorHandler(), metrics, new LeaseReleaser(leaseDao, metrics), new ProcessDispatchSignal());
     }
 
     private Instant now() {
-        return clock.instant();
+        return engineTime.now();
     }
 }

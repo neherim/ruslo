@@ -1,6 +1,7 @@
 package io.github.neherim.ruslo.core.api.definition;
 
 import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 
 import java.time.Duration;
 import java.util.*;
@@ -265,6 +266,9 @@ public class ProcessSpec {
      * One-time event, see {@link ProcessSpecBuilder.AwaitBuilder#after(Duration, ProcessTimerHandler, ProcessState)}.
      */
     public record AfterEvent(Duration delay, Function<ProcessContext, Enum<?>> handler, Exit exit) {
+        public AfterEvent {
+            delay = EngineTime.roundDelayUp(delay);
+        }
     }
 
     /**

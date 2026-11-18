@@ -22,6 +22,7 @@ import io.github.neherim.ruslo.core.runtime.worker.WorkerRegistry;
 import io.github.neherim.ruslo.core.search.ProcessSearchService;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -39,7 +40,7 @@ public class ProcessEngineBuilder {
     private final Database database;
     private final Map<WorkerId, WorkerSpec> workerSpecs = new HashMap<>();
     private final List<ProcessDefinition> processDefinitions = new ArrayList<>();
-    private Clock clock = Clock.systemDefaultZone();
+    private Clock sourceClock = Clock.systemDefaultZone();
     private boolean databaseMigrationEnabled = true;
     private boolean dispatcherEnabled = true;
     private Duration maxProcessDispatchInterval = Duration.ofSeconds(10);
@@ -97,10 +98,11 @@ public class ProcessEngineBuilder {
     }
 
     /**
-     * Sets the engine clock used for timers, retries and timestamps; system clock by default.
+     * Sets the source of time for timers, retries and timestamps. Defaults to the system clock.
+     * The engine reads this clock at microsecond precision.
      */
     public ProcessEngineBuilder withClock(Clock clock) {
-        this.clock = Objects.requireNonNull(clock, "Clock must not be null");
+        this.sourceClock = Objects.requireNonNull(clock, "Clock must not be null");
         return this;
     }
 
@@ -227,14 +229,15 @@ public class ProcessEngineBuilder {
         var registeredWorkerIds = java.util.Set.copyOf(workerSpecs.keySet());
         var processDefinitionRegistry = new ProcessDefinitionRegistry(registeredWorkerIds::contains);
         processDefinitionRegistry.registerAll(processDefinitions);
+        var engineTime = new EngineTime(sourceClock);
         var managementService = new ManagementService(database, databaseDialect);
-        var processInstanceFactory = new ProcessInstanceFactory(clock, processDefinitionRegistry);
-        var processInstanceDao = new ProcessInstanceDao(database, clock, processInstanceFactory,
+        var processInstanceFactory = new ProcessInstanceFactory(engineTime, processDefinitionRegistry);
+        var processInstanceDao = new ProcessInstanceDao(database, engineTime, processInstanceFactory,
                 saveProcessHistory, effectiveMetrics);
         var processSearchService = new ProcessSearchService(database, processDefinitionRegistry);
         var processMdc = new ProcessMdc(new MdcKeys(correlationIdMdcKey, processIdMdcKey, processTypeMdcKey));
-        var stepExecutor = new StepExecutor(processMdc, effectiveMetrics, clock);
-        var stepErrorHandler = new StepErrorHandler(clock, database, processInstanceDao, processMdc,
+        var stepExecutor = new StepExecutor(processMdc, effectiveMetrics, engineTime);
+        var stepErrorHandler = new StepErrorHandler(engineTime, database, processInstanceDao, processMdc,
                 effectiveMetrics);
         var leaseDao = new LeaseDao(database, databaseDialect);
         var leaseReleaser = new LeaseReleaser(leaseDao, effectiveMetrics);
@@ -246,12 +249,12 @@ public class ProcessEngineBuilder {
         var applicationInstanceLifecycle = new ApplicationInstanceLifecycle(instanceHeartbeatInterval,
                 instanceTimeout, new ApplicationInstanceDao(database), effectiveMetrics);
         var dispatcher = new LeaseDispatcher(applicationInstanceLifecycle::ownerId,
-                leaseDao, leaseReleaser, workerRegistry, effectiveMetrics, clock);
+                leaseDao, leaseReleaser, workerRegistry, effectiveMetrics, engineTime);
 
         var processDispatchScheduler = new ProcessDispatchScheduler(minProcessDispatchInterval,
                 maxProcessDispatchInterval,
-                dispatcher, dispatchSignal, clock);
-        var processRuntimeService = new ProcessRuntimeService(clock, database, processInstanceDao,
+                dispatcher, dispatchSignal, engineTime);
+        var processRuntimeService = new ProcessRuntimeService(engineTime, database, processInstanceDao,
                 processInstanceFactory, dispatchSignal, effectiveMetrics, processMdc, stepExecutor, stepErrorHandler);
         effectiveMetrics.registerProcessCount(ProcessStatus.ACTIVE,
                 () -> processInstanceDao.countByStatus(ProcessStatus.ACTIVE));
@@ -262,7 +265,7 @@ public class ProcessEngineBuilder {
 
         return new ProcessEngine(processSearchService,
                 workerRegistry, processDefinitionRegistry, processDispatchScheduler, managementService,
-                processRuntimeService, applicationInstanceLifecycle, clock,
+                processRuntimeService, applicationInstanceLifecycle, engineTime,
                 databaseMigrationEnabled, dispatcherEnabled);
     }
 

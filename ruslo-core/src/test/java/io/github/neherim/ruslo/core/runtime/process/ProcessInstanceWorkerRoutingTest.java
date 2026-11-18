@@ -5,9 +5,9 @@ import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.test.MutableClock;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -22,11 +22,12 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
     private static final TimerType DUE = TimerType.of("DUE");
 
     private final MutableClock clock = new MutableClock();
+    private final EngineTime engineTime = new EngineTime(clock);
 
     @Test
     void stateEntryChangesRouteScheduleAndQueueAtomically() {
         var factory = factory();
-        var dao = new ProcessInstanceDao(database, Clock.systemUTC(), factory, true,
+        var dao = new ProcessInstanceDao(database, engineTime, factory, true,
                 new io.github.neherim.ruslo.core.spi.ProcessEngineMetrics() {
                 });
         var now = Instant.parse("2026-09-24T10:00:00Z");
@@ -174,7 +175,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
                 .at(DUE, State.DONE))
             .terminal(State.DONE)
             .build();
-        return new ProcessInstanceFactory(clock,
+        return new ProcessInstanceFactory(engineTime,
                 new ProcessDefinitionRegistry(List.of(definition)));
     }
 

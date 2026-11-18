@@ -5,9 +5,9 @@ and annotate the test with `@ProcessEngineTest`. The annotation:
 
 - disables the background dispatcher: processes run only when the test tells them to;
 - registers `ProcessEngineEmulator`, which runs processes in the test thread;
-- gives the engine a clock that the emulator controls, reset before each test by default.
+- configures a mutable time source for the engine that the emulator can control.
 
-Automatic clock reset is enabled by `@ProcessEngineTest`; adding the dependency alone does not enable it.
+By default, `@ProcessEngineTest` resets the `MutableClock` used by the engine before each test.
 To preserve time between test methods, use `@ProcessEngineTest(resetTimeBeforeEachTest = false)`.
 You can still reset it explicitly with `emulator.resetTime()`.
 
@@ -20,7 +20,6 @@ You can still reset it explicitly with `emulator.resetTime()`.
 | `runUntilState(id, state)` | Runs transitions up to the given state; throws if the process stops earlier |
 | `runAll()` | Runs all active processes to their next stop |
 | `sendMessageAndRunUntilStop(id, type, payload)` | `sendMessage`, then `runUntilStop` |
-| `fastForwardTime(duration)`, `setTime(instant)` | Move the engine clock |
 
 The methods return `ProcessInstanceDetails`. Compare the state with the declared constant, expected value first:
 
@@ -35,7 +34,8 @@ history, variables and timers. Read variables with `details.variables().find(AMO
 
 ## Timers and retries
 
-Timers and `retryAfter` delays come due only when the test moves the engine clock:
+Use `emulator.fastForwardTime(duration)` or `emulator.setTime(instant)` to advance to a timer or retry deadline,
+then call `runUntilStop(id)` to handle it. The emulator and the engine check readiness at microsecond precision.
 
 ```java
 @ProcessEngineTest

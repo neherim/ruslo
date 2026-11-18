@@ -17,8 +17,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.sql.DataSource;
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -386,25 +387,25 @@ class ProcessSearchTest extends BaseTest {
 
     @Test
     void stateHistoryTimeDoesNotDependOnJvmTimeZone() {
+        var now = Instant.parse("2026-11-18T07:20:57.645772600Z");
         var defaultTimeZone = TimeZone.getDefault();
         try {
             setJvmTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
-            var processEngine = simpleProcessEngine();
-            var before = Instant.now().truncatedTo(ChronoUnit.MILLIS);
-            var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
-            var after = Instant.now();
+            var clock = Clock.fixed(now, ZoneId.systemDefault());
+            try (var processEngine = newProcessEngineWith(clock, new SimpleProcessDefinition())) {
+                var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
 
-            setJvmTimeZone(TimeZone.getTimeZone("America/New_York"));
-            var changedAt = processEngine.processes()
-                .byId(processId)
-                .singleDetails()
-                .orElseThrow()
-                .stateHistory()
-                .get(0)
-                .changedAt();
+                setJvmTimeZone(TimeZone.getTimeZone("America/New_York"));
+                var changedAt = processEngine.processes()
+                    .byId(processId)
+                    .singleDetails()
+                    .orElseThrow()
+                    .stateHistory()
+                    .getFirst()
+                    .changedAt();
 
-            assertFalse(changedAt.isBefore(before), changedAt + " is before " + before);
-            assertFalse(changedAt.isAfter(after), changedAt + " is after " + after);
+                assertEquals(Instant.parse("2026-11-18T07:20:57.645772Z"), changedAt);
+            }
         } finally {
             setJvmTimeZone(defaultTimeZone);
         }

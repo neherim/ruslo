@@ -18,11 +18,11 @@ import io.github.neherim.ruslo.core.runtime.worker.StepErrorHandler;
 import io.github.neherim.ruslo.core.runtime.worker.StepExecutor;
 import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
+import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
@@ -38,7 +38,7 @@ import java.util.function.Supplier;
  */
 public class ProcessRuntimeService {
     private static final Logger log = LoggerFactory.getLogger(ProcessRuntimeService.class);
-    private final Clock clock;
+    private final EngineTime engineTime;
     private final Database database;
     private final ProcessInstanceDao processInstanceDao;
     private final ProcessDispatchSignal dispatchSignal;
@@ -49,7 +49,7 @@ public class ProcessRuntimeService {
     private final StepErrorHandler stepErrorHandler;
 
     public ProcessRuntimeService(
-            Clock clock,
+            EngineTime engineTime,
             Database database,
             ProcessInstanceDao processInstanceDao,
             ProcessInstanceFactory processInstanceFactory,
@@ -59,7 +59,7 @@ public class ProcessRuntimeService {
             StepExecutor stepExecutor,
             StepErrorHandler stepErrorHandler
     ) {
-        this.clock = clock;
+        this.engineTime = engineTime;
         this.database = database;
         this.processInstanceDao = processInstanceDao;
         this.dispatchSignal = dispatchSignal;
@@ -278,7 +278,7 @@ public class ProcessRuntimeService {
         var effectiveCorrelationId = correlationId != null && !correlationId.isBlank()
                 ? correlationId
                 : processMdc.getOrCreateCorrelationId();
-        var process = processInstanceFactory.newInstance(type, clock.instant(), businessKey,
+        var process = processInstanceFactory.newInstance(type, engineTime.now(), businessKey,
                 effectiveCorrelationId, variables, timers);
 
         return database.doInTransactionWithResult(() -> {
