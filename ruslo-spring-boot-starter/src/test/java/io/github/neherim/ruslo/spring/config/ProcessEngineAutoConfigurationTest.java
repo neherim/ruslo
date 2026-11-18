@@ -55,6 +55,27 @@ class ProcessEngineAutoConfigurationTest {
     }
 
     @Test
+    void applicationBeansCanUseUnprefixedNames() {
+        var applicationBean = new Object();
+
+        this.contextRunner.with(database())
+            .withBean("processEngine", Object.class, () -> applicationBean)
+            .withBean("database", Object.class, () -> applicationBean)
+            .withBean("defaultWorker", Object.class, () -> applicationBean)
+            .withBean("processEngineClock", Object.class, () -> applicationBean)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBean("processEngine")).isSameAs(applicationBean);
+                assertThat(context.getBean("database")).isSameAs(applicationBean);
+                assertThat(context.getBean("defaultWorker")).isSameAs(applicationBean);
+                assertThat(context.getBean("processEngineClock")).isSameAs(applicationBean);
+                assertThat(context.getBean("rusloProcessEngine", ProcessEngine.class)).isSameAs(
+                        context.getBean(ProcessEngine.class));
+                assertThat(context.getBean(ProcessEngine.class).isStarted()).isTrue();
+            });
+    }
+
+    @Test
     void adminUiPropertiesShouldNotPreventEngineStartup() {
         for (String enabled : new String[]{"true", "false"}) {
             this.contextRunner.with(database())
@@ -309,7 +330,7 @@ class ProcessEngineAutoConfigurationTest {
             .run(context -> {
                 assertThat(context).hasNotFailed();
                 assertThat(context.getBean(Clock.class)).isSameAs(ApplicationClockConfiguration.CLOCK);
-                assertThat(context.getBean("processEngineClock", Clock.class))
+                assertThat(context.getBean("rusloProcessEngineClock", Clock.class))
                     .isNotSameAs(ApplicationClockConfiguration.CLOCK);
 
                 var processEngine = context.getBean(ProcessEngine.class);
@@ -574,7 +595,7 @@ class ProcessEngineAutoConfigurationTest {
 
     static class OverrideDefaultWorker {
 
-        @Bean
+        @Bean("rusloDefaultWorker")
         public WorkerSpec defaultWorker() {
             return WorkerSpec.builder(WorkerId.DEFAULT)
                 .transactional()

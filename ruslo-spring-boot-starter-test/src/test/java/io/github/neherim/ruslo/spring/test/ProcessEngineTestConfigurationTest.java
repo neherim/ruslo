@@ -31,7 +31,7 @@ class ProcessEngineTestConfigurationTest {
     private ProcessEngineEmulator processEngineEmulator;
 
     @Autowired
-    @Qualifier("processEngineClock")
+    @Qualifier("rusloProcessEngineClock")
     private Clock processEngineClock;
 
     @Test

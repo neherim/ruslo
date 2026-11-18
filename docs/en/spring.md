@@ -12,7 +12,12 @@ dispatcher. The settings are for when the defaults do not fit.
 </dependency>
 ```
 
-The starter registers the `ProcessEngine` and `ProcessEngineAdmin` beans.
+The starter registers `ProcessEngine` as `rusloProcessEngine` and `ProcessEngineAdmin` as `rusloProcessEngineAdmin`.
+Inject them by type. Ruslo prefixes the bean names it assigns in its Spring modules with `ruslo`.
+
+When upgrading from unprefixed bean names, update explicit references such as `@Qualifier` and `@Resource`.
+If you supply the engine clock by name, use `rusloProcessEngineClock`. If you replace the default worker bean by
+name, use `rusloDefaultWorker`.
 
 ## Definitions
 

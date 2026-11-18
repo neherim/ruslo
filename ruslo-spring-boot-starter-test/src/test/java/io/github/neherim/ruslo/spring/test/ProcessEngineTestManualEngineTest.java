@@ -38,7 +38,7 @@ class ProcessEngineTestManualEngineTest {
     private MutableClock manualEngineClock;
 
     @Autowired
-    @Qualifier("processEngineClock")
+    @Qualifier("rusloProcessEngineClock")
     private MutableClock autoConfiguredClock;
 
     @Test
