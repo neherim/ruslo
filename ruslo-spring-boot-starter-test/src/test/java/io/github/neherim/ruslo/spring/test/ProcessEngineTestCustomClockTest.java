@@ -35,7 +35,7 @@ class ProcessEngineTestCustomClockTest {
     private ProcessEngineEmulator emulator;
 
     @Autowired
-    @Qualifier("processEngineClock")
+    @Qualifier("rusloClock")
     private MutableClock processEngineClock;
 
     @Autowired
@@ -68,7 +68,7 @@ class ProcessEngineTestCustomClockTest {
             return new MutableClock(ZoneOffset.UTC, START, ChronoUnit.MICROS);
         }
 
-        @Bean(defaultCandidate = false)
+        @Bean(name = "rusloClock", defaultCandidate = false)
         MutableClock processEngineClock() {
             return new MutableClock(ZoneOffset.UTC, START, ChronoUnit.MICROS);
         }

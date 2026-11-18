@@ -42,23 +42,23 @@ public class ProcessEngineAutoConfiguration {
     /**
      * Returns the system clock as the engine clock. The bean is not a candidate for injection by type: other
      * {@link Clock} beans of the application do not replace it, and it is not injected into the application.
-     * To replace the engine clock, declare a bean named {@code processEngineClock}.
+     * To replace the engine clock, declare a bean named {@code rusloClock}.
      */
-    @Bean(defaultCandidate = false)
-    @ConditionalOnMissingBean(name = "processEngineClock")
+    @Bean(name = "rusloClock", defaultCandidate = false)
+    @ConditionalOnMissingBean(name = "rusloClock")
     public Clock processEngineClock() {
         return Clock.systemDefaultZone();
     }
 
-    @Bean
-    @ConditionalOnMissingBean(name = "defaultWorker", value = WorkerSpec.class)
+    @Bean("rusloDefaultWorker")
+    @ConditionalOnMissingBean(name = "rusloDefaultWorker", value = WorkerSpec.class)
     public WorkerSpec defaultWorker() {
         return WorkerSpec.builder(WorkerId.DEFAULT)
             .transactional()
             .build();
     }
 
-    @Bean
+    @Bean("rusloDatabase")
     @ConditionalOnMissingBean
     @ConditionalOnClass(SpringJdbcDatabase.class)
     public Database database(PlatformTransactionManager transactionManager, DataSource datasource) {
@@ -73,9 +73,9 @@ public class ProcessEngineAutoConfiguration {
     @ConditionalOnMissingBean(ProcessEngine.class)
     static class ProcessEngineConfiguration {
 
-        @Bean
+        @Bean("rusloProcessEngine")
         public ProcessEngine processEngine(
-                @Qualifier("processEngineClock") Clock processEngineClock,
+                @Qualifier("rusloClock") Clock processEngineClock,
                 Database database,
                 List<WorkerSpec> workerSpecs,
                 ProcessEngineProperties props,
@@ -104,7 +104,7 @@ public class ProcessEngineAutoConfiguration {
         /**
          * Returns an initializer that registers every {@link ProcessDefinition} bean in the engine and starts it.
          */
-        @Bean
+        @Bean("rusloProcessEngineInitializer")
         @ConditionalOnMissingBean
         public ProcessEngineInitializer processEngineInitializer(
                 ProcessEngine processEngine,
@@ -117,7 +117,7 @@ public class ProcessEngineAutoConfiguration {
     /**
      * Exposes the engine admin API as a bean.
      */
-    @Bean
+    @Bean("rusloProcessEngineAdmin")
     @ConditionalOnMissingBean(ProcessEngineAdmin.class)
     public ProcessEngineAdmin processEngineAdmin(ProcessEngine processEngine) {
         return new ProcessEngineAdmin(processEngine);
@@ -127,7 +127,7 @@ public class ProcessEngineAutoConfiguration {
      * Returns an initializer for a {@link ProcessEngine} declared by the application: it only starts and stops
      * the engine and registers no definitions.
      */
-    @Bean
+    @Bean("rusloProcessEngineInitializer")
     @ConditionalOnMissingBean
     public ProcessEngineInitializer processEngineInitializer(ProcessEngine processEngine) {
         return new ProcessEngineInitializer(processEngine);
@@ -136,7 +136,7 @@ public class ProcessEngineAutoConfiguration {
     /**
      * Returns no-op metrics when no other {@link ProcessEngineMetrics} bean, such as the Micrometer one, exists.
      */
-    @Bean
+    @Bean("rusloNoOpProcessEngineMetrics")
     @ConditionalOnMissingBean
     public ProcessEngineMetrics noOpProcessEngineMetrics() {
         return new ProcessEngineMetrics() {

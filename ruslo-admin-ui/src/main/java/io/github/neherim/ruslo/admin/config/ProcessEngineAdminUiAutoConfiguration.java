@@ -66,7 +66,7 @@ public class ProcessEngineAdminUiAutoConfiguration implements WebMvcConfigurer {
     /**
      * Returns the dashboard page controller.
      */
-    @Bean
+    @Bean("rusloDashboardAdminController")
     public DashboardAdminController dashboardAdminController(ProcessEngineAdminService adminService) {
         return new DashboardAdminController(adminService);
     }
@@ -74,7 +74,7 @@ public class ProcessEngineAdminUiAutoConfiguration implements WebMvcConfigurer {
     /**
      * Returns the processes section controller.
      */
-    @Bean
+    @Bean("rusloProcessesAdminController")
     public ProcessesAdminController processesAdminController(ProcessEngineAdminService adminService) {
         return new ProcessesAdminController(adminService);
     }
@@ -82,7 +82,7 @@ public class ProcessEngineAdminUiAutoConfiguration implements WebMvcConfigurer {
     /**
      * Returns the service behind the UI pages and the REST API.
      */
-    @Bean
+    @Bean("rusloProcessEngineAdminService")
     public ProcessEngineAdminService processEngineAdminService(
             ProcessEngine processEngine,
             ProcessEngineAdmin management
@@ -93,7 +93,7 @@ public class ProcessEngineAdminUiAutoConfiguration implements WebMvcConfigurer {
     /**
      * Returns the REST API controller.
      */
-    @Bean
+    @Bean("rusloProcessEngineAdminApiController")
     public ProcessEngineAdminApiController processEngineAdminApiController(ProcessEngineAdminService adminService) {
         return new ProcessEngineAdminApiController(adminService);
     }
@@ -101,7 +101,7 @@ public class ProcessEngineAdminUiAutoConfiguration implements WebMvcConfigurer {
     /**
      * Returns the provider of model attributes shared by all UI pages.
      */
-    @Bean
+    @Bean("rusloProcessEngineAdminModelAttributes")
     public ProcessEngineAdminModelAttributes processEngineAdminModelAttributes() {
         return new ProcessEngineAdminModelAttributes(properties);
     }

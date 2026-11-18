@@ -93,7 +93,7 @@ dispatcher to verify production transaction boundaries.
 - To run the dispatcher and still control time, use `@ImportAutoConfiguration(ProcessEngineTestConfiguration.class)`
   instead of `@ProcessEngineTest`. This configuration also leaves clock resets to the test; call
   `emulator.resetTime()` when needed.
-- To start from your own initial time, declare a `MutableClock` bean named `processEngineClock` with
+- To start from your own initial time, declare a `MutableClock` bean named `rusloClock` with
   `@Bean(defaultCandidate = false)` in the test configuration.
 - Without Spring, build the engine with a `MutableClock` (`ProcessEngineBuilder.withClock`) and create the emulator
   with `new ProcessEngineEmulator(engine)`.

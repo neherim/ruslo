@@ -12,7 +12,13 @@
 </dependency>
 ```
 
-Starter регистрирует бины `ProcessEngine` и `ProcessEngineAdmin`.
+Стартер регистрирует `ProcessEngine` под именем `rusloProcessEngine`, а `ProcessEngineAdmin` — под именем
+`rusloProcessEngineAdmin`. Внедряйте их по типу. Ruslo добавляет префикс `ruslo` к именам бинов, которые
+задаёт в своих Spring-модулях.
+
+При обновлении с версии, в которой имена бинов были без префикса, обновите явные ссылки, например в
+`@Qualifier` и `@Resource`. Если вы задаёте часы движка по имени, используйте `rusloClock`.
+Для замены бина рабочего по умолчанию по имени используйте `rusloDefaultWorker`.
 
 ## Definitions
 

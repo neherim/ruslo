@@ -31,7 +31,7 @@ public class ProcessEngineMicrometerAutoConfiguration {
      * @param registry the Micrometer registry
      * @return the Micrometer metrics implementation
      */
-    @Bean
+    @Bean("rusloMicrometerProcessEngineMetrics")
     @ConditionalOnMissingBean
     @ConditionalOnBean(MeterRegistry.class)
     public ProcessEngineMetrics micrometerProcessEngineMetrics(MeterRegistry registry) {

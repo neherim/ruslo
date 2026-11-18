@@ -17,7 +17,7 @@ import static org.springframework.test.context.TestExecutionListeners.MergeMode.
  * <ul>
  *   <li>Registers a {@code ProcessEngineEmulator} bean.</li>
  *   <li>Disables the dispatcher: steps run only when the emulator runs them.</li>
- *   <li>Provides a mutable time source named {@code processEngineClock} unless a bean with that name exists.</li>
+ *   <li>Provides a mutable time source named {@code rusloClock} unless a bean with that name exists.</li>
  *   <li>Resets the engine's time source before each test by default if it is a mutable clock.</li>
  * </ul>
  *
