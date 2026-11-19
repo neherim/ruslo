@@ -4,7 +4,7 @@
 
 ## Линейный шаг
 
-Линейный шаг реализует `ProcessStep`. После `ProcessStep.execute()` движок переводит процесс в следующее состояние:
+Линейный шаг реализует `ProcessAction`. После `ProcessAction.execute()` движок переводит процесс в следующее состояние:
 
 ```java
 .step(CREATED, OrderDefinition::reserveItems, WAITING_FOR_PAYMENT)
@@ -17,7 +17,7 @@ static void reserveItems(ProcessContext context) {
 
 ## Ветвящийся шаг
 
-Ветвящийся шаг реализует `BranchingStep<O>` и возвращает константу enum `O`, а описание сопоставляет каждой
+Ветвящийся шаг реализует `BranchingAction<O>` и возвращает константу enum `O`, а описание сопоставляет каждой
 константе состояние:
 
 ```java

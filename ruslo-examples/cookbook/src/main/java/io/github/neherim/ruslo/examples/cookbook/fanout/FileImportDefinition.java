@@ -29,7 +29,7 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>Part errors. A failed part does not report, and the parent keeps waiting. Retry transient failures (recipe
  *       {@code retries}) or report a permanent error with a separate message from an {@code onGiveUp} state.</li>
- *   <li>Zero parts. The parent would wait forever: route this case past the await with a {@code BranchingStep}.</li>
+ *   <li>Zero parts. The parent would wait forever: route this case past the await with a {@code BranchingAction}.</li>
  *   <li>Duplicate reports. A manual retry of a part step sends its report again; if that matters, track reports by
  *       part number instead of a counter.</li>
  * </ul>

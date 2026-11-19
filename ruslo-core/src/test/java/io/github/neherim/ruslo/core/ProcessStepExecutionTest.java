@@ -735,7 +735,7 @@ class ProcessStepExecutionTest extends BaseTest {
     @Test
     void stepSelfTargetAndMoveToCurrentStepRunStepAgainWithoutHistoryRow() {
         var runs = new AtomicInteger();
-        BranchingStep<Outcome> step = context -> {
+        BranchingAction<Outcome> step = context -> {
             var run = runs.incrementAndGet();
             if (run == 3) throw new IllegalStateException("boom");
             return run < 3 ? Outcome.FIRST : Outcome.SECOND;

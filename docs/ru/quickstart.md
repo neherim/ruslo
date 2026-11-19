@@ -45,7 +45,7 @@ Enum реализует `ProcessState`; имена состояний сохра
 
 ```java
 @Component
-public class CreateOrderStep implements ProcessStep {
+public class CreateOrderStep implements ProcessAction {
     private static final Logger log = LoggerFactory.getLogger(CreateOrderStep.class);
 
     /** Creates the order; the process then waits for payment. */
@@ -61,7 +61,7 @@ public class CreateOrderStep implements ProcessStep {
 
 ```java
 @Component
-public class DeliverOrderStep implements ProcessStep {
+public class DeliverOrderStep implements ProcessAction {
     private static final Logger log = LoggerFactory.getLogger(DeliverOrderStep.class);
 
     /** Delivers the order; the process then completes. */

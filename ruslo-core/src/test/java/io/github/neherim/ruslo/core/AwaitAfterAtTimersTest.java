@@ -36,7 +36,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
     private static final TimerType DUE = TimerType.of("due");
     private final MutableClock clock = new MutableClock(ZoneOffset.UTC, instant("11:00:00"), ChronoUnit.MICROS);
     private final List<String> log = new ArrayList<>();
-    private ProcessStep againStep = context -> {};
+    private ProcessAction againStep = context -> {};
     private ProcessEngine engine;
 
     @AfterEach

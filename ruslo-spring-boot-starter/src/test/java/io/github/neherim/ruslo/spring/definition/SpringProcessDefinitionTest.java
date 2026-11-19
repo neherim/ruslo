@@ -2,11 +2,11 @@ package io.github.neherim.ruslo.spring.definition;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
+import io.github.neherim.ruslo.core.api.definition.ProcessAction;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.definition.ProcessStep;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.spring.config.ProcessEngineAutoConfiguration;
 import org.junit.jupiter.api.Test;
@@ -62,7 +62,7 @@ class SpringProcessDefinitionTest {
         FINISH
     }
 
-    static class CountingStep implements ProcessStep {
+    static class CountingStep implements ProcessAction {
         // injecting ProcessEngine checks that there is no circular dependency
         @Autowired
         ProcessEngine processEngine;

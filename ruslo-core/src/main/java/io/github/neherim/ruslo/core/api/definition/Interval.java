@@ -8,7 +8,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Schedule of an {@code every} event: the first check {@code firstAfter} after entering the await, then every
- * {@code period}, see {@link ProcessSpecBuilder.AwaitBuilder#every(Interval, ProcessTimerHandler, ProcessState)}.
+ * {@code period}, see {@link ProcessSpecBuilder.AwaitBuilder#every(Interval, ProcessAction, ProcessState)}.
  */
 public record Interval(Duration period, Duration firstAfter) {
     /**

@@ -2,7 +2,7 @@
 
 An exception from a step, message handler or timer handler means a technical failure or a programming error. Express
 an expected business situation (a declined card, a rejected application) as an outcome of a branching handler
-`BranchingStep`.
+`BranchingAction`.
 
 The exception rolls back the handler's transaction: the state, the variables and the event being handled stay as
 they were. Then the engine calls the process's `ProcessErrorHandler` in a separate transaction, and its result

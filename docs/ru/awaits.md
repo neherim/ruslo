@@ -29,7 +29,9 @@
 | Событие | Линейный обработчик | Ветвящийся обработчик |
 |---|---|---|
 | `message` | `ProcessMessageHandler<T>` | `BranchingMessageHandler<T, O>` |
-| `every`, `after`, `at` | `ProcessTimerHandler` | `BranchingTimerHandler<O>` |
+| `every`, `after`, `at` | `ProcessAction` | `BranchingAction<O>` |
+
+Таймеры используют те же интерфейсы, что и [шаги](steps.md). Оба интерфейса принимают только `ProcessContext`.
 
 У `after` и `at` обработчик необязателен: без него событие сразу переводит процесс в `target`. Обработчики ожидания
 всегда выполняются на транзакционном worker `DEFAULT` ([workers.md](workers.md)).

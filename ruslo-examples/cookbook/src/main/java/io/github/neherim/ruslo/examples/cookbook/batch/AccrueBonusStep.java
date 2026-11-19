@@ -1,13 +1,13 @@
 package io.github.neherim.ruslo.examples.cookbook.batch;
 
-import io.github.neherim.ruslo.core.api.definition.BranchingStep;
+import io.github.neherim.ruslo.core.api.definition.BranchingAction;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class AccrueBonusStep implements BranchingStep<AccrueBonusStep.Batch> {
+public class AccrueBonusStep implements BranchingAction<AccrueBonusStep.Batch> {
     private static final Logger log = LoggerFactory.getLogger(AccrueBonusStep.class);
 
     /**

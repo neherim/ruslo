@@ -6,12 +6,12 @@ import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.IncomingMessage;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
+import io.github.neherim.ruslo.core.api.definition.ProcessAction;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpecBuilder;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.definition.ProcessStep;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
 import io.github.neherim.ruslo.spring.config.property.ProcessEngineProperties;
@@ -414,7 +414,7 @@ class ProcessEngineAutoConfigurationTest {
         }
     }
 
-    static final class StartChildStep implements ProcessStep {
+    static final class StartChildStep implements ProcessAction {
         private final ChildStarter childStarter;
 
         StartChildStep(ChildStarter childStarter) {
@@ -561,7 +561,7 @@ class ProcessEngineAutoConfigurationTest {
         }
     }
 
-    static final class ConstructorInjectedAction implements ProcessStep {
+    static final class ConstructorInjectedAction implements ProcessAction {
         private final AtomicInteger executions = new AtomicInteger();
 
         @Override

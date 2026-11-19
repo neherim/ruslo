@@ -1,11 +1,11 @@
 package io.github.neherim.ruslo.examples.cookbook.externalcall;
 
-import io.github.neherim.ruslo.core.api.definition.BranchingStep;
+import io.github.neherim.ruslo.core.api.definition.BranchingAction;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import org.springframework.stereotype.Component;
 
 @Component
-public class ChargeCardStep implements BranchingStep<ChargeCardStep.Result> {
+public class ChargeCardStep implements BranchingAction<ChargeCardStep.Result> {
     private final PaymentGateway paymentGateway;
 
     public ChargeCardStep(PaymentGateway paymentGateway) {

@@ -253,7 +253,7 @@ public class ProcessSpec {
     }
 
     /**
-     * Periodic event, see {@link ProcessSpecBuilder.AwaitBuilder#every(Interval, ProcessTimerHandler, ProcessState)}.
+     * Periodic event, see {@link ProcessSpecBuilder.AwaitBuilder#every(Interval, ProcessAction, ProcessState)}.
      */
     public record EveryEvent(
             Interval interval,
@@ -263,7 +263,7 @@ public class ProcessSpec {
     }
 
     /**
-     * One-time event, see {@link ProcessSpecBuilder.AwaitBuilder#after(Duration, ProcessTimerHandler, ProcessState)}.
+     * One-time event, see {@link ProcessSpecBuilder.AwaitBuilder#after(Duration, ProcessAction, ProcessState)}.
      */
     public record AfterEvent(Duration delay, Function<ProcessContext, Enum<?>> handler, Exit exit) {
         public AfterEvent {

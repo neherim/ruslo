@@ -446,7 +446,7 @@ class AwaitTimersTest extends BaseTest {
             ProcessMessageHandler<String> onMessage,
             State messageTarget,
             Duration every,
-            ProcessTimerHandler onEvery,
+            ProcessAction onEvery,
             State everyTarget,
             ProcessErrorHandler errorHandler
     ) {
@@ -467,7 +467,7 @@ class AwaitTimersTest extends BaseTest {
     private ProcessDefinition everyDefinition(
             String type,
             Duration firstAfter,
-            ProcessTimerHandler onEvery,
+            ProcessAction onEvery,
             State everyTarget
     ) {
         return builder -> builder.type(type)
@@ -484,7 +484,7 @@ class AwaitTimersTest extends BaseTest {
             String type,
             ProcessMessageHandler<String> onMessage,
             Duration every,
-            ProcessTimerHandler onEvery,
+            ProcessAction onEvery,
             ProcessErrorHandler errorHandler
     ) {
         return engine(definition(type, onMessage, State.MSG_DONE, every, onEvery, State.EVERY_DONE, errorHandler));
