@@ -1,14 +1,14 @@
 package io.github.neherim.ruslo.examples.cookbook.fanout;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
-import io.github.neherim.ruslo.core.api.definition.ProcessAction;
+import io.github.neherim.ruslo.core.api.definition.LinearAction;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class ImportPartStep implements ProcessAction {
+public class ImportPartStep implements LinearAction {
     private static final Logger log = LoggerFactory.getLogger(ImportPartStep.class);
 
     private final ProcessEngine processEngine;

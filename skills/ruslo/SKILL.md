@@ -1,6 +1,6 @@
 ---
 name: ruslo
-description: Write, test and debug business processes on Ruslo, a Java 21 / Spring Boot library for durable stateful processes backed by a relational database. Use when the code imports io.github.neherim.ruslo, or when the task touches ProcessDefinition, ProcessSpecBuilder, ProcessAction, BranchingAction, await/message/every/after/at, ProcessEngine.newProcess/sendMessage, ProcessErrorHandler, workers, ruslo.* Spring properties, @ProcessEngineTest or ProcessEngineEmulator.
+description: Write, test and debug business processes on Ruslo, a Java 21 / Spring Boot library for durable stateful processes backed by a relational database. Use when the code imports io.github.neherim.ruslo, or when the task touches ProcessDefinition, ProcessSpecBuilder, LinearAction, BranchingAction, await/message/every/after/at, ProcessEngine.newProcess/sendMessage, ProcessErrorHandler, workers, ruslo.* Spring properties, @ProcessEngineTest or ProcessEngineEmulator.
 ---
 
 # Ruslo
@@ -78,11 +78,11 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
 
 | Declaration | Linear handler (one target) | Branching handler (`routes -> routes.on(...)`) |
 |---|---|---|
-| `step(state, handler, ...)` | `ProcessAction`: `void execute(ProcessContext)` | `BranchingAction<O>`: returns `O` |
-| `message(type, handler, ...)` | `ProcessMessageHandler<T>`: `(ctx, IncomingMessage<T>) -> void` | `BranchingMessageHandler<T, O>` |
-| `every(interval, handler, ...)` | `ProcessAction` | `BranchingAction<O>` |
-| `after(delay[, handler], ...)` | optional `ProcessAction` | `BranchingAction<O>` |
-| `at(timer[, handler], ...)` | optional `ProcessAction` | `BranchingAction<O>` |
+| `step(state, handler, ...)` | `LinearAction`: `void execute(ProcessContext)` | `BranchingAction<O>`: returns `O` |
+| `message(type, handler, ...)` | `LinearMessageHandler<T>`: `(ctx, IncomingMessage<T>) -> void` | `BranchingMessageHandler<T, O>` |
+| `every(interval, handler, ...)` | `LinearAction` | `BranchingAction<O>` |
+| `after(delay[, handler], ...)` | optional `LinearAction` | `BranchingAction<O>` |
+| `at(timer[, handler], ...)` | optional `LinearAction` | `BranchingAction<O>` |
 
 Branching example:
 
@@ -94,7 +94,7 @@ enum Validation { VALID, REJECTED }
     .on(Validation.REJECTED, CANCELLED))
 ```
 
-To add a branch, change `ProcessAction` to `BranchingAction<Outcome>`; the compiler then points at the definition
+To add a branch, change `LinearAction` to `BranchingAction<Outcome>`; the compiler then points at the definition
 line where the target must become routes. Optional `on(outcome, target, "Label")` sets a diagram label for that
 transition in steps or await events; it replaces the outcome name while preserving the message name or timer.
 The builder checks that all enum constants are routed when the routes callback returns.
@@ -359,7 +359,7 @@ class OrderProcessTest {
 | Symptom | Fix |
 |---|---|
 | `no suitable method found for step(...)`: `bad return type in lambda expression` | Linear step returns a value: declare routes or return nothing |
-| `... cannot be converted to ProcessAction` | Branching handler with a single target: replace target with `routes -> routes.on(...)` |
+| `... cannot be converted to LinearAction` | Branching handler with a single target: replace target with `routes -> routes.on(...)` |
 | `... cannot be converted to BranchingAction<O>` | Linear handler with routes: replace routes with a target state |
 | `X cannot be converted to Y` inside routes | Routes use constants of another enum than the handler returns |
 | Same symptoms with `message(...)` / `every(...)` | Same fixes as for steps |

@@ -54,7 +54,7 @@ exception for these outcomes, including unexpected state in operator and test AP
 
 ### Execution Invariants
 
-- Handlers report outcomes and definitions declare targets. Steps and timers use `ProcessAction` for a single
+- Handlers report outcomes and definitions declare targets. Steps and timers use `LinearAction` for a single
   target or `BranchingAction<O>` to select a target by outcome.
 - Each worker transition commits in its own transaction. A transition to a state on the same worker continues under
   the same lease. Await handlers always run on the transactional `DEFAULT` worker.

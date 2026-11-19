@@ -5,8 +5,8 @@ import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.IncomingMessage;
+import io.github.neherim.ruslo.core.api.definition.LinearAction;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
-import io.github.neherim.ruslo.core.api.definition.ProcessAction;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
@@ -414,7 +414,7 @@ class ProcessEngineAutoConfigurationTest {
         }
     }
 
-    static final class StartChildStep implements ProcessAction {
+    static final class StartChildStep implements LinearAction {
         private final ChildStarter childStarter;
 
         StartChildStep(ChildStarter childStarter) {
@@ -561,7 +561,7 @@ class ProcessEngineAutoConfigurationTest {
         }
     }
 
-    static final class ConstructorInjectedAction implements ProcessAction {
+    static final class ConstructorInjectedAction implements LinearAction {
         private final AtomicInteger executions = new AtomicInteger();
 
         @Override

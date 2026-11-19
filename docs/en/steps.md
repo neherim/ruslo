@@ -4,7 +4,7 @@ A step (`step`) runs the handler code and moves on right away to the next state 
 
 ## Linear step
 
-A linear step implements `ProcessAction`. After `ProcessAction.execute()` returns, the engine moves the process to the
+A linear step implements `LinearAction`. After `LinearAction.execute()` returns, the engine moves the process to the
 next state:
 
 ```java

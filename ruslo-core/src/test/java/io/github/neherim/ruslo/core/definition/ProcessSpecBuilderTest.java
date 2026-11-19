@@ -13,11 +13,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ProcessSpecBuilderTest {
     private static final ProcessType TYPE = ProcessType.of("TEST");
-    private static final ProcessAction STEP = context -> {};
+    private static final LinearAction STEP = context -> {};
     private static final BranchingAction<Outcome> BRANCHING = context -> Outcome.A;
     private static final MessageType<String> MESSAGE = MessageType.of("MESSAGE", String.class);
-    private static final ProcessMessageHandler<String> ON_MESSAGE = (context, message) -> {};
-    private static final ProcessAction ON_TIMER = context -> {};
+    private static final LinearMessageHandler<String> ON_MESSAGE = (context, message) -> {};
+    private static final LinearAction ON_TIMER = context -> {};
     private static final TimerType DUE_DATE = TimerType.of("dueDate");
 
     @Test
@@ -322,12 +322,12 @@ class ProcessSpecBuilderTest {
     @Test
     void invokesHandlersPassedToTheDsl() {
         var calls = new ArrayList<String>();
-        ProcessAction linear = context -> calls.add("linear");
+        LinearAction linear = context -> calls.add("linear");
         BranchingAction<Outcome> branching = context -> {
             calls.add("branching");
             return Outcome.B;
         };
-        ProcessMessageHandler<String> messageHandler = (context, message) -> calls.add("message");
+        LinearMessageHandler<String> messageHandler = (context, message) -> calls.add("message");
         var spec = new ProcessSpecBuilder().type(TYPE)
             .initialState(State.START)
             .step(State.START, linear, State.WAIT)

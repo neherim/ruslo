@@ -1,13 +1,13 @@
 package io.github.neherim.ruslo.examples.quickstart.steps;
 
-import io.github.neherim.ruslo.core.api.definition.ProcessAction;
+import io.github.neherim.ruslo.core.api.definition.LinearAction;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-public class DeliverOrderStep implements ProcessAction {
+public class DeliverOrderStep implements LinearAction {
     private static final Logger log = LoggerFactory.getLogger(DeliverOrderStep.class);
 
     /** Delivers the order; the process then completes. */

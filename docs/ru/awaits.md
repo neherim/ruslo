@@ -28,8 +28,8 @@
 
 | Событие | Линейный обработчик | Ветвящийся обработчик |
 |---|---|---|
-| `message` | `ProcessMessageHandler<T>` | `BranchingMessageHandler<T, O>` |
-| `every`, `after`, `at` | `ProcessAction` | `BranchingAction<O>` |
+| `message` | `LinearMessageHandler<T>` | `BranchingMessageHandler<T, O>` |
+| `every`, `after`, `at` | `LinearAction` | `BranchingAction<O>` |
 
 Таймеры используют те же интерфейсы, что и [шаги](steps.md). Оба интерфейса принимают только `ProcessContext`.
 
