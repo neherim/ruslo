@@ -45,7 +45,7 @@ A step performs an action, and its next state is declared in the definition:
 
 ```java
 @Component
-public class CreateOrderStep implements ProcessAction {
+public class CreateOrderStep implements LinearAction {
     private static final Logger log = LoggerFactory.getLogger(CreateOrderStep.class);
 
     /** Creates the order; the process then waits for payment. */
@@ -61,7 +61,7 @@ The delivery step:
 
 ```java
 @Component
-public class DeliverOrderStep implements ProcessAction {
+public class DeliverOrderStep implements LinearAction {
     private static final Logger log = LoggerFactory.getLogger(DeliverOrderStep.class);
 
     /** Delivers the order; the process then completes. */

@@ -4,7 +4,7 @@
 
 ## Линейный шаг
 
-Линейный шаг реализует `ProcessAction`. После `ProcessAction.execute()` движок переводит процесс в следующее состояние:
+Линейный шаг реализует `LinearAction`. После `LinearAction.execute()` движок переводит процесс в следующее состояние:
 
 ```java
 .step(CREATED, OrderDefinition::reserveItems, WAITING_FOR_PAYMENT)

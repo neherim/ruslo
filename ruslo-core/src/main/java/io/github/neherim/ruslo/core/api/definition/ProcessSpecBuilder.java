@@ -96,12 +96,12 @@ public class ProcessSpecBuilder {
          * Declares a step that moves to {@code next} on success. The step runs on the default worker of the process,
          * see {@link TypedBuilder#defaultWorker(WorkerId)}.
          */
-        public StatesBuilder step(ProcessState state, ProcessAction step, ProcessState next) {
+        public StatesBuilder step(ProcessState state, LinearAction step, ProcessState next) {
             return step(state, draft.defaultWorker, step, next);
         }
 
         /** Declares a step that runs on {@code worker} and moves to {@code next} on success. */
-        public StatesBuilder step(ProcessState state, WorkerId worker, ProcessAction step, ProcessState next) {
+        public StatesBuilder step(ProcessState state, WorkerId worker, LinearAction step, ProcessState next) {
             requireNonNull(step, "Process step cannot be null");
             draft.addStep(state, worker, context -> {
                 step.execute(context);
@@ -236,7 +236,7 @@ public class ProcessSpecBuilder {
          * Declares a message event: calls {@code handler} and moves to {@code next}. If {@code next} is this await,
          * the process keeps waiting.
          */
-        public <T> AwaitBuilder message(MessageType<T> type, ProcessMessageHandler<T> handler, ProcessState next) {
+        public <T> AwaitBuilder message(MessageType<T> type, LinearMessageHandler<T> handler, ProcessState next) {
             requireNonNull(handler, "Message handler cannot be null");
             return addMessage(type, (context, message) -> {
                 handler.handle(context, message);
@@ -270,8 +270,8 @@ public class ProcessSpecBuilder {
             return this;
         }
 
-        /** Same as {@link #every(Interval, ProcessAction, ProcessState)} with {@link Interval#of(Duration)}. */
-        public AwaitBuilder every(Duration period, ProcessAction handler, ProcessState next) {
+        /** Same as {@link #every(Interval, LinearAction, ProcessState)} with {@link Interval#of(Duration)}. */
+        public AwaitBuilder every(Duration period, LinearAction handler, ProcessState next) {
             return every(Interval.of(period), handler, next);
         }
 
@@ -285,7 +285,7 @@ public class ProcessSpecBuilder {
          * after the check starts. For example, with a period of 10 minutes and the await entered at 12:00, checks are
          * due at 12:10, 12:20 and so on; if the 12:10 check starts at 12:25, the next one is due at 12:30.
          */
-        public AwaitBuilder every(Interval interval, ProcessAction handler, ProcessState next) {
+        public AwaitBuilder every(Interval interval, LinearAction handler, ProcessState next) {
             return addEvery(interval, linear(handler), new Target(next.id()));
         }
 
@@ -301,7 +301,7 @@ public class ProcessSpecBuilder {
         /**
          * Declares a periodic event: calls {@code handler} on the {@code interval} schedule; its outcome selects the
          * target in {@code routes}. A target equal to this await keeps waiting until the next check. Checks follow
-         * the grid described in {@link #every(Interval, ProcessAction, ProcessState)}.
+         * the grid described in {@link #every(Interval, LinearAction, ProcessState)}.
          */
         public <O extends Enum<O>> AwaitBuilder every(
                 Interval interval,
@@ -334,13 +334,13 @@ public class ProcessSpecBuilder {
          * await. If {@code next} is this await, the process keeps waiting for the other events and the timer does
          * not fire again.
          */
-        public AwaitBuilder after(Duration delay, ProcessAction handler, ProcessState next) {
+        public AwaitBuilder after(Duration delay, LinearAction handler, ProcessState next) {
             return addAfter(delay, linear(handler), new Target(next.id()));
         }
 
         /**
          * Declares a one-time event: calls {@code handler} {@code delay} after entering the await; its outcome
-         * selects the target in {@code routes}, as in {@link #after(Duration, ProcessAction, ProcessState)}.
+         * selects the target in {@code routes}, as in {@link #after(Duration, LinearAction, ProcessState)}.
          */
         public <O extends Enum<O>> AwaitBuilder after(
                 Duration delay,
@@ -374,13 +374,13 @@ public class ProcessSpecBuilder {
          * after the handler. If {@code next} is this await, the process keeps waiting for the other events and for
          * the new moment of the timer, if the handler set one.
          */
-        public AwaitBuilder at(TimerType timer, ProcessAction handler, ProcessState next) {
+        public AwaitBuilder at(TimerType timer, LinearAction handler, ProcessState next) {
             return addAt(timer, linear(handler), new Target(next.id()));
         }
 
         /**
          * Declares a timer event: calls {@code handler} when {@code timer} is due; its outcome selects the target in
-         * {@code routes}, as in {@link #at(TimerType, ProcessAction, ProcessState)}.
+         * {@code routes}, as in {@link #at(TimerType, LinearAction, ProcessState)}.
          */
         public <O extends Enum<O>> AwaitBuilder at(
                 TimerType timer,
@@ -398,7 +398,7 @@ public class ProcessSpecBuilder {
             return this;
         }
 
-        private static Function<ProcessContext, Enum<?>> linear(ProcessAction handler) {
+        private static Function<ProcessContext, Enum<?>> linear(LinearAction handler) {
             requireNonNull(handler, "Timer handler cannot be null");
             return context -> {
                 handler.execute(context);

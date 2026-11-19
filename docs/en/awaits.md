@@ -27,8 +27,8 @@ Event handlers:
 
 | Event | Linear handler | Branching handler |
 |---|---|---|
-| `message` | `ProcessMessageHandler<T>` | `BranchingMessageHandler<T, O>` |
-| `every`, `after`, `at` | `ProcessAction` | `BranchingAction<O>` |
+| `message` | `LinearMessageHandler<T>` | `BranchingMessageHandler<T, O>` |
+| `every`, `after`, `at` | `LinearAction` | `BranchingAction<O>` |
 
 Timer events use the same action interfaces as [steps](steps.md). Both receive only a `ProcessContext`.
 
