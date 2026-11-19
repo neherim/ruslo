@@ -57,7 +57,7 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
             .step(CREATED, bean(CreateOrderStep.class), WAITING_FOR_PAYMENT)
             .await(WAITING_FOR_PAYMENT, await -> await
                 .message(PAYMENT_CONFIRMED, bean(PaymentHandlers.class)::onPaid, DELIVERING)
-                .message(ORDER_CANCELLED, bean(PaymentHandlers.class)::onCancelled, CANCELLED)
+                .message(ORDER_CANCELLED, CANCELLED)
                 .after(Duration.ofMinutes(15), CANCELLED))
             .step(DELIVERING, bean(DeliverOrderStep.class), COMPLETED)
             .terminal(COMPLETED)
@@ -79,7 +79,7 @@ public class OrderProcessDefinition extends SpringProcessDefinition {
 | Declaration | Linear handler (one target) | Branching handler (`routes -> routes.on(...)`) |
 |---|---|---|
 | `step(state, handler, ...)` | `LinearAction`: `void execute(ProcessContext)` | `BranchingAction<O>`: returns `O` |
-| `message(type, handler, ...)` | `LinearMessageHandler<T>`: `(ctx, IncomingMessage<T>) -> void` | `BranchingMessageHandler<T, O>` |
+| `message(type[, handler], ...)` | optional `LinearMessageHandler<T>`: `(ctx, IncomingMessage<T>) -> void` | `BranchingMessageHandler<T, O>` |
 | `every(interval, handler, ...)` | `LinearAction` | `BranchingAction<O>` |
 | `after(delay[, handler], ...)` | optional `LinearAction` | `BranchingAction<O>` |
 | `at(timer[, handler], ...)` | optional `LinearAction` | `BranchingAction<O>` |
@@ -103,6 +103,8 @@ The builder checks that all enum constants are routed when the routes callback r
 
 - At most one `every`, one `after` and one `at` per await, in any combination; at least one event is required.
   All events may target the await itself, allowing the process to handle messages or periodic events indefinitely.
+- Use `message(type, target)` when the arrival of the message alone triggers the transition. The engine ignores its
+  payload.
 - `every` and `after` are await timers: they live one entry of the await. `after(delay)` fires `delay` after
   entering the await.
 - `at(T)` waits for a **process timer** `T` (`static final TimerType DUE = TimerType.of("due")`): a named moment the
@@ -188,7 +190,7 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
 - `sendMessage` is **not idempotent**: deduplicate in the handler. Keep the event ids from the payload in a
   variable (a record wrapping the list: variable classes cannot be generic); on a known id do nothing and target the
   await itself to keep waiting.
-- `sendMessageSync(...)` runs the message handler in the caller's thread and transaction; handler exceptions
+- `sendMessageSync(...)` processes the message in the caller's thread and transaction; handler exceptions
   propagate to the caller. A `FAILED` process is not handled synchronously: `MessageNotExpectedException` with
   `getStatus() == FAILED`, nothing is stored.
 - Find processes: `processEngine.processes().byType(TYPE).byBusinessKey(key).single()` (`Optional`),

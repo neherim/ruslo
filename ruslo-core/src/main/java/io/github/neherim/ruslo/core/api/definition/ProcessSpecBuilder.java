@@ -233,6 +233,14 @@ public class ProcessSpecBuilder {
         }
 
         /**
+         * Declares a message event that moves to {@code next} when a message of {@code type} is processed. The
+         * payload is ignored. If {@code next} is this await, the process keeps waiting.
+         */
+        public AwaitBuilder message(MessageType<?> type, ProcessState next) {
+            return addMessage(type, (context, message) -> null, new Target(next.id()));
+        }
+
+        /**
          * Declares a message event: calls {@code handler} and moves to {@code next}. If {@code next} is this await,
          * the process keeps waiting.
          */

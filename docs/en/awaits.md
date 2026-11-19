@@ -7,7 +7,7 @@ await can last minutes or months; while the process waits, it holds neither a th
 
 | Event | Fires |
 |---|---|
-| `message(type, handler, target)` | when a message of `type` arrives |
+| `message(type[, handler], target)` | when a message of `type` arrives |
 | `every(interval, handler, target)` | repeatedly, every `interval` |
 | `after(delay[, handler], target)` | once, `delay` after entering the await |
 | `at(timer[, handler], target)` | at the moment of the process timer `timer` |
@@ -19,6 +19,7 @@ reactions to messages.
 ```java
 .await(WAITING_FOR_PAYMENT, await -> await
     .message(PAYMENT_CONFIRMED, PaymentDefinition::onPaid, SHIPPING)
+    .message(ORDER_CANCELLED, CANCELLED)
     .every(Duration.ofDays(1), PaymentDefinition::remind, WAITING_FOR_PAYMENT)   // a daily reminder
     .at(PAYMENT_DUE, CANCELLED))                                               // a deadline set by the code
 ```
@@ -32,8 +33,10 @@ Event handlers:
 
 Timer events use the same action interfaces as [steps](steps.md). Both receive only a `ProcessContext`.
 
-For `after` and `at` the handler is optional: without it the event moves the process to `target` right away. Await
-handlers always run on the transactional `DEFAULT` worker ([workers.md](workers.md)).
+For `message`, `after` and `at`, the handler is optional. When the engine processes the event, it moves the process
+to the declared target. A `message(type, target)` declaration ignores the payload. Await handlers run on the
+transactional `DEFAULT` worker ([workers.md](workers.md)). See [synchronous message handling](#synchronous-message-handling)
+to process a message in the calling thread.
 
 ## Messages
 
@@ -60,7 +63,7 @@ If only a domain key is known, first find the process by `businessKey`
 
 ### Sending a message
 
-- `sendMessage` accepts a message only if the process is now in an await that declares a handler for this message.
+- `sendMessage` accepts a message only if the process is now in an await that declares this message type.
   Otherwise the method throws `MessageNotExpectedException` with the current process state and stores nothing. The
   sender retries `sendMessage` later or ignores the rejection. `MessageNotExpectedException` does not roll back the
   caller's transaction ([spring.md](spring.md#application-transactions)).
@@ -69,11 +72,10 @@ If only a domain key is known, first find the process by `businessKey`
 
 ### What an accepted message guarantees
 
-- Success means the message is stored in the process queue, **not** that its handler will be called. For example, if
-  another event moves the process out of the await first, unhandled messages are removed (see
-  [leaving the await](#staying-in-an-await-or-leaving-it)).
-- Messages of one process are handled one at a time, in arrival order. The handler runs in one transaction with
-  removing the message from the queue.
+- Success means the message is stored in the process queue. If another event moves the process out of the await
+  first, the engine removes unhandled messages (see [leaving the await](#staying-in-an-await-or-leaving-it)).
+- The engine processes messages one at a time, in arrival order. It removes each message from the queue in the
+  same transaction that processes it.
 - **`sendMessage` is not idempotent**: sending the same payload again queues a second message.
 - The engine does not keep message history: a message is removed after it is handled.
 
@@ -171,9 +173,8 @@ Events that occurred during an await are handled one by one, in the order of the
 
 An event is due when its time is not later than the engine clock. Among due events the one with the earliest time is
 handled; on a tie the order is `message`, `every`, `after`, `at`. Several `message` events with the same send time are
-handled in arrival order. When the dispatcher reached the process does not matter. A handled `message` is removed in
-the handler's transaction. Timers never fire before their time, but may be a few seconds late; what the delay depends
-on: [dispatcher.md](dispatcher.md#timer-accuracy).
+handled in arrival order. When the dispatcher reached the process does not matter. Timers can fire a few seconds
+late. See [timer accuracy](dispatcher.md#timer-accuracy).
 
 ## Errors in an await
 
@@ -192,11 +193,11 @@ A process in `FAILED` handles no events. After `resumeFailedProcess` the rules o
 
 ## Synchronous message handling
 
-`processEngine.sendMessageSync(processId, type, payload)` runs the message handler in the calling thread and
+`processEngine.sendMessageSync(processId, type, payload)` processes the message in the calling thread and
 transaction. Use it when the caller needs the transition committed before the call returns, for example for a user
 cancellation (the `cancellation` recipe) or to return the result in the response to an HTTP request.
 
-- Only this message's handler runs synchronously. The dispatcher runs the following steps asynchronously after commit.
+- The dispatcher runs subsequent steps asynchronously after commit.
 - The message bypasses the queue: earlier messages and due timers keep waiting.
 - If the process does not expect this message now, the method throws `MessageNotExpectedException`; for a process in
   `FAILED` too, with `getStatus() == FAILED`. Nothing is stored.
