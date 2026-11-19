@@ -422,7 +422,7 @@ class ProcessEngineAutoConfigurationTest {
         }
 
         @Override
-        public void execute(ProcessContext context) {
+        public void execute(ProcessContext ctx) {
             childStarter.startChild();
         }
     }
@@ -565,7 +565,7 @@ class ProcessEngineAutoConfigurationTest {
         private final AtomicInteger executions = new AtomicInteger();
 
         @Override
-        public void execute(ProcessContext context) {
+        public void execute(ProcessContext ctx) {
             executions.incrementAndGet();
         }
     }

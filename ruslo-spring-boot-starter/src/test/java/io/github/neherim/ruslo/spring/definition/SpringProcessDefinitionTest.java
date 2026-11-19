@@ -69,7 +69,7 @@ class SpringProcessDefinitionTest {
         final AtomicInteger executions = new AtomicInteger();
 
         @Override
-        public void execute(ProcessContext context) {
+        public void execute(ProcessContext ctx) {
             executions.incrementAndGet();
         }
     }

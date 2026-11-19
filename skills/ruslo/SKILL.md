@@ -208,7 +208,9 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
   `exponential(maxRetries, initialDelay, maxDelay)`. With `onGiveUp`, `noRetry()` goes there on the first
   error.
 - Retry is `ErrorResult.retryAfter`, never a step whose target is itself.
-- A `FAILED` process does not run; continue it with `processEngine.resumeFailedProcess(id)`.
+- A `FAILED` process does not run. Retry the current step or event with `processEngine.resumeFailedProcess(id)`,
+  or use `processEngine.resumeFailedProcess(id, targetState)` to enter any declared state. An await waits for
+  events, and a terminal state completes the process immediately.
   `ProcessEngineAdmin.moveProcessToState(id, state)` moves it manually; a move to the current state keeps the
   queue and timers and runs the step or the due event again.
 

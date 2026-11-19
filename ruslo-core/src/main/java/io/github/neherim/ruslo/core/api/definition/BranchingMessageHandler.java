@@ -12,5 +12,5 @@ public interface BranchingMessageHandler<T, O extends Enum<O>> {
     /**
      * Handles the message and returns a non-null outcome.
      */
-    O handle(ProcessContext context, IncomingMessage<T> message);
+    O handle(ProcessContext ctx, IncomingMessage<T> message);
 }

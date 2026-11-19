@@ -5,6 +5,7 @@ import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
+import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -289,6 +290,111 @@ class ProcessStepExecutionTest extends BaseTest {
             assertEquals(ProcessStatus.COMPLETED, completed.getStatus());
         } finally {
             engine.close();
+        }
+    }
+
+    @Test
+    void resumesFailedAwaitAtAnotherStep() {
+        var type = ProcessType.of("MANUAL_CANCEL");
+        var handlerCalls = new AtomicInteger();
+        ProcessDefinition definition = builder -> builder.type(type)
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
+                handlerCalls.incrementAndGet();
+                throw new IllegalStateException("handler failed");
+            }, State.DONE))
+            .step(State.CANCEL, context -> context.setVariable(PAYLOAD, context.getVariable(PAYLOAD) + " cancelled"),
+                    State.DONE)
+            .terminal(State.DONE)
+            .build();
+        try (var engine = newProcessEngineWith(definition)) {
+            var emulator = emulator(engine);
+            var id = engine.newProcess(type).variable(PAYLOAD, "order").start();
+            var active = assertThrows(ProcessStatusException.class, () -> engine.resumeFailedProcess(id, State.CANCEL));
+            assertEquals(ProcessStatus.ACTIVE, active.getStatus());
+
+            engine.sendMessage(id, SIGNAL, "fail");
+            var failed = emulator.runOneStep(id);
+            assertEquals(ProcessStatus.FAILED, failed.status());
+            assertEquals(1, failed.attempt());
+            assertTrue(failed.lastError().isPresent());
+            assertThrows(UnsupportedProcessStateException.class, () -> engine.resumeFailedProcess(id, State.AFTER));
+            assertEquals(failed, engine.processes().byId(id).singleDetails().orElseThrow());
+
+            engine.resumeFailedProcess(id, State.CANCEL);
+            var resumed = engine.processes().byId(id).singleDetails().orElseThrow();
+            assertEquals(ProcessStatus.ACTIVE, resumed.status());
+            assertEquals(State.CANCEL, resumed.state());
+            assertEquals(0, resumed.attempt());
+            assertTrue(resumed.lastError().isEmpty());
+            assertEquals(List.of(State.WAIT, State.CANCEL),
+                    resumed.stateHistory().stream().map(entry -> entry.state()).toList());
+
+            var completed = emulator.runUntilStop(id);
+            assertEquals(ProcessStatus.COMPLETED, completed.status());
+            assertEquals(Optional.of("order cancelled"), completed.variables().find(PAYLOAD));
+            assertEquals(1, handlerCalls.get());
+            var completedRejection = assertThrows(ProcessStatusException.class,
+                    () -> engine.resumeFailedProcess(id, State.CANCEL));
+            assertEquals(ProcessStatus.COMPLETED, completedRejection.getStatus());
+        }
+    }
+
+    @Test
+    void resumesFailedStepAtAnAwait() {
+        var type = ProcessType.of("RESUME_AT_AWAIT");
+        ProcessDefinition definition = builder -> builder.type(type)
+            .initialState(State.START)
+            .step(State.START, context -> {
+                throw new IllegalStateException("step failed");
+            }, State.WAIT)
+            .await(State.WAIT, await -> await.message(SIGNAL, (context, message) -> {
+                context.setVariable(PAYLOAD, message.payload());
+            }, State.DONE))
+            .terminal(State.DONE)
+            .build();
+        try (var engine = newProcessEngineWith(definition)) {
+            var emulator = emulator(engine);
+            var id = engine.newProcess(type).start();
+            assertEquals(ProcessStatus.FAILED, emulator.runUntilStop(id).status());
+
+            engine.resumeFailedProcess(id, State.WAIT);
+            var waiting = engine.processes().byId(id).singleDetails().orElseThrow();
+            assertEquals(State.WAIT, waiting.state());
+            assertEquals(ProcessStatus.ACTIVE, waiting.status());
+            assertTrue(waiting.nextRunAt().isEmpty());
+            assertEquals(0, waiting.attempt());
+            assertTrue(waiting.lastError().isEmpty());
+
+            var completed = emulator.sendMessageAndRunUntilStop(id, SIGNAL, "accepted");
+            assertEquals(ProcessStatus.COMPLETED, completed.status());
+            assertEquals(Optional.of("accepted"), completed.variables().find(PAYLOAD));
+        }
+    }
+
+    @Test
+    void completesFailedProcessAtATerminalState() {
+        var type = ProcessType.of("RESUME_AT_TERMINAL");
+        ProcessDefinition definition = builder -> builder.type(type)
+            .initialState(State.START)
+            .step(State.START, context -> {
+                throw new IllegalStateException("step failed");
+            }, State.DONE)
+            .terminal(State.DONE)
+            .build();
+        try (var engine = newProcessEngineWith(definition)) {
+            var id = engine.newProcess(type).start();
+            assertEquals(ProcessStatus.FAILED, emulator(engine).runUntilStop(id).status());
+
+            engine.resumeFailedProcess(id, State.DONE);
+            var completed = engine.processes().byId(id).singleDetails().orElseThrow();
+            assertEquals(State.DONE, completed.state());
+            assertEquals(ProcessStatus.COMPLETED, completed.status());
+            assertTrue(completed.nextRunAt().isEmpty());
+            assertEquals(0, completed.attempt());
+            assertTrue(completed.lastError().isEmpty());
+            assertEquals(List.of(State.START, State.DONE),
+                    completed.stateHistory().stream().map(entry -> entry.state()).toList());
         }
     }
 
@@ -809,6 +915,7 @@ class ProcessStepExecutionTest extends BaseTest {
         START,
         WAIT,
         AFTER,
+        CANCEL,
         DONE
     }
 

@@ -3,9 +3,11 @@ package io.github.neherim.ruslo.core.api;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
+import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
+import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
 import io.github.neherim.ruslo.core.api.view.ProcessQuery;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchScheduler;
@@ -18,6 +20,7 @@ import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -147,15 +150,28 @@ public class ProcessEngine implements AutoCloseable {
     }
 
     /**
-     * Resumes a {@code FAILED} process: resets the attempt counter and error, so the failed step or await
-     * event runs again.
+     * Resumes a {@code FAILED} process by retrying the failed step or await event.
      *
-     * @throws ProcessStatusException if the process is not {@code FAILED}, e.g. already resumed or completed
+     * @throws ProcessStatusException if the process is not {@code FAILED}
      * @throws IllegalStateException  if the engine is not started
      */
     public void resumeFailedProcess(UUID processId) {
         requireStarted();
-        processRuntimeService.resumeFailedProcess(processId);
+        processRuntimeService.resumeFailedProcess(processId, null);
+    }
+
+    /**
+     * Resumes a {@code FAILED} process at the target state. A terminal target completes the process immediately.
+     *
+     * @param targetState any state declared in the process definition
+     * @throws ProcessStatusException           if the process is not {@code FAILED}
+     * @throws UnsupportedProcessStateException if the definition does not declare the state
+     * @throws IllegalStateException           if the engine is not started
+     */
+    public void resumeFailedProcess(UUID processId, ProcessState targetState) {
+        requireStarted();
+        processRuntimeService.resumeFailedProcess(processId,
+                Objects.requireNonNull(targetState, "Target state cannot be null"));
     }
 
     /**

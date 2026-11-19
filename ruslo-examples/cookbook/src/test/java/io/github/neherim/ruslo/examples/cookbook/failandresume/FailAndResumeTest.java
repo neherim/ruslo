@@ -29,6 +29,19 @@ class FailAndResumeTest {
     private InvoiceOperations invoiceOperations;
 
     @Test
+    void cancelsAfterFailure() {
+        var processId = startInvoice("XX");
+        assertEquals(ProcessStatus.FAILED, emulator.runUntilStop(processId).status());
+
+        invoiceOperations.cancelFailedInvoice(processId);
+        var cancelled = emulator.runUntilStop(processId);
+
+        assertEquals(ProcessStatus.COMPLETED, cancelled.status());
+        assertEquals(InvoiceDefinition.State.CANCELLED, cancelled.state());
+        assertEquals("XX", cancelled.variables().find(InvoiceDefinition.COUNTRY).orElseThrow());
+    }
+
+    @Test
     void stopsOnInvalidDataAndContinuesAfterFix() {
         var processId = startInvoice("XX");
 

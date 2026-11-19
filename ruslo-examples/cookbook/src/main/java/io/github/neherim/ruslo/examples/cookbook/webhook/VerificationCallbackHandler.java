@@ -17,18 +17,18 @@ public class VerificationCallbackHandler
      * a request for more documents to the customer and keeps waiting; a final status ends the wait.
      */
     @Override
-    public Result handle(ProcessContext context, IncomingMessage<VerificationCallback> message) {
+    public Result handle(ProcessContext ctx, IncomingMessage<VerificationCallback> message) {
         var callback = message.payload();
-        var handled = context.findVariable(IdentityVerificationDefinition.HANDLED_EVENTS).orElse(HandledEvents.NONE);
+        var handled = ctx.findVariable(IdentityVerificationDefinition.HANDLED_EVENTS).orElse(HandledEvents.NONE);
         if (handled.contains(callback.eventId())) {
             log.info("Repeated verification callback {} ignored", callback.eventId());
             return Result.WAIT;
         }
-        context.setVariable(IdentityVerificationDefinition.HANDLED_EVENTS, handled.with(callback.eventId()));
+        ctx.setVariable(IdentityVerificationDefinition.HANDLED_EVENTS, handled.with(callback.eventId()));
         return switch (callback.status()) {
             case DOCUMENTS_REQUIRED -> {
                 log.info("Documents requested from {}",
-                        context.getVariable(IdentityVerificationDefinition.APPLICANT_EMAIL));
+                        ctx.getVariable(IdentityVerificationDefinition.APPLICANT_EMAIL));
                 yield Result.WAIT;
             }
             case APPROVED -> Result.APPROVED;

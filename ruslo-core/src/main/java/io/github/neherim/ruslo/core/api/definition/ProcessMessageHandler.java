@@ -11,5 +11,5 @@ public interface ProcessMessageHandler<T> {
     /**
      * Handles the message.
      */
-    void handle(ProcessContext context, IncomingMessage<T> message);
+    void handle(ProcessContext ctx, IncomingMessage<T> message);
 }

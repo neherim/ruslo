@@ -11,8 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Operator actions on invoice processes. In an application a service endpoint or a support task calls them; without
- * code, the admin UI does the same.
+ * Operator actions on invoice processes, called by a service endpoint or a support task.
  */
 @Component
 public class InvoiceOperations {
@@ -24,7 +23,7 @@ public class InvoiceOperations {
         this.processEngineAdmin = processEngineAdmin;
     }
 
-    /** Returns stopped processes: they wait for a fix and {@link #fixCountryAndResume}. */
+    /** Returns stopped processes awaiting {@link #fixCountryAndResume} or {@link #cancelFailedInvoice}. */
     public List<ProcessInstanceSummary> findFailed() {
         return processEngine.processes()
             .byType(InvoiceDefinition.TYPE)
@@ -41,5 +40,14 @@ public class InvoiceOperations {
     public void fixCountryAndResume(UUID processId, String country) {
         processEngineAdmin.setProcessVariable(processId, InvoiceDefinition.COUNTRY, country);
         processEngine.resumeFailedProcess(processId);
+    }
+
+    /**
+     * Resumes the stopped process at the cancellation step. The dispatcher cancels the invoice after commit.
+     *
+     * @throws ProcessStatusException if the process is no longer {@code FAILED}
+     */
+    public void cancelFailedInvoice(UUID processId) {
+        processEngine.resumeFailedProcess(processId, InvoiceDefinition.State.CANCEL_INVOICE);
     }
 }

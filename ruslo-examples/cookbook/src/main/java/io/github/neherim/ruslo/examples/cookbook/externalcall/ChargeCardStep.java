@@ -17,9 +17,9 @@ public class ChargeCardStep implements BranchingAction<ChargeCardStep.Result> {
      * from the provider instead of creating a new one.
      */
     @Override
-    public Result execute(ProcessContext context) {
+    public Result execute(ProcessContext ctx) {
         var approved = paymentGateway.charge(
-                context.processId().toString(), context.getVariable(CardPaymentDefinition.AMOUNT));
+                ctx.processId().toString(), ctx.getVariable(CardPaymentDefinition.AMOUNT));
         return approved ? Result.APPROVED : Result.DECLINED;
     }
 
