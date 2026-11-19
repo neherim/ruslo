@@ -78,14 +78,15 @@ public class ProcessRuntimeService {
     }
 
     /**
-     * Resumes a {@code FAILED} process, see {@link io.github.neherim.ruslo.core.api.ProcessEngine#resumeFailedProcess}.
+     * Resumes a {@code FAILED} process at the target state, or at the current state when no target is given.
+     * See {@link io.github.neherim.ruslo.core.api.ProcessEngine#resumeFailedProcess(UUID, ProcessState)}.
      *
      * @throws ProcessStatusException if the process is not {@code FAILED}; thrown after the transaction
      */
-    public void resumeFailedProcess(UUID processId) {
+    public void resumeFailedProcess(UUID processId, @Nullable ProcessState targetState) {
         doInTransactionOrReject(() -> {
             var process = getProcessWithLock(processId);
-            if (!process.resume()) {
+            if (!process.resume(targetState)) {
                 return new ProcessStatusException(processId, process.getStatus(),
                         "only a FAILED process can be resumed");
             }

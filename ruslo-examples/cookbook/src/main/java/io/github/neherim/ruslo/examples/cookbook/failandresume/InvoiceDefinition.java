@@ -14,11 +14,10 @@ import org.springframework.stereotype.Component;
 import java.util.Set;
 
 /**
- * Recipe: stop a process on an unrecoverable error, fix the data and continue.
+ * Recipe: stop a process on an unrecoverable error and let an operator choose how to resume.
  * <p>
  * Task: issue an invoice for the customer's country. If the country code in the order is wrong, a retry will not help,
- * and no other branch can be chosen automatically: a human must fix the data. The process stops and waits until an
- * operator fixes the country and resumes it.
+ * and the process stops until an operator fixes the country or cancels the invoice.
  * <p>
  * How it works:
  * <ul>
@@ -28,6 +27,7 @@ import java.util.Set;
  *   <li>{@link InvoiceOperations} holds operator actions: find stopped processes, fix a variable
  *       ({@code admin().setProcessVariable}) and resume ({@code resumeFailedProcess}). Resuming repeats the failed
  *       step with the fixed data. The admin UI offers the same actions.</li>
+ *   <li>The operator can resume at {@link State#CANCEL_INVOICE} to cancel the invoice.</li>
  * </ul>
  * <p>
  * Pitfalls:
@@ -48,15 +48,17 @@ public class InvoiceDefinition implements ProcessDefinition {
     private static final Logger log = LoggerFactory.getLogger(InvoiceDefinition.class);
     private static final Set<String> SUPPORTED_COUNTRIES = Set.of("DE", "FR");
 
-    /** Describes invoicing: on an error the process stops until fixed by hand. */
+    /** Describes invoicing with manual recovery or cancellation after an error. */
     @Override
     public ProcessSpec define(ProcessSpecBuilder builder) {
         return builder
             .type(TYPE)
-            .description("Invoice issuing that stops on invalid data and resumes after an operator corrects it.")
+            .description("Invoice issuing that stops on invalid data until an operator retries or cancels it.")
             .initialState(State.ISSUING)
             .step(State.ISSUING, InvoiceDefinition::issue, State.ISSUED)
+            .step(State.CANCEL_INVOICE, InvoiceDefinition::cancel, State.CANCELLED)
             .terminal(State.ISSUED)
+            .terminal(State.CANCELLED)
             .build();
     }
 
@@ -68,8 +70,14 @@ public class InvoiceDefinition implements ProcessDefinition {
         log.info("Invoice for {} issued", context.businessKey().orElseThrow());
     }
 
+    private static void cancel(ProcessContext context) {
+        log.info("Invoice for {} cancelled", context.businessKey().orElseThrow());
+    }
+
     public enum State implements ProcessState {
         ISSUING,
-        ISSUED
+        ISSUED,
+        CANCEL_INVOICE,
+        CANCELLED
     }
 }

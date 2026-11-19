@@ -5,6 +5,7 @@ import io.github.neherim.ruslo.core.api.definition.ProcessSpec.*;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.utils.EngineTime;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -220,15 +221,25 @@ public final class ProcessInstance {
     }
 
     /**
-     * Resumes a {@code FAILED} process.
+     * Resumes a {@code FAILED} process at its current state, see {@link #resume(ProcessState)}.
      *
      * @return {@code false} if the process is not {@code FAILED}; it is then unchanged
      */
     public boolean resume() {
+        return resume(null);
+    }
+
+    /**
+     * Resumes a {@code FAILED} process at the target state, or at its current state when no target is given.
+     *
+     * @param targetState a declared state, or {@code null} to retry the current state
+     * @return {@code false} if the process is not {@code FAILED}; it is then unchanged
+     */
+    public boolean resume(@Nullable ProcessState targetState) {
         if (status != ProcessStatus.FAILED) {
             return false;
         }
-        changeState(state);
+        changeState(targetState == null ? state : targetState);
         return true;
     }
 

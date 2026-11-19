@@ -76,6 +76,13 @@ A process in `FAILED` does not run: no steps, no timers. Find such processes by 
 `processEngine.resumeFailedProcess(id)`: the failed step or event runs again, and the attempt count starts over.
 For a process that is not in `FAILED`, `resumeFailedProcess` throws `ProcessStatusException`.
 
+To let an operator choose cancellation after a failure, declare a cancellation step in the process definition
+and call `processEngine.resumeFailedProcess(id, State.CANCEL_INVOICE)`. The attempt count starts over and the
+dispatcher runs the cancellation step after commit. Put any required compensation in that step or its successors.
+
+The overload accepts any state declared in the process definition. An await starts waiting for its events.
+A terminal state completes the process immediately.
+
 ## Details
 
 - `ProcessContext` changes made by the error handler are saved atomically with its result.
