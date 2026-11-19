@@ -1,11 +1,11 @@
 package io.github.neherim.ruslo.examples.cookbook.branching;
 
-import io.github.neherim.ruslo.core.api.definition.BranchingStep;
+import io.github.neherim.ruslo.core.api.definition.BranchingAction;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CheckApplicationStep implements BranchingStep<CheckApplicationStep.Decision> {
+public class CheckApplicationStep implements BranchingAction<CheckApplicationStep.Decision> {
     static final long AUTO_APPROVE_LIMIT = 1_000;
     static final long MAX_AMOUNT = 100_000;
 

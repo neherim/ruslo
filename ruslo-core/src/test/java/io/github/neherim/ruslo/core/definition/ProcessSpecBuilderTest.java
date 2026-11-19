@@ -13,11 +13,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ProcessSpecBuilderTest {
     private static final ProcessType TYPE = ProcessType.of("TEST");
-    private static final ProcessStep STEP = context -> {};
-    private static final BranchingStep<Outcome> BRANCHING = context -> Outcome.A;
+    private static final ProcessAction STEP = context -> {};
+    private static final BranchingAction<Outcome> BRANCHING = context -> Outcome.A;
     private static final MessageType<String> MESSAGE = MessageType.of("MESSAGE", String.class);
     private static final ProcessMessageHandler<String> ON_MESSAGE = (context, message) -> {};
-    private static final ProcessTimerHandler ON_TIMER = context -> {};
+    private static final ProcessAction ON_TIMER = context -> {};
     private static final TimerType DUE_DATE = TimerType.of("dueDate");
 
     @Test
@@ -261,7 +261,7 @@ class ProcessSpecBuilderTest {
             .on(Outcome.A, State.DONE)
             .on(Outcome.A, State.DONE)));
         assertRejected("is a process state",
-                () -> start().step(State.START, (BranchingStep<StateOutcome>) context -> StateOutcome.X,
+                () -> start().step(State.START, (BranchingAction<StateOutcome>) context -> StateOutcome.X,
                         routes -> routes.on(StateOutcome.X, State.DONE)));
         assertRejected("Duplicate message", () -> startWithStep().await(State.WAIT,
                 await -> await.message(MESSAGE, ON_MESSAGE, State.DONE).message(MESSAGE, ON_MESSAGE, State.DONE)));
@@ -322,20 +322,21 @@ class ProcessSpecBuilderTest {
     @Test
     void invokesHandlersPassedToTheDsl() {
         var calls = new ArrayList<String>();
-        ProcessStep linear = context -> calls.add("linear");
-        BranchingStep<Outcome> branching = context -> {
+        ProcessAction linear = context -> calls.add("linear");
+        BranchingAction<Outcome> branching = context -> {
             calls.add("branching");
             return Outcome.B;
         };
         ProcessMessageHandler<String> messageHandler = (context, message) -> calls.add("message");
-        ProcessTimerHandler timerHandler = context -> calls.add("timer");
-
         var spec = new ProcessSpecBuilder().type(TYPE)
             .initialState(State.START)
             .step(State.START, linear, State.WAIT)
             .step(State.OTHER, branching, routes -> routes.on(Outcome.A, State.DONE).on(Outcome.B, State.WAIT))
             .await(State.WAIT, await -> await.message(MESSAGE, messageHandler, State.DONE)
-                .every(Duration.ofSeconds(1), timerHandler, State.WAIT))
+                .every(Duration.ofSeconds(1), linear, State.WAIT)
+                .after(Duration.ofSeconds(2), branching, routes -> routes.on(Outcome.A, State.WAIT)
+                    .on(Outcome.B, State.DONE))
+                .at(DUE_DATE, branching, routes -> routes.on(Outcome.A, State.WAIT).on(Outcome.B, State.DONE)))
             .terminal(State.DONE)
             .build();
 
@@ -345,7 +346,9 @@ class ProcessSpecBuilderTest {
         assertEquals(Outcome.B, ((StepState) spec.getStateSpec(State.OTHER)).step().apply(null));
         assertNull(callMessage(await.messages().getFirst(), MESSAGE, "x"));
         assertNull(await.every().handler().apply(null));
-        assertEquals(List.of("linear", "branching", "message", "timer"), calls);
+        assertEquals(Outcome.B, await.after().handler().apply(null));
+        assertEquals(Outcome.B, await.at().handler().apply(null));
+        assertEquals(List.of("linear", "branching", "message", "linear", "branching", "branching"), calls);
         assertEquals(new Target(State.WAIT.id()), step.exit());
         assertEquals(new Target(State.WAIT.id()), await.every().exit());
     }

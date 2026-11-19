@@ -1,12 +1,12 @@
 package io.github.neherim.ruslo.examples.cookbook.fanout;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
+import io.github.neherim.ruslo.core.api.definition.ProcessAction;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
-import io.github.neherim.ruslo.core.api.definition.ProcessStep;
 import org.springframework.stereotype.Component;
 
 @Component
-public class SplitFileStep implements ProcessStep {
+public class SplitFileStep implements ProcessAction {
     private final ProcessEngine processEngine;
 
     public SplitFileStep(ProcessEngine processEngine) {

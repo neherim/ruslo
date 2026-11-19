@@ -45,7 +45,7 @@ public enum OrderState implements ProcessState {
 // Описываем обработчик шага процесса
 @Component
 @RequiredArgsConstructor
-public class ReserveStockStep implements ProcessStep {
+public class ReserveStockStep implements ProcessAction {
     private final OrderRepository orders;
 
     @Override

@@ -28,7 +28,9 @@ Event handlers:
 | Event | Linear handler | Branching handler |
 |---|---|---|
 | `message` | `ProcessMessageHandler<T>` | `BranchingMessageHandler<T, O>` |
-| `every`, `after`, `at` | `ProcessTimerHandler` | `BranchingTimerHandler<O>` |
+| `every`, `after`, `at` | `ProcessAction` | `BranchingAction<O>` |
+
+Timer events use the same action interfaces as [steps](steps.md). Both receive only a `ProcessContext`.
 
 For `after` and `at` the handler is optional: without it the event moves the process to `target` right away. Await
 handlers always run on the transactional `DEFAULT` worker ([workers.md](workers.md)).

@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
  * <p>
  * How it works:
  * <ul>
- *   <li>{@link CheckApplicationStep} implements {@code BranchingStep<Decision>} and returns a
+ *   <li>{@link CheckApplicationStep} implements {@code BranchingAction<Decision>} and returns a
  *       {@link CheckApplicationStep.Decision} constant. The definition declares where each constant leads with
  *       {@code routes.on(outcome, state)}: the step knows nothing about process states.</li>
  *   <li>The employee's decision arrives as message {@link #REVIEW_DECISION}. Its handler returns a

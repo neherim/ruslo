@@ -4,7 +4,7 @@ A step (`step`) runs the handler code and moves on right away to the next state 
 
 ## Linear step
 
-A linear step implements `ProcessStep`. After `ProcessStep.execute()` returns, the engine moves the process to the
+A linear step implements `ProcessAction`. After `ProcessAction.execute()` returns, the engine moves the process to the
 next state:
 
 ```java
@@ -18,7 +18,7 @@ static void reserveItems(ProcessContext context) {
 
 ## Branching step
 
-A branching step implements `BranchingStep<O>` and returns a constant of enum `O`, and the definition maps each
+A branching step implements `BranchingAction<O>` and returns a constant of enum `O`, and the definition maps each
 constant to a state:
 
 ```java
