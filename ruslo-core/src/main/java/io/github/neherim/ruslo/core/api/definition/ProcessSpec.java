@@ -242,8 +242,8 @@ public class ProcessSpec {
     }
 
     /**
-     * Message event, see
-     * {@link ProcessSpecBuilder.AwaitBuilder#message(MessageType, LinearMessageHandler, ProcessState)}.
+     * Message event declared by {@link ProcessSpecBuilder.AwaitBuilder#message(MessageType, ProcessState)} or
+     * one of its overloads taking a handler.
      */
     public record MessageEvent<T>(
             MessageType<T> type,

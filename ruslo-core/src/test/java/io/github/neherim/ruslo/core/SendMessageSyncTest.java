@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SendMessageSyncTest extends BaseTest {
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
     private static final MessageType<String> NOTE = MessageType.of("NOTE", String.class);
+    private static final MessageType<String> SKIP = MessageType.of("SKIP", String.class);
     private static final VariableType<String> SIGNAL_PAYLOAD = VariableType.of("signal", String.class);
     private static final ProcessType TYPE = ProcessType.of("HANDLE_MESSAGE");
     private final List<String> log = new ArrayList<>();
@@ -39,7 +40,8 @@ class SendMessageSyncTest extends BaseTest {
                     context.setVariable(SIGNAL_PAYLOAD, message.payload());
                     if (fail.get()) throw new IllegalStateException("boom");
                 }, State.NEXT)
-                .message(NOTE, (context, message) -> log.add("note:" + message.payload()), State.WAIT))
+                .message(NOTE, (context, message) -> log.add("note:" + message.payload()), State.WAIT)
+                .message(SKIP, State.NEXT))
             .step(State.NEXT, context -> log.add("next"), State.DONE)
             .terminal(State.DONE)
             .build();
@@ -61,6 +63,17 @@ class SendMessageSyncTest extends BaseTest {
         assertEquals(State.NEXT, process.state());
         assertEquals(Optional.of("m"), process.variables().find(SIGNAL_PAYLOAD));
         assertEquals(List.of("m"), log);
+    }
+
+    @Test
+    void transitionsImmediatelyOnMessageWithoutHandler() {
+        var id = engine.newProcess(TYPE).start();
+
+        engine.sendMessageSync(id, SKIP, "ignored");
+
+        assertEquals(State.NEXT, find(id).state());
+        assertTrue(log.isEmpty());
+        assertEquals("[]", messages(id));
     }
 
     @Test

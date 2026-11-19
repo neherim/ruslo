@@ -81,6 +81,26 @@ class ProcessStepExecutionTest extends BaseTest {
     }
 
     @Test
+    void queuedMessageWithoutHandlerCompletesProcess() {
+        var type = ProcessType.of("MESSAGE_TRANSITION");
+        ProcessDefinition definition = builder -> builder.type(type)
+            .initialState(State.WAIT)
+            .await(State.WAIT, await -> await.message(SIGNAL, State.DONE))
+            .terminal(State.DONE)
+            .build();
+        try (var engine = newProcessEngineWith(definition)) {
+            var id = engine.newProcess(type).start();
+
+            engine.sendMessage(id, SIGNAL, "go");
+
+            assertEquals(State.WAIT, engine.processes().byId(id).singleDetails().orElseThrow().state());
+            var completed = emulator(engine).runOneStep(id);
+            assertEquals(State.DONE, completed.state());
+            assertEquals(ProcessStatus.COMPLETED, completed.status());
+        }
+    }
+
+    @Test
     void runUntilStopPassesCommittedTransitionsUntilAwaitAndTerminal() {
         ProcessDefinition definition = builder -> builder.type("CHAIN")
             .initialState(State.START)
