@@ -7,5 +7,5 @@ package io.github.neherim.ruslo.core.api.definition;
 @FunctionalInterface
 public interface ProcessAction {
     /** Executes the action. */
-    void execute(ProcessContext context);
+    void execute(ProcessContext ctx);
 }

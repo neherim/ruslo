@@ -18,16 +18,16 @@ public class SplitFileStep implements ProcessAction {
      * step transaction: if the step fails, none is saved.
      */
     @Override
-    public void execute(ProcessContext context) {
-        int parts = context.getVariable(FileImportDefinition.PART_COUNT);
+    public void execute(ProcessContext ctx) {
+        int parts = ctx.getVariable(FileImportDefinition.PART_COUNT);
         for (int part = 1; part <= parts; part++) {
             processEngine.newProcess(FileImportPartDefinition.TYPE)
                 // Parts get the parent's correlation id, so logs show the whole job together
-                .correlationId(context.correlationId())
-                .variable(FileImportPartDefinition.PARENT_ID, context.processId())
+                .correlationId(ctx.correlationId())
+                .variable(FileImportPartDefinition.PARENT_ID, ctx.processId())
                 .variable(FileImportPartDefinition.PART_NUMBER, part)
                 .start();
         }
-        context.setVariable(FileImportDefinition.REMAINING_PARTS, parts);
+        ctx.setVariable(FileImportDefinition.REMAINING_PARTS, parts);
     }
 }

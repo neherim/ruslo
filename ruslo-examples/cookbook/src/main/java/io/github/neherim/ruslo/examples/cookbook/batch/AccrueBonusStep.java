@@ -15,12 +15,12 @@ public class AccrueBonusStep implements BranchingAction<AccrueBonusStep.Batch> {
      * the transition, so after a failure the step continues from the last committed batch.
      */
     @Override
-    public Batch execute(ProcessContext context) {
-        long cursor = context.findVariable(BonusAccrualDefinition.CURSOR).orElse(0L);
-        long lastId = context.getVariable(BonusAccrualDefinition.LAST_ACCOUNT_ID);
+    public Batch execute(ProcessContext ctx) {
+        long cursor = ctx.findVariable(BonusAccrualDefinition.CURSOR).orElse(0L);
+        long lastId = ctx.getVariable(BonusAccrualDefinition.LAST_ACCOUNT_ID);
         long batchEnd = Math.min(cursor + BonusAccrualDefinition.BATCH_SIZE, lastId);
         log.info("Bonus accrued to accounts {}..{}", cursor + 1, batchEnd);
-        context.setVariable(BonusAccrualDefinition.CURSOR, batchEnd);
+        ctx.setVariable(BonusAccrualDefinition.CURSOR, batchEnd);
         return batchEnd < lastId ? Batch.MORE : Batch.DONE;
     }
 

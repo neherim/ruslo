@@ -22,10 +22,10 @@ public class ImportPartStep implements ProcessAction {
      * atomic with the part transition: the report is sent exactly once.
      */
     @Override
-    public void execute(ProcessContext context) {
-        int part = context.getVariable(FileImportPartDefinition.PART_NUMBER);
+    public void execute(ProcessContext ctx) {
+        int part = ctx.getVariable(FileImportPartDefinition.PART_NUMBER);
         log.info("Importing part {}", part);
-        processEngine.sendMessage(context.getVariable(FileImportPartDefinition.PARENT_ID),
+        processEngine.sendMessage(ctx.getVariable(FileImportPartDefinition.PARENT_ID),
                 FileImportDefinition.PART_DONE, part);
     }
 }

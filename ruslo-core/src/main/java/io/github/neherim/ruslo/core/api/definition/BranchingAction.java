@@ -11,5 +11,5 @@ public interface BranchingAction<O extends Enum<O>> {
     /**
      * Executes the action and returns a non-null outcome.
      */
-    O execute(ProcessContext context);
+    O execute(ProcessContext ctx);
 }

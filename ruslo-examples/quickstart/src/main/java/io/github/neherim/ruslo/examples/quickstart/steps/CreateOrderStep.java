@@ -13,8 +13,8 @@ public class CreateOrderStep implements ProcessAction {
 
     /** Creates the order; the process then waits for payment. */
     @Override
-    public void execute(ProcessContext context) {
-        var customerId = context.getVariable(Constants.CUSTOMER_ID);
+    public void execute(ProcessContext ctx) {
+        var customerId = ctx.getVariable(Constants.CUSTOMER_ID);
         log.info("Creating order for customer {}", customerId);
     }
 }

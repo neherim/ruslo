@@ -14,13 +14,13 @@ public class CheckApplicationStep implements BranchingAction<CheckApplicationSte
      * a reason, sends the rest to manual review.
      */
     @Override
-    public Decision execute(ProcessContext context) {
-        long amount = context.getVariable(LoanApplicationDefinition.AMOUNT);
+    public Decision execute(ProcessContext ctx) {
+        long amount = ctx.getVariable(LoanApplicationDefinition.AMOUNT);
         if (amount <= AUTO_APPROVE_LIMIT) {
             return Decision.APPROVE;
         }
         if (amount > MAX_AMOUNT) {
-            context.setVariable(LoanApplicationDefinition.REJECTION_REASON, "Amount exceeds " + MAX_AMOUNT);
+            ctx.setVariable(LoanApplicationDefinition.REJECTION_REASON, "Amount exceeds " + MAX_AMOUNT);
             return Decision.REJECT;
         }
         return Decision.MANUAL_REVIEW;

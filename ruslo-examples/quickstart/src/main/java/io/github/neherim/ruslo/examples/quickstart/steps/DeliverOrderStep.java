@@ -12,7 +12,7 @@ public class DeliverOrderStep implements ProcessAction {
 
     /** Delivers the order; the process then completes. */
     @Override
-    public void execute(ProcessContext context) {
-        log.info("Delivering order for process {}", context.processId());
+    public void execute(ProcessContext ctx) {
+        log.info("Delivering order for process {}", ctx.processId());
     }
 }
