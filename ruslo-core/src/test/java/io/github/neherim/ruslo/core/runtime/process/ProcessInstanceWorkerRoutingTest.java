@@ -2,7 +2,7 @@ package io.github.neherim.ruslo.core.runtime.process;
 
 import io.github.neherim.ruslo.core.BaseTest;
 import io.github.neherim.ruslo.core.api.definition.*;
-import io.github.neherim.ruslo.core.api.test.MutableClock;
+import io.github.neherim.ruslo.core.api.test.MutableTimeSource;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.utils.EngineTime;
@@ -21,7 +21,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
     private static final TimerType DUE = TimerType.of("DUE");
 
-    private final MutableClock clock = new MutableClock();
+    private final MutableTimeSource clock = new MutableTimeSource(Instant.parse("2026-01-01T00:00:00Z"));
     private final EngineTime engineTime = new EngineTime(clock);
 
     @Test
@@ -66,7 +66,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
 
     @Test
     void timerChangesPreserveDelayedStepStart() {
-        var now = clock.instant();
+        var now = clock.now();
         var startAt = now.plusSeconds(60);
         var process = factory().newInstance(TYPE, startAt, null, "routing", Map.of(), Map.of());
         clock.fastForwardTime(Duration.ofSeconds(1));
@@ -79,14 +79,14 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
         assertFalse(process.isTimeToExecute());
 
         process.changeState(State.START);
-        assertEquals(clock.instant(), process.getNextRunAt().orElseThrow());
+        assertEquals(clock.now(), process.getNextRunAt().orElseThrow());
         assertTrue(process.isTimeToExecute());
         assertEquals(1, process.drainPendingHistoryEntries().size());
     }
 
     @Test
     void messagesAndTimersPreserveExpiredRetryUntilStateIsReactivated() {
-        var now = clock.instant();
+        var now = clock.now();
         var process = factory().newInstance(TYPE, now, null, "routing", Map.of(), Map.of());
         process.changeState(State.WAIT);
         process.applyErrorResult(ErrorResult.retryAfter(Duration.ofSeconds(10)), "retry");
@@ -117,15 +117,15 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
 
     @Test
     void resumingFailedStepRunsItImmediately() {
-        var process = factory().newInstance(TYPE, clock.instant(), null, "routing", Map.of(), Map.of());
+        var process = factory().newInstance(TYPE, clock.now(), null, "routing", Map.of(), Map.of());
         process.applyErrorResult(ErrorResult.fail(), "failed");
         clock.fastForwardTime(Duration.ofSeconds(10));
-        process.setTimer(DUE, clock.instant());
+        process.setTimer(DUE, clock.now());
         assertTrue(process.getNextRunAt().isEmpty());
 
         assertTrue(process.resume());
         assertEquals(ProcessStatus.ACTIVE, process.getStatus());
-        assertEquals(clock.instant(), process.getNextRunAt().orElseThrow());
+        assertEquals(clock.now(), process.getNextRunAt().orElseThrow());
         assertEquals(0, process.getFailedAttempts());
         assertTrue(process.getLastError().isEmpty());
         assertFalse(process.resume());
@@ -134,7 +134,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
 
     @Test
     void messageLookupDependsOnStateButNotProcessStatus() {
-        var process = factory().newInstance(TYPE, clock.instant(), null, "routing", Map.of(), Map.of());
+        var process = factory().newInstance(TYPE, clock.now(), null, "routing", Map.of(), Map.of());
         var spec = process.getProcessSpec();
 
         assertTrue(spec.getMessageEvent(SIGNAL, process.getState()).isEmpty());
@@ -149,7 +149,7 @@ class ProcessInstanceWorkerRoutingTest extends BaseTest {
 
     @Test
     void undeclaredTimerCannotBeSetButStoredTimerCanBeReadAndCancelled() {
-        var now = clock.instant();
+        var now = clock.now();
         var process = factory().newInstance(TYPE, now, null, "routing", Map.of(), Map.of());
         var old = TimerType.of("OLD");
 

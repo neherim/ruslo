@@ -318,8 +318,8 @@ class OrderProcessTest {
 ```
 
 - `@ProcessEngineTest` disables the dispatcher; processes run only through the emulator, in the test thread.
-- To provide a custom engine clock, declare a `MutableClock` bean named `rusloClock` with
-  `@Bean(defaultCandidate = false)`.
+- To set an initial time for tests, declare a `MutableTimeSource` bean and create it with
+  `new MutableTimeSource(initialTime)`. Without Spring, pass that instance to `ProcessEngineBuilder.withTimeSource(...)`.
 - `@ProcessEngineTest` resets the engine clock before each test by default; use
   `@ProcessEngineTest(resetTimeBeforeEachTest = false)` to preserve time between methods.
   Adding the test dependency or importing `ProcessEngineTestConfiguration` directly does not enable automatic

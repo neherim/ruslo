@@ -5,13 +5,12 @@ import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
-import io.github.neherim.ruslo.core.api.test.MutableClock;
+import io.github.neherim.ruslo.core.api.test.MutableTimeSource;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.runtime.ProcessRuntimeService;
 import io.github.neherim.ruslo.core.utils.EngineTime;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -22,8 +21,8 @@ import java.util.UUID;
  * Runs processes synchronously in the calling thread for tests. Each step runs directly: worker routing,
  * concurrency limits and production transaction boundaries are not reproduced.
  * <p>
- * The emulator checks readiness using the engine clock at microsecond precision. To control time, build the
- * engine with a {@link MutableClock} via {@link ProcessEngineBuilder#withClock(Clock)}.
+ * The emulator checks readiness using the engine time at microsecond precision. To control time, build the
+ * engine with a {@link MutableTimeSource} via {@link ProcessEngineBuilder#withTimeSource(RusloTimeSource)}.
  * <p>
  * Operations that take a process id throw {@link ProcessNotFoundException} if no such process exists.
  */
@@ -124,35 +123,33 @@ public class ProcessEngineEmulator {
     /**
      * Advances the engine's time source. Due timers and retries can run on the next emulator call.
      *
-     * @throws IllegalStateException if the source is not a {@link MutableClock}
+     * @throws IllegalStateException if the source is not a {@link MutableTimeSource}
      */
     public void fastForwardTime(Duration duration) {
-        mutableClock().fastForwardTime(duration);
+        mutableTimeSource().fastForwardTime(duration);
     }
 
     /**
      * Sets the engine's time source to the given instant.
      *
-     * @throws IllegalStateException if the source is not a {@link MutableClock}
+     * @throws IllegalStateException if the source is not a {@link MutableTimeSource}
      */
     public void setTime(Instant time) {
-        mutableClock().setTime(time);
+        mutableTimeSource().setTime(time);
     }
 
-    /** Resets the time source to its initial time if it is a {@link MutableClock}. */
+    /** Resets the time source to its initial time if it is a {@link MutableTimeSource}. */
     public void resetTime() {
-        if (engineTime.sourceClock() instanceof MutableClock clock) {
-            clock.reset();
+        if (engineTime.source() instanceof MutableTimeSource source) {
+            source.reset();
         }
     }
 
-    private MutableClock mutableClock() {
-        var source = engineTime.sourceClock();
-        if (source instanceof MutableClock clock) {
-            return clock;
+    private MutableTimeSource mutableTimeSource() {
+        if (engineTime.source() instanceof MutableTimeSource source) {
+            return source;
         }
-        throw new IllegalStateException(
-                "Time can be changed only when the engine is created with MutableClock, but was " + source);
+        throw new IllegalStateException("Time can be changed only when the engine is created with MutableTimeSource");
     }
 
     private ProcessInstanceDetails findProcess(UUID processId) {

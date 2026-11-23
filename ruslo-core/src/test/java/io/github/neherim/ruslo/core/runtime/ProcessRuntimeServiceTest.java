@@ -1,6 +1,7 @@
 package io.github.neherim.ruslo.core.runtime;
 
 import io.github.neherim.ruslo.core.BaseTest;
+import io.github.neherim.ruslo.core.api.RusloTimeSource;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
 import io.github.neherim.ruslo.core.definitions.SimpleProcessDefinition;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
@@ -15,10 +16,7 @@ import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
@@ -28,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProcessRuntimeServiceTest extends BaseTest {
-    private static final Clock CLOCK = Clock.systemUTC();
+    private static final RusloTimeSource SYSTEM_TIME = Instant::now;
 
     @Test
     void processStartSignalsDispatcherAfterCommit() {
@@ -59,7 +57,7 @@ class ProcessRuntimeServiceTest extends BaseTest {
     @Test
     void processStartShouldUseInjectedClockForAllPersistedTimestamps() {
         var initial = Instant.parse("2026-07-20T10:15:30Z");
-        var clock = new CountingClock(initial.plusNanos(600));
+        var clock = new CountingTimeSource(initial.plusNanos(600));
         var runtime = runtime(new ProcessDispatchSignal(), clock);
 
         var processId = runtime.newProcess(SimpleProcessDefinition.TYPE).start();
@@ -74,8 +72,7 @@ class ProcessRuntimeServiceTest extends BaseTest {
 
     @Test
     void historyShouldHaveStableOrderForEqualClockInstants() {
-        var runtime = runtime(new ProcessDispatchSignal(), Clock.fixed(
-                Instant.parse("2026-07-20T10:15:30Z"), ZoneOffset.UTC));
+        var runtime = runtime(new ProcessDispatchSignal(), () -> Instant.parse("2026-07-20T10:15:30Z"));
         var processId = runtime.newProcess(SimpleProcessDefinition.TYPE).start();
 
         runtime.moveToState(processId, SimpleProcessDefinition.State.FINISH);
@@ -106,11 +103,11 @@ class ProcessRuntimeServiceTest extends BaseTest {
     }
 
     private ProcessRuntimeService runtime(ProcessDispatchSignal signal) {
-        return runtime(signal, CLOCK);
+        return runtime(signal, SYSTEM_TIME);
     }
 
-    private ProcessRuntimeService runtime(ProcessDispatchSignal signal, Clock clock) {
-        var engineTime = new EngineTime(clock);
+    private ProcessRuntimeService runtime(ProcessDispatchSignal signal, RusloTimeSource timeSource) {
+        var engineTime = new EngineTime(timeSource);
         var registry = new ProcessDefinitionRegistry(List.of(new SimpleProcessDefinition()));
         var factory = new ProcessInstanceFactory(engineTime, registry);
         var dao = new ProcessInstanceDao(database, engineTime, factory, true,
@@ -137,26 +134,16 @@ class ProcessRuntimeServiceTest extends BaseTest {
         }
     }
 
-    private static final class CountingClock extends Clock {
+    private static final class CountingTimeSource implements RusloTimeSource {
         private final Instant initial;
         private int reads;
 
-        private CountingClock(Instant initial) {
+        private CountingTimeSource(Instant initial) {
             this.initial = initial;
         }
 
         @Override
-        public ZoneId getZone() {
-            return ZoneOffset.UTC;
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
+        public Instant now() {
             return initial.plusSeconds(reads++);
         }
     }

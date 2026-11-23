@@ -3,14 +3,13 @@ package io.github.neherim.ruslo.core;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.definition.*;
+import io.github.neherim.ruslo.core.api.test.MutableTimeSource;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.metrics.InMemoryProcessEngineMetrics;
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -74,7 +73,7 @@ class ProcessMetricsCommitTest extends BaseTest {
     @Test
     void handlerErrorIsRecordedAndGaugesFollowProcessStatus() {
         var metrics = new InMemoryProcessEngineMetrics();
-        var clock = new MutableClock(Instant.parse("2026-10-07T10:00:00Z"));
+        var clock = new MutableTimeSource(Instant.parse("2026-10-07T10:00:00Z"));
         ProcessDefinition definition = builder -> builder.type(FAILING)
             .onError((context, error) -> ErrorResult.fail())
             .initialState(State.START)
@@ -83,7 +82,7 @@ class ProcessMetricsCommitTest extends BaseTest {
             .build();
         var engine = new ProcessEngineBuilder(database).addProcessDefinition(definition)
             .withMetrics(metrics)
-            .withClock(clock)
+            .withTimeSource(clock)
             .withDatabaseMigrationEnabled(false)
             .withDispatcherEnabled(false)
             .build()
@@ -91,7 +90,7 @@ class ProcessMetricsCommitTest extends BaseTest {
         try {
             var worker = metrics.getWorkerMetrics(WorkerId.DEFAULT.name());
             var id = engine.newProcess(FAILING).start();
-            clock.advance(Duration.ofSeconds(5));
+            clock.fastForwardTime(Duration.ofSeconds(5));
             assertEquals(1, metrics.getProcessCount(ProcessStatus.ACTIVE));
             assertEquals(0, metrics.getProcessCount(ProcessStatus.FAILED));
             assertEquals(1, worker.getReadyProcesses());
@@ -122,30 +121,4 @@ class ProcessMetricsCommitTest extends BaseTest {
         DONE
     }
 
-    private static final class MutableClock extends Clock {
-        private Instant now;
-
-        private MutableClock(Instant now) {
-            this.now = now;
-        }
-
-        void advance(Duration duration) {
-            now = now.plus(duration);
-        }
-
-        @Override
-        public ZoneId getZone() {
-            return ZoneId.of("UTC");
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
-            return now;
-        }
-    }
 }

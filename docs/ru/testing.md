@@ -7,7 +7,7 @@
 - регистрирует `ProcessEngineEmulator`, который выполняет процессы в потоке теста;
 - настраивает для движка изменяемый источник времени, которым может управлять эмулятор.
 
-По умолчанию `@ProcessEngineTest` сбрасывает используемые движком часы `MutableClock` перед каждым тестом.
+По умолчанию `@ProcessEngineTest` сбрасывает используемый движком `MutableTimeSource` перед каждым тестом.
 Чтобы сохранять время между тестовыми методами, используйте `@ProcessEngineTest(resetTimeBeforeEachTest = false)`.
 При необходимости можно явно сбросить его через `emulator.resetTime()`.
 
@@ -96,7 +96,7 @@ production используйте работающий диспетчер.
 - Чтобы диспетчер работал, а временем всё равно управлял тест, используйте
   `@ImportAutoConfiguration(ProcessEngineTestConfiguration.class)` вместо `@ProcessEngineTest`.
   Эта конфигурация также оставляет сброс часов тесту; при необходимости вызывайте `emulator.resetTime()`.
-- Чтобы начать со своего начального времени, объявите в тестовой конфигурации бин `MutableClock` с именем
-  `rusloClock` и `@Bean(defaultCandidate = false)`.
-- Без Spring постройте движок с `MutableClock` (`ProcessEngineBuilder.withClock`) и создайте эмулятор через
+- Чтобы начать со своего начального времени, объявите в тестовой конфигурации бин `MutableTimeSource` и создайте
+  его через `new MutableTimeSource(initialTime)`.
+- Без Spring передайте `MutableTimeSource` в `ProcessEngineBuilder.withTimeSource(...)` и создайте эмулятор через
   `new ProcessEngineEmulator(engine)`.

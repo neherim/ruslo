@@ -1,7 +1,7 @@
 # Configuration
 
-The engine is configured with `ProcessEngineBuilder`. In Spring Boot the starter builds it and every setting is a
-`ruslo.*` property: [spring.md](spring.md).
+The engine is configured with `ProcessEngineBuilder`. The [Spring Boot starter](spring.md) builds it from
+`ruslo.*` properties and beans.
 
 ## Engine without Spring
 
@@ -21,6 +21,9 @@ If process steps need the `ProcessEngine`, build it first, then register your `P
 `engine.registerDefinition(...)` and start the engine with `start()`.
 
 A working example: [`ruslo-examples/standalone-core`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/standalone-core).
+
+To provide a custom source of time, call `withTimeSource(...)` on the builder. For an existing `Clock`, pass
+`withTimeSource(clock::instant)`. The engine uses system time by default.
 
 ## Settings
 

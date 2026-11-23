@@ -392,7 +392,7 @@ class ProcessSearchTest extends BaseTest {
         try {
             setJvmTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
             var clock = Clock.fixed(now, ZoneId.systemDefault());
-            try (var processEngine = newProcessEngineWith(clock, new SimpleProcessDefinition())) {
+            try (var processEngine = newProcessEngineWith(clock::instant, new SimpleProcessDefinition())) {
                 var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
 
                 setJvmTimeZone(TimeZone.getTimeZone("America/New_York"));

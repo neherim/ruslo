@@ -1,13 +1,12 @@
 package io.github.neherim.ruslo.core.api.test;
 
+import io.github.neherim.ruslo.core.api.RusloTimeSource;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.runtime.process.ProcessTimers;
 import io.github.neherim.ruslo.core.runtime.process.ProcessVariables;
 import io.github.neherim.ruslo.core.utils.EngineTime;
 
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.*;
 
 /**
@@ -32,7 +31,7 @@ public final class TestProcessContext implements ProcessContext {
         this.state = builder.state;
         this.attempt = builder.attempt;
         this.businessKey = builder.businessKey;
-        this.engineTime = new EngineTime(builder.clock);
+        this.engineTime = new EngineTime(builder.timeSource);
         this.variables = ProcessVariables.fromMap(builder.variables);
         this.timers = ProcessTimers.empty();
         builder.timers.forEach(timers::set);
@@ -139,7 +138,7 @@ public final class TestProcessContext implements ProcessContext {
         private ProcessState state = ProcessState.of("test");
         private int attempt;
         private String businessKey;
-        private Clock clock = Clock.systemUTC();
+        private RusloTimeSource timeSource = Instant::now;
         private final Map<String, Object> variables = new LinkedHashMap<>();
         private final Map<String, Instant> timers = new LinkedHashMap<>();
 
@@ -186,7 +185,8 @@ public final class TestProcessContext implements ProcessContext {
          * Fixes {@link #now()} at {@code now}.
          */
         public Builder now(Instant now) {
-            this.clock = Clock.fixed(Objects.requireNonNull(now, "Now must not be null"), ZoneOffset.UTC);
+            Objects.requireNonNull(now, "Now must not be null");
+            this.timeSource = () -> now;
             return this;
         }
 

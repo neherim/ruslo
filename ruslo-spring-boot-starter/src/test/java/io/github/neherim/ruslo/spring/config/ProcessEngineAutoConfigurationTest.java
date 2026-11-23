@@ -3,6 +3,7 @@ package io.github.neherim.ruslo.spring.config;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
+import io.github.neherim.ruslo.core.api.RusloTimeSource;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.IncomingMessage;
 import io.github.neherim.ruslo.core.api.definition.LinearAction;
@@ -28,13 +29,16 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.transaction.autoconfigure.TransactionAutoConfiguration;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.InstantSource;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
@@ -323,21 +327,41 @@ class ProcessEngineAutoConfigurationTest {
     }
 
     @Test
-    void applicationClockShouldNotReplaceEngineClock() {
+    void applicationTimeBeansShouldNotReplaceSystemTimeSource() {
         this.contextRunner.with(database())
             .withUserConfiguration(ProcessDefinitionConfiguration.class, ApplicationClockConfiguration.class)
             .withPropertyValues("ruslo.dispatcher.enabled=false")
             .run(context -> {
                 assertThat(context).hasNotFailed();
                 assertThat(context.getBean(Clock.class)).isSameAs(ApplicationClockConfiguration.CLOCK);
-                assertThat(context.getBean("rusloClock", Clock.class))
-                    .isNotSameAs(ApplicationClockConfiguration.CLOCK);
+                assertThat(context.getBean(InstantSource.class)).isSameAs(ApplicationClockConfiguration.TIME_SOURCE);
+                assertThat(context).hasSingleBean(RusloTimeSource.class);
+
+                var processEngine = context.getBean(ProcessEngine.class);
+                var before = Instant.now().truncatedTo(ChronoUnit.MICROS);
+                var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
+                var process = processEngine.processes().byId(processId).single().orElseThrow();
+
+                assertThat(process.createdAt()).isBetween(before, Instant.now());
+            });
+    }
+
+    @Test
+    void customRusloTimeSourceDoesNotRequireASpecificBeanName() {
+        this.contextRunner.with(database())
+            .withUserConfiguration(ProcessDefinitionConfiguration.class, ApplicationClockConfiguration.class,
+                    CustomTimeSourceConfiguration.class)
+            .withPropertyValues("ruslo.dispatcher.enabled=false")
+            .run(context -> {
+                assertThat(context).hasSingleBean(RusloTimeSource.class);
+                assertThat(context.getBean(Clock.class)).isSameAs(ApplicationClockConfiguration.CLOCK);
+                assertThat(context.getBean(InstantSource.class)).isSameAs(ApplicationClockConfiguration.TIME_SOURCE);
 
                 var processEngine = context.getBean(ProcessEngine.class);
                 var processId = processEngine.newProcess(SimpleProcessDefinition.TYPE).start();
                 var process = processEngine.processes().byId(processId).single().orElseThrow();
 
-                assertThat(process.createdAt()).isNotEqualTo(ApplicationClockConfiguration.CLOCK.instant());
+                assertThat(process.createdAt()).isEqualTo(CustomTimeSourceConfiguration.PROCESS_TIME);
             });
     }
 
@@ -498,10 +522,26 @@ class ProcessEngineAutoConfigurationTest {
 
     static class ApplicationClockConfiguration {
         static final Clock CLOCK = Clock.fixed(Instant.parse("2000-01-01T00:00:00Z"), ZoneOffset.UTC);
+        static final InstantSource TIME_SOURCE = () -> Instant.parse("2001-01-01T00:00:00Z");
 
         @Bean
         public Clock applicationClock() {
             return CLOCK;
+        }
+
+        @Bean
+        @Primary
+        InstantSource applicationTimeSource() {
+            return TIME_SOURCE;
+        }
+    }
+
+    static class CustomTimeSourceConfiguration {
+        static final Instant PROCESS_TIME = Instant.parse("2026-10-07T10:00:00Z");
+
+        @Bean
+        RusloTimeSource businessTime() {
+            return () -> PROCESS_TIME;
         }
     }
 

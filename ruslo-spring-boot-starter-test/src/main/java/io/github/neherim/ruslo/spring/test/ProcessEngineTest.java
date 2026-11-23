@@ -1,5 +1,6 @@
 package io.github.neherim.ruslo.spring.test;
 
+import io.github.neherim.ruslo.core.api.RusloTimeSource;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
@@ -17,8 +18,8 @@ import static org.springframework.test.context.TestExecutionListeners.MergeMode.
  * <ul>
  *   <li>Registers a {@code ProcessEngineEmulator} bean.</li>
  *   <li>Disables the dispatcher: steps run only when the emulator runs them.</li>
- *   <li>Provides a mutable time source named {@code rusloClock} unless a bean with that name exists.</li>
- *   <li>Resets the engine's time source before each test by default if it is a mutable clock.</li>
+ *   <li>Provides a mutable time source unless the application declares a {@link RusloTimeSource} bean.</li>
+ *   <li>Resets the engine's mutable time source before each test by default.</li>
  * </ul>
  *
  * <pre>{@code

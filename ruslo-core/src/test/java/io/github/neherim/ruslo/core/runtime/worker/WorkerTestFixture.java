@@ -1,6 +1,7 @@
 package io.github.neherim.ruslo.core.runtime.worker;
 
 import io.github.neherim.ruslo.core.TestDatabases;
+import io.github.neherim.ruslo.core.api.RusloTimeSource;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
@@ -24,7 +25,6 @@ import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.EngineTime;
 import io.github.neherim.ruslo.core.utils.thread.CurrentThreadExecutorService;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -58,11 +58,11 @@ public final class WorkerTestFixture {
     }
 
     public static WorkerTestFixture with(Database database, ProcessDefinition... definitions) {
-        return with(database, Clock.systemUTC(), definitions);
+        return with(database, Instant::now, definitions);
     }
 
-    public static WorkerTestFixture with(Database database, Clock clock, ProcessDefinition... definitions) {
-        return new WorkerTestFixture(database, new EngineTime(clock), definitions);
+    public static WorkerTestFixture with(Database database, RusloTimeSource timeSource, ProcessDefinition... definitions) {
+        return new WorkerTestFixture(database, new EngineTime(timeSource), definitions);
     }
 
     public ProcessInstanceDao dao() {

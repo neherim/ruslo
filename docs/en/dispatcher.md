@@ -16,9 +16,9 @@ engine recomputes it on every change of the process, in the same transaction:
 | waiting for a retry after an error | the retry time. New messages and timer changes do not move it ([await pause](awaits.md#errors-in-an-await)) |
 | in `FAILED` or `COMPLETED` | empty |
 
-A process is **ready** if it is `ACTIVE`, not claimed by a node, and its `next_run_at` is not later than the engine
-`Clock` time. The dispatcher selects the ready processes of its workers (the `worker_id` column is the worker of the
-current state) in `next_run_at` order, as many as the free slots allow.
+A process is **ready** if it is `ACTIVE`, not claimed by a node, and its `next_run_at` is not later than the
+engine's current time. The dispatcher selects the ready processes of its workers (the `worker_id` column is the
+worker of the current state) in `next_run_at` order, as many as the free slots allow.
 
 ## When a process is picked up
 
@@ -72,8 +72,8 @@ The engine uses two time sources:
 
 - **database time** (`current_timestamp`) for node registration. So clock divergence between nodes does not affect
   `instance-timeout`;
-- **the engine `Clock`** on each node for event time: the receive moment of a message, timer deadlines,
+- **the engine time source** on each node for event time: the receive moment of a message, timer deadlines,
   `ProcessContext.now()`. Clock divergence between nodes blurs the boundary "the message arrived before the
   deadline": a message accepted by a node with a lagging clock may count as arrived before the deadline.
 
-Synchronize node clocks (NTP). In tests the engine `Clock` is controlled by the emulator ([testing.md](testing.md)).
+Synchronize node clocks (NTP). In tests the emulator can control engine time ([testing.md](testing.md)).

@@ -495,7 +495,7 @@ class LeaseAwareWorkerTest extends BaseTest {
             .terminal(CheckpointState.DONE)
             .build();
         var clock = Clock.fixed(Instant.parse("2026-11-18T07:20:57.645772600Z"), ZoneOffset.UTC);
-        var fixture = WorkerTestFixture.with(database, clock, definition);
+        var fixture = WorkerTestFixture.with(database, clock::instant, definition);
         var process = fixture.insertNewProcess(type, "chain");
         var task = fixture.task(process);
 

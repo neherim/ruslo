@@ -1,12 +1,11 @@
 package io.github.neherim.ruslo.core.utils;
 
-import io.github.neherim.ruslo.core.api.test.MutableClock;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.InstantSource;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -15,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.random.RandomGenerator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,11 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UUIDGeneratorTest {
     private static final Instant NOW = Instant.parse("2026-11-14T12:00:00Z");
-    private final MutableClock clock = new MutableClock(ZoneOffset.UTC, NOW, ChronoUnit.MILLIS);
+    private final AtomicReference<Instant> time = new AtomicReference<>(NOW);
+    private final Clock clock = ((InstantSource) time::get).withZone(ZoneOffset.UTC);
 
     @Test
     void shouldMatchRfc9562Version7Example() {
-        clock.setTime(Instant.ofEpochMilli(0x017F22E279B0L));
+        time.set(Instant.ofEpochMilli(0x017F22E279B0L));
         var generator = new UUIDGenerator(clock, randomValues(0xCC3L, 0x18C4DC0C0C07398FL));
 
         var uuid = generator.next();
@@ -67,7 +68,7 @@ class UUIDGeneratorTest {
     void shouldReseedWhenClockAdvances() {
         var generator = new UUIDGenerator(clock, randomValues(-1, -1, 0, 0));
         var previous = generator.next();
-        clock.fastForwardTime(Duration.ofMillis(1));
+        time.updateAndGet(current -> current.plusMillis(1));
 
         var next = generator.next();
 
@@ -81,11 +82,11 @@ class UUIDGeneratorTest {
     void shouldKeepIncreasingUntilClockCatchesUpAfterRollback() {
         var generator = new UUIDGenerator(clock, randomValues(0, 0, 0, 0));
         var first = generator.next();
-        clock.setTime(NOW.minusSeconds(60));
+        time.set(NOW.minusSeconds(60));
         var duringRollback = generator.next();
-        clock.setTime(NOW);
+        time.set(NOW);
         var caughtUp = generator.next();
-        clock.setTime(NOW.plusMillis(1));
+        time.set(NOW.plusMillis(1));
         var afterRollback = generator.next();
 
         assertBefore(first, duringRollback);
@@ -118,9 +119,9 @@ class UUIDGeneratorTest {
 
         assertThrows(IllegalStateException.class, generator::next);
         assertThrows(IllegalStateException.class, generator::next);
-        clock.setTime(NOW.minusMillis(1));
+        time.set(NOW.minusMillis(1));
         assertThrows(IllegalStateException.class, generator::next);
-        clock.setTime(NOW.plusMillis(1));
+        time.set(NOW.plusMillis(1));
 
         assertBefore(previous, generator.next());
     }
