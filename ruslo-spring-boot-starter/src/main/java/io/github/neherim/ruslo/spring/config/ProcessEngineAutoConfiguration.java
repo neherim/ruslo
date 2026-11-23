@@ -3,6 +3,7 @@ package io.github.neherim.ruslo.spring.config;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
+import io.github.neherim.ruslo.core.api.RusloTimeSource;
 import io.github.neherim.ruslo.core.api.WorkerSpec;
 import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
@@ -11,7 +12,6 @@ import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.spring.config.property.ProcessEngineProperties;
 import io.github.neherim.ruslo.spring.integration.SpringJdbcDatabase;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -24,7 +24,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
-import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,14 +40,12 @@ import java.util.List;
 public class ProcessEngineAutoConfiguration {
 
     /**
-     * Returns the system clock as the engine clock. The bean is not a candidate for injection by type: other
-     * {@link Clock} beans of the application do not replace it, and it is not injected into the application.
-     * To replace the engine clock, declare a bean named {@code rusloClock}.
+     * Provides system time for the engine unless the application declares its own {@link RusloTimeSource}.
      */
-    @Bean(name = "rusloClock", defaultCandidate = false)
-    @ConditionalOnMissingBean(name = "rusloClock")
-    public Clock processEngineClock() {
-        return Clock.systemDefaultZone();
+    @Bean
+    @ConditionalOnMissingBean(RusloTimeSource.class)
+    public RusloTimeSource rusloTimeSource() {
+        return Instant::now;
     }
 
     @Bean("rusloDefaultWorker")
@@ -75,7 +73,7 @@ public class ProcessEngineAutoConfiguration {
 
         @Bean("rusloProcessEngine")
         public ProcessEngine processEngine(
-                @Qualifier("rusloClock") Clock processEngineClock,
+                RusloTimeSource timeSource,
                 Database database,
                 List<WorkerSpec> workerSpecs,
                 ProcessEngineProperties props,
@@ -85,7 +83,7 @@ public class ProcessEngineAutoConfiguration {
             // Specs from properties go after @Bean specs, so they take precedence.
             effectiveWorkerSpecs.addAll(props.getWorkerSpecs());
             var builder = new ProcessEngineBuilder(database)
-                .withClock(processEngineClock)
+                .withTimeSource(timeSource)
                 .withDispatcherEnabled(props.getDispatcher().isEnabled())
                 .withMaxProcessDispatchInterval(props.getDispatcher().getMaxInterval())
                 .withMinProcessDispatchInterval(props.getDispatcher().getMinInterval())

@@ -4,13 +4,12 @@ import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
+import io.github.neherim.ruslo.core.api.test.MutableTimeSource;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -24,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class AwaitTimersTest extends BaseTest {
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
-    private final MutableClock clock = new MutableClock();
+    private final MutableTimeSource clock = new MutableTimeSource();
     private final List<String> log = new ArrayList<>();
 
     @Test
@@ -71,19 +70,19 @@ class AwaitTimersTest extends BaseTest {
         try (var engine = engine(definition)) {
             var emulator = emulator(engine);
             var startTime = Instant.parse("2026-09-24T11:00:00Z");
-            clock.now = startTime;
+            clock.setTime(startTime);
             var id = engine.newProcess(ProcessType.of("FRACTIONAL_TIMERS")).start();
             var first = startTime.plusNanos(1000);
             var second = startTime.plusNanos(3000);
             var after = startTime.plusNanos(4000);
 
             assertEquals(first, emulator.runUntilStop(id).nextRunAt().orElseThrow());
-            clock.now = first;
+            clock.setTime(first);
             assertEquals(second, emulator.runUntilStop(id).nextRunAt().orElseThrow());
-            clock.now = second;
+            clock.setTime(second);
             assertEquals(after, emulator.runUntilStop(id).nextRunAt().orElseThrow());
             assertEquals(List.of("every", "every"), log);
-            clock.now = after;
+            clock.setTime(after);
             assertEquals(ProcessStatus.COMPLETED, emulator.runUntilStop(id).status());
         }
     }
@@ -491,7 +490,7 @@ class AwaitTimersTest extends BaseTest {
     }
 
     private ProcessEngine engine(ProcessDefinition definition) {
-        return new ProcessEngineBuilder(database).withClock(clock)
+        return new ProcessEngineBuilder(database).withTimeSource(clock)
             .addProcessDefinition(definition)
             .withDatabaseMigrationEnabled(false)
             .withDispatcherEnabled(false)
@@ -500,7 +499,7 @@ class AwaitTimersTest extends BaseTest {
     }
 
     private void at(String time) {
-        clock.now = Instant.parse("2026-09-24T" + time + "Z");
+        clock.setTime(Instant.parse("2026-09-24T" + time + "Z"));
     }
 
     private UUID start(ProcessEngine engine, String type, String time) {
@@ -518,25 +517,6 @@ class AwaitTimersTest extends BaseTest {
 
     private static ProcessErrorHandler noRetry() {
         return ProcessErrorHandler.noRetry();
-    }
-
-    private static final class MutableClock extends Clock {
-        private Instant now;
-
-        @Override
-        public ZoneId getZone() {
-            return ZoneId.of("UTC");
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
-            return now;
-        }
     }
 
     private enum State implements ProcessState {

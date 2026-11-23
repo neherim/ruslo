@@ -1,6 +1,7 @@
 package io.github.neherim.ruslo.core.runtime.process;
 
 import io.github.neherim.ruslo.core.api.definition.*;
+import io.github.neherim.ruslo.core.api.test.MutableTimeSource;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.runtime.logging.MdcKeys;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
@@ -13,10 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
@@ -26,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class StepExecutorTest {
     private static final Instant NOW = Instant.parse("2026-09-24T10:00:00Z");
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
-    private final MutableClock clock = new MutableClock();
+    private final MutableTimeSource clock = new MutableTimeSource(NOW);
     private final EngineTime engineTime = new EngineTime(clock);
     private final StepExecutor executor = new StepExecutor(new ProcessMdc(MdcKeys.defaults()),
             new ProcessEngineMetrics() {
@@ -101,7 +100,7 @@ class StepExecutorTest {
     void messageReceivedBeforeDeadlineWinsWithoutBackoff() {
         var process = awaitProcess(State.DONE);
         process.appendMessage(SIGNAL, "a");
-        clock.now = NOW.plus(Duration.ofMinutes(2));
+        clock.setTime(NOW.plus(Duration.ofMinutes(2)));
         executor.executeNext(process);
         assertEquals(State.DONE.name(), process.getState().name());
     }
@@ -112,7 +111,7 @@ class StepExecutorTest {
         process.appendMessage(SIGNAL, "a");
         process.applyErrorResult(ErrorResult.retryAfter(Duration.ofMinutes(10)), "boom");
         assertEquals(Optional.of(NOW.plus(Duration.ofMinutes(10))), process.getNextRunAt());
-        clock.now = process.getNextRunAt().orElseThrow();
+        clock.setTime(process.getNextRunAt().orElseThrow());
         executor.executeNext(process);
         assertEquals(State.DONE.name(), process.getState().name());
     }
@@ -134,9 +133,9 @@ class StepExecutorTest {
                 .at(timer, context -> context.setVariable(fired, AwaitEventKind.AT), State.WAIT)));
         executor.executeNext(process);
         process.setTimer(timer, NOW.plus(atDelay));
-        clock.now = NOW.plus(messageDelay);
+        clock.setTime(NOW.plus(messageDelay));
         process.appendMessage(SIGNAL, "future");
-        clock.now = NOW;
+        clock.setTime(NOW);
 
         assertEquals(Optional.of(NOW.plusSeconds(1)), process.getNextRunAt());
         process.applyErrorResult(ErrorResult.retryAfter(Duration.ZERO), "retry without a due event");
@@ -145,7 +144,7 @@ class StepExecutorTest {
         assertEquals(0, process.getFailedAttempts());
         assertTrue(process.getLastError().isEmpty());
 
-        clock.now = NOW.plusSeconds(1);
+        clock.setTime(NOW.plusSeconds(1));
         assertTrue(executor.executeNext(process));
         assertEquals(earliest, process.findVariable(fired).orElseThrow());
         assertEquals(Optional.of(NOW.plusSeconds(2)), process.getNextRunAt());
@@ -162,7 +161,7 @@ class StepExecutorTest {
     }
 
     private ProcessInstance process(UnaryOperator<ProcessSpecBuilder.StatesBuilder> states) {
-        clock.now = NOW;
+        clock.setTime(NOW);
         var spec = states.apply(new ProcessSpecBuilder().type("EXEC_TEST").initialState(State.START))
             .terminal(State.DONE)
             .terminal(State.EXPIRED)
@@ -171,25 +170,6 @@ class StepExecutorTest {
                 ProcessVariables.empty(),
                 ProcessTimers.empty(),
                 "correlation", NOW, engineTime);
-    }
-
-    private static final class MutableClock extends Clock {
-        private Instant now = NOW;
-
-        @Override
-        public ZoneId getZone() {
-            return ZoneId.of("UTC");
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
-            return now;
-        }
     }
 
     private enum Outcome {

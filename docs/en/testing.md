@@ -7,7 +7,7 @@ and annotate the test with `@ProcessEngineTest`. The annotation:
 - registers `ProcessEngineEmulator`, which runs processes in the test thread;
 - configures a mutable time source for the engine that the emulator can control.
 
-By default, `@ProcessEngineTest` resets the `MutableClock` used by the engine before each test.
+By default, `@ProcessEngineTest` resets the `MutableTimeSource` used by the engine before each test.
 To preserve time between test methods, use `@ProcessEngineTest(resetTimeBeforeEachTest = false)`.
 You can still reset it explicitly with `emulator.resetTime()`.
 
@@ -93,7 +93,7 @@ dispatcher to verify production transaction boundaries.
 - To run the dispatcher and still control time, use `@ImportAutoConfiguration(ProcessEngineTestConfiguration.class)`
   instead of `@ProcessEngineTest`. This configuration also leaves clock resets to the test; call
   `emulator.resetTime()` when needed.
-- To start from your own initial time, declare a `MutableClock` bean named `rusloClock` with
-  `@Bean(defaultCandidate = false)` in the test configuration.
-- Without Spring, build the engine with a `MutableClock` (`ProcessEngineBuilder.withClock`) and create the emulator
+- To start from your own initial time, declare a `MutableTimeSource` bean in the test configuration and create it
+  with `new MutableTimeSource(initialTime)`.
+- Without Spring, pass a `MutableTimeSource` to `ProcessEngineBuilder.withTimeSource(...)` and create the emulator
   with `new ProcessEngineEmulator(engine)`.

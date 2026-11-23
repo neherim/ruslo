@@ -18,10 +18,8 @@ import org.junit.jupiter.api.Test;
 
 import javax.sql.DataSource;
 import java.sql.Timestamp;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -45,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LeaseDispatcherTest extends BaseTest {
     private static final Instant TEST_NOW = Instant.parse("2026-07-19T10:15:30.123456Z");
-    private static final EngineTime ENGINE_TIME = new EngineTime(Clock.fixed(TEST_NOW, ZoneOffset.UTC));
+    private static final EngineTime ENGINE_TIME = new EngineTime(() -> TEST_NOW);
     private static final Duration LEASE_DURATION = Duration.ofMinutes(1);
     private static final ProcessType FIRST_TYPE = ProcessType.of("FIRST");
     private static final ProcessType SECOND_TYPE = ProcessType.of("SECOND");

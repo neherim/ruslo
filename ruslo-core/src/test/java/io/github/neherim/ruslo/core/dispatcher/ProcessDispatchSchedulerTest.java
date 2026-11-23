@@ -3,7 +3,6 @@ package io.github.neherim.ruslo.core.dispatcher;
 import io.github.neherim.ruslo.core.utils.EngineTime;
 import org.junit.jupiter.api.Test;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -18,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProcessDispatchSchedulerTest {
-    private static final EngineTime ENGINE_TIME = new EngineTime(Clock.systemUTC());
+    private static final EngineTime ENGINE_TIME = new EngineTime(Instant::now);
 
     @Test
     void wakeUpShouldInterruptPollingDelayWithoutLosingSignal() {

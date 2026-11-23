@@ -24,8 +24,8 @@ import io.github.neherim.ruslo.core.spi.Database;
 import io.github.neherim.ruslo.core.spi.ProcessEngineMetrics;
 import io.github.neherim.ruslo.core.utils.EngineTime;
 
-import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 
 /**
@@ -40,7 +40,7 @@ public class ProcessEngineBuilder {
     private final Database database;
     private final Map<WorkerId, WorkerSpec> workerSpecs = new HashMap<>();
     private final List<ProcessDefinition> processDefinitions = new ArrayList<>();
-    private Clock sourceClock = Clock.systemDefaultZone();
+    private RusloTimeSource timeSource = Instant::now;
     private boolean databaseMigrationEnabled = true;
     private boolean dispatcherEnabled = true;
     private Duration maxProcessDispatchInterval = Duration.ofSeconds(10);
@@ -98,11 +98,11 @@ public class ProcessEngineBuilder {
     }
 
     /**
-     * Sets the source of time for timers, retries and timestamps. Defaults to the system clock.
-     * The engine reads this clock at microsecond precision.
+     * Sets the source of time for timers, retries and timestamps. Defaults to {@link Instant#now()}.
+     * The engine truncates readings to microsecond precision.
      */
-    public ProcessEngineBuilder withClock(Clock clock) {
-        this.sourceClock = Objects.requireNonNull(clock, "Clock must not be null");
+    public ProcessEngineBuilder withTimeSource(RusloTimeSource timeSource) {
+        this.timeSource = Objects.requireNonNull(timeSource, "Time source must not be null");
         return this;
     }
 
@@ -229,7 +229,7 @@ public class ProcessEngineBuilder {
         var registeredWorkerIds = java.util.Set.copyOf(workerSpecs.keySet());
         var processDefinitionRegistry = new ProcessDefinitionRegistry(registeredWorkerIds::contains);
         processDefinitionRegistry.registerAll(processDefinitions);
-        var engineTime = new EngineTime(sourceClock);
+        var engineTime = new EngineTime(timeSource);
         var managementService = new ManagementService(database, databaseDialect);
         var processInstanceFactory = new ProcessInstanceFactory(engineTime, processDefinitionRegistry);
         var processInstanceDao = new ProcessInstanceDao(database, engineTime, processInstanceFactory,

@@ -1,6 +1,7 @@
 package io.github.neherim.ruslo.core.utils;
 
-import java.time.Clock;
+import io.github.neherim.ruslo.core.api.RusloTimeSource;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -9,24 +10,24 @@ import static java.time.temporal.ChronoUnit.MICROS;
 
 /**
  * Aligns process scheduling with the microsecond precision of database timestamps.
- * Clock readings and absolute timer moments are truncated so work scheduled for now is ready after a database
+ * Time readings and absolute timer moments are truncated so work scheduled for now is ready after a database
  * round trip. Relative delays are rounded up so a positive delay always advances the schedule.
  */
 public final class EngineTime {
-    private final Clock sourceClock;
+    private final RusloTimeSource source;
 
-    public EngineTime(Clock sourceClock) {
-        this.sourceClock = Objects.requireNonNull(sourceClock, "Source clock must not be null");
+    public EngineTime(RusloTimeSource source) {
+        this.source = Objects.requireNonNull(source, "Time source must not be null");
     }
 
     /** Returns the current process time at microsecond precision. */
     public Instant now() {
-        return truncate(sourceClock.instant());
+        return truncate(source.now());
     }
 
-    /** Returns the original clock so the emulator can control a mutable source. */
-    public Clock sourceClock() {
-        return sourceClock;
+    /** Returns the original time source so the emulator can control a mutable source. */
+    public RusloTimeSource source() {
+        return source;
     }
 
     /** Truncates a timestamp to the engine's precision. */

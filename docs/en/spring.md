@@ -16,8 +16,17 @@ The starter registers `ProcessEngine` as `rusloProcessEngine` and `ProcessEngine
 Inject them by type. Ruslo prefixes the bean names it assigns in its Spring modules with `ruslo`.
 
 When upgrading from unprefixed bean names, update explicit references such as `@Qualifier` and `@Resource`.
-If you supply the engine clock by name, use `rusloClock`. If you replace the default worker bean by
-name, use `rusloDefaultWorker`.
+If you replace the default worker bean by name, use `rusloDefaultWorker`.
+
+To override system time for the engine, declare a `RusloTimeSource` bean with any name. The starter selects it by
+type. If your application already supplies a `Clock`, you can use it as the source.
+
+```java
+@Bean
+RusloTimeSource processTime(Clock applicationClock) {
+    return applicationClock::instant;
+}
+```
 
 ## Definitions
 

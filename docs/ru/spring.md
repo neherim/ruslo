@@ -17,8 +17,17 @@
 задаёт в своих Spring-модулях.
 
 При обновлении с версии, в которой имена бинов были без префикса, обновите явные ссылки, например в
-`@Qualifier` и `@Resource`. Если вы задаёте часы движка по имени, используйте `rusloClock`.
-Для замены бина рабочего по умолчанию по имени используйте `rusloDefaultWorker`.
+`@Qualifier` и `@Resource`. Для замены бина рабочего по умолчанию по имени используйте `rusloDefaultWorker`.
+
+Чтобы задать свой источник времени для движка, объявите бин `RusloTimeSource` с любым именем. Стартер выбирает
+его по типу. Если в приложении уже есть `Clock`, его можно использовать как источник.
+
+```java
+@Bean
+RusloTimeSource processTime(Clock applicationClock) {
+    return applicationClock::instant;
+}
+```
 
 ## Definitions
 

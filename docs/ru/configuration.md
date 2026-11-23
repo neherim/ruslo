@@ -1,7 +1,7 @@
 # Конфигурация
 
-Движок настраивается через `ProcessEngineBuilder`. В Spring Boot его строит starter, а каждая настройка — свойство
-`ruslo.*`: [spring.md](spring.md).
+Движок настраивается через `ProcessEngineBuilder`. [Стартер Spring Boot](spring.md) строит его по свойствам
+`ruslo.*` и бинам.
 
 ## Движок без Spring
 
@@ -21,6 +21,9 @@ engine.start();
 потом зарегистрируйте ваши `ProcessDefinition` через `engine.registerDefinition(...)` и запустите движок через `start()`
 
 Рабочий пример — [`ruslo-examples/standalone-core`](https://github.com/neherim/ruslo/tree/main/ruslo-examples/standalone-core).
+
+Чтобы задать свой источник времени, вызовите `withTimeSource(...)` на билдере. Для существующего `Clock`
+используйте `withTimeSource(clock::instant)`. По умолчанию движок использует системное время.
 
 ## Настройки
 

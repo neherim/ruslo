@@ -4,7 +4,7 @@ import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.definition.*;
-import io.github.neherim.ruslo.core.api.test.MutableClock;
+import io.github.neherim.ruslo.core.api.test.MutableTimeSource;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import org.junit.jupiter.api.AfterEach;
@@ -13,8 +13,6 @@ import org.junit.jupiter.api.Test;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +32,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
     private static final MessageType<Instant> MOVE = MessageType.of("MOVE", Instant.class);
     private static final MessageType<String> CANCEL = MessageType.of("CANCEL", String.class);
     private static final TimerType DUE = TimerType.of("due");
-    private final MutableClock clock = new MutableClock(ZoneOffset.UTC, instant("11:00:00"), ChronoUnit.MICROS);
+    private final MutableTimeSource clock = new MutableTimeSource(instant("11:00:00"));
     private final List<String> log = new ArrayList<>();
     private LinearAction againStep = context -> {};
     private ProcessEngine engine;
@@ -662,7 +660,7 @@ class AwaitAfterAtTimersTest extends BaseTest {
     }
 
     private void startEngine(ProcessDefinition definition) {
-        engine = new ProcessEngineBuilder(database).withClock(clock)
+        engine = new ProcessEngineBuilder(database).withTimeSource(clock)
             .addProcessDefinition(definition)
             .withDatabaseMigrationEnabled(false)
             .withDispatcherEnabled(false)

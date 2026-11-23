@@ -2,21 +2,20 @@ package io.github.neherim.ruslo.core;
 
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
+import io.github.neherim.ruslo.core.api.RusloTimeSource;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
+import io.github.neherim.ruslo.core.api.test.MutableTimeSource;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ProcessStepExecutionTest extends BaseTest {
     private static final Instant ENGINE_TIME = Instant.parse("2026-11-18T07:20:57.645772Z");
-    private static final Clock SUB_MICROSECOND_CLOCK =
-            Clock.fixed(ENGINE_TIME.plusNanos(600), ZoneOffset.UTC);
+    private static final RusloTimeSource SUB_MICROSECOND_SOURCE = () -> ENGINE_TIME.plusNanos(600);
     private static final MessageType<String> SIGNAL = MessageType.of("SIGNAL", String.class);
     private static final VariableType<String> PAYLOAD = VariableType.of("payload", String.class);
     private static final VariableType<String> TEMPORARY = VariableType.of("temporary", String.class);
@@ -111,7 +109,7 @@ class ProcessStepExecutionTest extends BaseTest {
             }, State.DONE))
             .terminal(State.DONE)
             .build();
-        try (var engine = newProcessEngineWith(SUB_MICROSECOND_CLOCK, definition)) {
+        try (var engine = newProcessEngineWith(SUB_MICROSECOND_SOURCE, definition)) {
             var emulator = emulator(engine);
             var id = engine.newProcess(ProcessType.of("CHAIN")).start();
             assertEquals(State.WAIT.name(), emulator.runUntilStop(id).state().name());
@@ -131,7 +129,7 @@ class ProcessStepExecutionTest extends BaseTest {
             }, State.DONE))
             .terminal(State.DONE)
             .build();
-        try (var engine = newProcessEngineWith(SUB_MICROSECOND_CLOCK, definition)) {
+        try (var engine = newProcessEngineWith(SUB_MICROSECOND_SOURCE, definition)) {
             var id = engine.newProcess(ProcessType.of("MESSAGE_RETRY")).start();
             engine.sendMessage(id, SIGNAL, "go");
 
@@ -149,7 +147,7 @@ class ProcessStepExecutionTest extends BaseTest {
                     context -> {}, State.DONE))
             .terminal(State.DONE)
             .build();
-        try (var engine = newProcessEngineWith(SUB_MICROSECOND_CLOCK, definition)) {
+        try (var engine = newProcessEngineWith(SUB_MICROSECOND_SOURCE, definition)) {
             var id = engine.newProcess(ProcessType.of("IMMEDIATE_TIMER")).start();
 
             assertEquals(ProcessStatus.COMPLETED, emulator(engine).runUntilStop(id).status());
@@ -249,14 +247,14 @@ class ProcessStepExecutionTest extends BaseTest {
 
     @Test
     void timerRunsOnlyWhenDue() {
-        var clock = new MutableClock(Instant.parse("2026-09-24T10:00:00Z"));
+        var clock = new MutableTimeSource(Instant.parse("2026-09-24T10:00:00Z"));
         ProcessDefinition definition = builder -> builder.type("TIMER")
             .initialState(State.START)
             .step(State.START, context -> {}, State.WAIT)
             .await(State.WAIT, await -> await.after(Duration.ofSeconds(5), State.DONE))
             .terminal(State.DONE)
             .build();
-        var engine = new ProcessEngineBuilder(database).withClock(clock)
+        var engine = new ProcessEngineBuilder(database).withTimeSource(clock)
             .addProcessDefinition(definition)
             .withDatabaseMigrationEnabled(false)
             .withDispatcherEnabled(false)
@@ -266,7 +264,7 @@ class ProcessStepExecutionTest extends BaseTest {
             var id = engine.newProcess(ProcessType.of("TIMER")).start();
             emulator(engine, 20).runOneStep(id);
             assertEquals(ProcessStatus.ACTIVE, emulator(engine, 20).runOneStep(id).status());
-            clock.advance(Duration.ofSeconds(5));
+            clock.fastForwardTime(Duration.ofSeconds(5));
             assertEquals(ProcessStatus.COMPLETED, emulator(engine, 20).runOneStep(id).status());
         } finally {
             engine.close();
@@ -489,7 +487,7 @@ class ProcessStepExecutionTest extends BaseTest {
 
     @Test
     void retryBackoffRetainsFirstMessageWhenAnotherArrives() {
-        var clock = new MutableClock(Instant.parse("2026-09-24T10:00:00Z"));
+        var clock = new MutableTimeSource(Instant.parse("2026-09-24T10:00:00Z"));
         var fail = new AtomicBoolean(true);
         var received = new ArrayList<String>();
         ProcessDefinition definition = builder -> builder.type("BACKOFF_MESSAGE")
@@ -502,7 +500,7 @@ class ProcessStepExecutionTest extends BaseTest {
             }, State.WAIT).after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
-        var engine = new ProcessEngineBuilder(database).withClock(clock)
+        var engine = new ProcessEngineBuilder(database).withTimeSource(clock)
             .addProcessDefinition(definition)
             .withDatabaseMigrationEnabled(false)
             .withDispatcherEnabled(false)
@@ -517,7 +515,7 @@ class ProcessStepExecutionTest extends BaseTest {
             fail.set(false);
             emulator(engine, 20).runOneStep(id);
             assertEquals(List.of("first"), received);
-            clock.advance(Duration.ofSeconds(10));
+            clock.fastForwardTime(Duration.ofSeconds(10));
             emulator(engine, 20).runOneStep(id);
             emulator(engine, 20).runOneStep(id);
             assertEquals(List.of("first", "first", "second"), received);
@@ -534,7 +532,7 @@ class ProcessStepExecutionTest extends BaseTest {
     }
 
     private String firstEventAt(Duration messageDelay, Duration executeAfter) {
-        var clock = new MutableClock(Instant.parse("2026-09-24T10:00:00Z"));
+        var clock = new MutableTimeSource(Instant.parse("2026-09-24T10:00:00Z"));
         var selected = new ArrayList<String>();
         ProcessDefinition definition = builder -> builder.type("EVENT_ORDER")
             .initialState(State.START)
@@ -545,7 +543,7 @@ class ProcessStepExecutionTest extends BaseTest {
                 .after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
-        var engine = new ProcessEngineBuilder(database).withClock(clock)
+        var engine = new ProcessEngineBuilder(database).withTimeSource(clock)
             .addProcessDefinition(definition)
             .withDatabaseMigrationEnabled(false)
             .withDispatcherEnabled(false)
@@ -554,9 +552,9 @@ class ProcessStepExecutionTest extends BaseTest {
         try {
             var id = engine.newProcess(ProcessType.of("EVENT_ORDER")).start();
             emulator(engine, 20).runOneStep(id);
-            clock.advance(messageDelay);
+            clock.fastForwardTime(messageDelay);
             engine.sendMessage(id, SIGNAL, "value");
-            clock.advance(executeAfter.minus(messageDelay));
+            clock.fastForwardTime(executeAfter.minus(messageDelay));
             emulator(engine, 20).runOneStep(id);
             return selected.getFirst();
         } finally {
@@ -708,7 +706,7 @@ class ProcessStepExecutionTest extends BaseTest {
 
     @Test
     void timerSelfTargetKeepsGridAndFailureKeepsDueTimer() {
-        var clock = new MutableClock(Instant.parse("2026-09-24T10:00:00Z"));
+        var clock = new MutableTimeSource(Instant.parse("2026-09-24T10:00:00Z"));
         var fail = new AtomicBoolean(true);
         var handled = new AtomicInteger();
         ProcessDefinition definition = builder -> builder.type("TIMER_RETRY")
@@ -721,7 +719,7 @@ class ProcessStepExecutionTest extends BaseTest {
             }, State.WAIT).after(Duration.ofDays(1), State.DONE))
             .terminal(State.DONE)
             .build();
-        var engine = new ProcessEngineBuilder(database).withClock(clock)
+        var engine = new ProcessEngineBuilder(database).withTimeSource(clock)
             .addProcessDefinition(definition)
             .withDatabaseMigrationEnabled(false)
             .withDispatcherEnabled(false)
@@ -731,7 +729,7 @@ class ProcessStepExecutionTest extends BaseTest {
             var id = engine.newProcess(ProcessType.of("TIMER_RETRY")).start();
             emulator(engine, 20).runOneStep(id);
             var firstDue = engine.processes().byId(id).singleDetails().orElseThrow().nextRunAt().orElseThrow();
-            clock.advance(Duration.ofSeconds(8));
+            clock.fastForwardTime(Duration.ofSeconds(8));
             emulator(engine, 20).runOneStep(id);
             var failed = engine.processes().byId(id).singleDetails().orElseThrow();
             assertEquals(ProcessStatus.FAILED, failed.status());
@@ -817,7 +815,7 @@ class ProcessStepExecutionTest extends BaseTest {
 
     @Test
     void awaitSelfTargetKeepsWaitingAndStepRestartsWaiting() {
-        var clock = new MutableClock(Instant.parse("2026-09-24T10:00:00Z"));
+        var clock = new MutableTimeSource(Instant.parse("2026-09-24T10:00:00Z"));
         var handled = new ArrayList<String>();
         ProcessDefinition definition = builder -> builder.type("SELF")
             .initialState(State.WAIT)
@@ -830,7 +828,7 @@ class ProcessStepExecutionTest extends BaseTest {
             .step(State.AFTER, context -> {}, State.WAIT)
             .terminal(State.DONE)
             .build();
-        var engine = new ProcessEngineBuilder(database).withClock(clock)
+        var engine = new ProcessEngineBuilder(database).withTimeSource(clock)
             .addProcessDefinition(definition)
             .withDatabaseMigrationEnabled(false)
             .withDispatcherEnabled(false)
@@ -838,7 +836,7 @@ class ProcessStepExecutionTest extends BaseTest {
             .start();
         try {
             var id = engine.newProcess(ProcessType.of("SELF")).start();
-            clock.advance(Duration.ofSeconds(10));
+            clock.fastForwardTime(Duration.ofSeconds(10));
             engine.sendMessage(id, SIGNAL, "keep");
             engine.sendMessage(id, SIGNAL, "restart");
             engine.sendMessage(id, SIGNAL, "obsolete");
@@ -849,9 +847,9 @@ class ProcessStepExecutionTest extends BaseTest {
             var reentered = engine.processes().byId(id).singleDetails().orElseThrow();
             assertEquals(2, reentered.stateHistory().stream().filter(entry -> entry.state() == State.WAIT).count());
             assertEquals(List.of("keep", "restart"), handled);
-            clock.advance(Duration.ofSeconds(49));
+            clock.fastForwardTime(Duration.ofSeconds(49));
             assertEquals(State.WAIT.name(), emulator(engine, 20).runOneStep(id).state().name());
-            clock.advance(Duration.ofSeconds(1));
+            clock.fastForwardTime(Duration.ofSeconds(1));
             assertEquals(ProcessStatus.COMPLETED, emulator(engine, 20).runOneStep(id).status());
         } finally {
             engine.close();
@@ -897,7 +895,7 @@ class ProcessStepExecutionTest extends BaseTest {
 
     @Test
     void afterRunsHandlerThenEntersTarget() {
-        var clock = new MutableClock(Instant.parse("2026-09-24T10:00:00Z"));
+        var clock = new MutableTimeSource(Instant.parse("2026-09-24T10:00:00Z"));
         var reasons = new ArrayList<String>();
         ProcessDefinition definition = builder -> builder.type("AFTER")
             .initialState(State.WAIT)
@@ -905,7 +903,7 @@ class ProcessStepExecutionTest extends BaseTest {
                     context -> reasons.add("timeout"), State.DONE))
             .terminal(State.DONE)
             .build();
-        var engine = new ProcessEngineBuilder(database).withClock(clock)
+        var engine = new ProcessEngineBuilder(database).withTimeSource(clock)
             .addProcessDefinition(definition)
             .withDatabaseMigrationEnabled(false)
             .withDispatcherEnabled(false)
@@ -918,7 +916,7 @@ class ProcessStepExecutionTest extends BaseTest {
             assertEquals(Optional.of(Instant.parse("2026-09-24T10:00:05Z")), started.nextRunAt());
             assertEquals(State.WAIT.name(), emulator(engine, 20).runOneStep(id).state().name());
             assertTrue(reasons.isEmpty());
-            clock.advance(Duration.ofSeconds(5));
+            clock.fastForwardTime(Duration.ofSeconds(5));
             assertEquals(ProcessStatus.COMPLETED, emulator(engine, 20).runOneStep(id).status());
             assertEquals(List.of("timeout"), reasons);
         } finally {
@@ -939,30 +937,4 @@ class ProcessStepExecutionTest extends BaseTest {
         DONE
     }
 
-    private static final class MutableClock extends Clock {
-        private Instant now;
-
-        private MutableClock(Instant now) {
-            this.now = now;
-        }
-
-        void advance(Duration duration) {
-            now = now.plus(duration);
-        }
-
-        @Override
-        public ZoneId getZone() {
-            return ZoneId.of("UTC");
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
-            return now;
-        }
-    }
 }
