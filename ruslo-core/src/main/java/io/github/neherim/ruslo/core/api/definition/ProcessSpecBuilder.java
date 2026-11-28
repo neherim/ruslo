@@ -4,6 +4,7 @@ import io.github.neherim.ruslo.core.api.definition.ProcessSpec.*;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -130,7 +131,8 @@ public class ProcessSpecBuilder {
                 Consumer<Routes<O>> routes
         ) {
             requireNonNull(step, "Process step cannot be null");
-            draft.addStep(state, worker, step::execute, draft.routes(routes, "step " + state.name()));
+            var where = "step " + state.name() + " of process " + draft.type.name();
+            draft.addStep(state, worker, step::execute, draft.routes(routes, where));
             return this;
         }
 
@@ -165,7 +167,7 @@ public class ProcessSpecBuilder {
 
     /**
      * Outcome-to-target routes of a branching step or event; must route every constant of {@code O}. Completeness is
-     * checked when the routes callback returns.
+     * checked when the routes callback returns. For a nonempty mapping, the exception lists any missing outcomes.
      */
     public static class Routes<O extends Enum<O>> {
         private final String where;
@@ -478,15 +480,20 @@ public class ProcessSpecBuilder {
         }
 
         private <O extends Enum<O>> ProcessSpec.Routes routes(Consumer<Routes<O>> definition, String where) {
-            var result = new Routes<O>(where + " of process " + type.name());
+            var result = new Routes<O>(where);
             requireNonNull(definition, "Routes cannot be null").accept(result);
             if (result.routes.isEmpty()) {
-                throw new IllegalArgumentException("Routes of " + result.where + " must contain at least one on(...)");
+                throw new IllegalArgumentException("Routes of " + where + " must contain at least one on(...)");
             }
-            var outcomes = result.routes.keySet().iterator().next().getDeclaringClass();
-            if (result.routes.size() != outcomes.getEnumConstants().length) {
-                throw new IllegalArgumentException("Routes of " + result.where
-                        + " do not cover all constants of " + outcomes.getSimpleName());
+            var outcomeType = result.routes.keySet().iterator().next().getDeclaringClass();
+            var outcomes = outcomeType.getEnumConstants();
+            if (result.routes.size() != outcomes.length) {
+                var missingOutcomes = Arrays.stream(outcomes)
+                    .filter(outcome -> !result.routes.containsKey(outcome))
+                    .map(Enum::name)
+                    .toList();
+                throw new IllegalArgumentException("Missing routes for " + missingOutcomes + " in " + where
+                        + " (enum " + outcomeType.getSimpleName() + ")");
             }
             return new ProcessSpec.Routes(result.routes);
         }
