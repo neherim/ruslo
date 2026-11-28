@@ -81,12 +81,18 @@ UUID processId = processEngine.newProcess(OrderDefinition.TYPE)
 
 | Method | Purpose |
 |---|---|
-| `businessKey(String)` | A key from the domain, e.g. the order number. The process is found by it (`byBusinessKey`) when an external event arrives. The engine does not check its uniqueness |
+| `businessKey(String)` | A key from the domain, e.g. the order ID. Use it with the process type to address the instance, or use `byBusinessKey` to search |
 | `correlationId(String)` | An id that links logs. Without it, the current one is taken from the MDC or a new one is created |
 | `variable(type, value)` | An initial process variable |
 | `timer(timer, moment)` | An initial process timer for `at`, see [awaits.md](awaits.md#process-timers-at) |
 
 `start()` saves the process and returns its id.
+
+Use the business entity's ID as the business key when the entity has one process of a given type. The `ProcessEngine`
+overloads for `sendMessage`, `sendMessageSync` and `resumeFailedProcess` look up the process by type and key in the
+operation's transaction. Starting a process does not enforce uniqueness. The lookup includes completed processes
+and throws `ProcessNotFoundException` for no match or `TooManyRowsException` for multiple matches. If several
+instances of the same type share the key, use the process UUID to address a specific instance.
 
 ## Process context
 

@@ -22,8 +22,8 @@ import org.springframework.stereotype.Component;
  * <p>
  * How it works:
  * <ul>
- *   <li>{@link VerificationWebhook} finds the process by the application id, which is the process business key, and
- *       delivers the callback with {@code sendMessage}.</li>
+ *   <li>{@link VerificationWebhook} calls {@code sendMessage} with the process type and the application id, which
+ *       is the process business key.</li>
  *   <li>{@code sendMessage} is not idempotent: a repeat is queued and handled like a new callback. So
  *       {@link VerificationCallbackHandler} keeps the ids of handled callbacks in variable {@link #HANDLED_EVENTS}.
  *       On a known id it does nothing and keeps waiting (the target is the await itself). Otherwise it adds the id,
@@ -44,8 +44,8 @@ import org.springframework.stereotype.Component;
  *       {@code DEFAULT} worker {@code sendMessage} waits for the step and finds the await
  *       ({@code docs/en/dispatcher.md}, "Multiple nodes"). On a non-transactional worker it throws {@code MessageNotExpectedException},
  *       and the webhook must answer with an error so the service retries.</li>
- *   <li>The business key is not unique: {@code single()} throws {@code TooManyRowsException} if two processes of
- *       the type share it.</li>
+ *   <li>{@code sendMessage} throws {@code TooManyRowsException} if multiple processes of this type share the
+ *       application id.</li>
  * </ul>
  */
 @Component

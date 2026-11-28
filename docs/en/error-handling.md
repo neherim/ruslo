@@ -83,6 +83,9 @@ dispatcher runs the cancellation step after commit. Put any required compensatio
 The overload accepts any state declared in the process definition. An await starts waiting for its events.
 A terminal state completes the process immediately.
 
+Both forms also accept the process type and [business key](processes.md#starting-a-process) in place of the UUID:
+`resumeFailedProcess(processType, businessKey)` and `resumeFailedProcess(processType, businessKey, targetState)`.
+
 ## Details
 
 - `ProcessContext` changes made by the error handler are saved atomically with its result.

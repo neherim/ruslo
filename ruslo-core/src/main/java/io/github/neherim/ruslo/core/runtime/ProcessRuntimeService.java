@@ -84,10 +84,18 @@ public class ProcessRuntimeService {
      * @throws ProcessStatusException if the process is not {@code FAILED}; thrown after the transaction
      */
     public void resumeFailedProcess(UUID processId, @Nullable ProcessState targetState) {
+        resumeFailedProcess(() -> getProcessWithLock(processId), targetState);
+    }
+
+    public void resumeFailedProcess(ProcessType processType, String businessKey, @Nullable ProcessState targetState) {
+        resumeFailedProcess(() -> getProcessWithLock(processType, businessKey), targetState);
+    }
+
+    private void resumeFailedProcess(Supplier<ProcessInstance> loadWithLock, @Nullable ProcessState targetState) {
         doInTransactionOrReject(() -> {
-            var process = getProcessWithLock(processId);
+            var process = loadWithLock.get();
             if (!process.resume(targetState)) {
-                return new ProcessStatusException(processId, process.getStatus(),
+                return new ProcessStatusException(process.getId(), process.getStatus(),
                         "only a FAILED process can be resumed");
             }
             saveAndWakeDispatcher(process);
@@ -110,15 +118,24 @@ public class ProcessRuntimeService {
     }
 
     /**
-     * Queues the message for the current await, see {@link io.github.neherim.ruslo.core.api.ProcessEngine#sendMessage}.
+     * Queues the message for the current await, see
+     * {@link io.github.neherim.ruslo.core.api.ProcessEngine#sendMessage(UUID, MessageType, Object)}.
      *
      * @throws MessageNotExpectedException if the current state does not await this type or the process is completed;
      *                                     thrown after the transaction
      * @throws IllegalArgumentException    if no await of the process declares this type
      */
     public <T> void sendMessage(UUID processId, MessageType<T> type, T message) {
+        sendMessage(() -> getProcessWithLock(processId), type, message);
+    }
+
+    public <T> void sendMessage(ProcessType processType, String businessKey, MessageType<T> type, T message) {
+        sendMessage(() -> getProcessWithLock(processType, businessKey), type, message);
+    }
+
+    private <T> void sendMessage(Supplier<ProcessInstance> loadWithLock, MessageType<T> type, T message) {
         doInTransactionOrReject(() -> {
-            var process = getProcessWithLock(processId);
+            var process = loadWithLock.get();
             var spec = process.getProcessSpec();
             spec.checkMessageDeclared(type);
             var event = spec.getMessageEvent(type, process.getState());
@@ -146,17 +163,25 @@ public class ProcessRuntimeService {
 
     /**
      * Runs the message handler in the calling thread,
-     * see {@link io.github.neherim.ruslo.core.api.ProcessEngine#sendMessageSync}. A handler exception propagates
-     * as is; engine rejections are thrown after the transaction.
+     * see {@link io.github.neherim.ruslo.core.api.ProcessEngine#sendMessageSync(UUID, MessageType, Object)}.
+     * A handler exception propagates as is; engine rejections are thrown after the transaction.
      *
      * @throws MessageNotExpectedException if the current state does not await this type, the process is completed
      *                                     or {@code FAILED}
      * @throws IllegalArgumentException    if no await of the process declares this type
      */
     public <T> void sendMessageSync(UUID processId, MessageType<T> type, T message) {
+        sendMessageSync(() -> getProcessWithLock(processId), type, message);
+    }
+
+    public <T> void sendMessageSync(ProcessType processType, String businessKey, MessageType<T> type, T message) {
+        sendMessageSync(() -> getProcessWithLock(processType, businessKey), type, message);
+    }
+
+    private <T> void sendMessageSync(Supplier<ProcessInstance> loadWithLock, MessageType<T> type, T message) {
         try {
             doInTransactionOrReject(() -> {
-                var process = getProcessWithLock(processId);
+                var process = loadWithLock.get();
                 var spec = process.getProcessSpec();
                 spec.checkMessageDeclared(type);
                 var event = spec.getMessageEvent(type, process.getState());
@@ -340,5 +365,13 @@ public class ProcessRuntimeService {
     private ProcessInstance getProcessWithLock(UUID processId) {
         return processInstanceDao.findWithLockById(processId)
             .orElseThrow(() -> new ProcessNotFoundException(processId));
+    }
+
+    private ProcessInstance getProcessWithLock(ProcessType processType, String businessKey) {
+        Objects.requireNonNull(processType, "Process type cannot be null");
+        Objects.requireNonNull(businessKey, "Business key cannot be null");
+        return processInstanceDao.findIdByTypeAndBusinessKey(processType, businessKey)
+            .flatMap(processInstanceDao::findWithLockById)
+            .orElseThrow(() -> new ProcessNotFoundException(processType, businessKey));
     }
 }

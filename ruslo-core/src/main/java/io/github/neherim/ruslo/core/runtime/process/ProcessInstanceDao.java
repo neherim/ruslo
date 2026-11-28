@@ -1,7 +1,9 @@
 package io.github.neherim.ruslo.core.runtime.process;
 
 import io.github.neherim.ruslo.core.api.definition.ProcessSpec;
+import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.WorkerId;
+import io.github.neherim.ruslo.core.api.exception.TooManyRowsException;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.dispatcher.lease.LeaseLostException;
 import io.github.neherim.ruslo.core.dispatcher.lease.ProcessLease;
@@ -40,6 +42,10 @@ public class ProcessInstanceDao {
             + STATE_COLUMNS + " from xs_process_instance where id = ?";
 
     private static final String SELECT_CLAIMED_PROCESS_SQL = SELECT_PROCESS_SQL + " and lease_owner = ?";
+
+    private static final String SELECT_IDS_BY_BUSINESS_KEY_SQL = """
+            select id from xs_process_instance where type = ? and business_key = ? limit 2
+            """;
 
     private static final String FOR_UPDATE = " for update";
 
@@ -109,6 +115,18 @@ public class ProcessInstanceDao {
 
     public Optional<ProcessInstance> findWithLockById(UUID id) {
         return database.queryForObject(SELECT_PROCESS_SQL + FOR_UPDATE, this::mapProcessRow, id);
+    }
+
+    /** Resolves the address before locking and loading the selected process. */
+    public Optional<UUID> findIdByTypeAndBusinessKey(ProcessType processType, String businessKey) {
+        var typeName = processType.name();
+        var ids = database.queryForList(SELECT_IDS_BY_BUSINESS_KEY_SQL, rs -> rs.getObject("id", UUID.class),
+                typeName, businessKey);
+        if (ids.size() > 1) {
+            throw new TooManyRowsException("Multiple processes of type " + typeName + " have business key '" + businessKey
+                    + "'");
+        }
+        return ids.isEmpty() ? Optional.empty() : Optional.of(ids.getFirst());
     }
 
     public Optional<ProcessInstance> findById(UUID id) {

@@ -235,8 +235,8 @@ class SpringJdbcDatabaseTest {
                     .start()
         ) {
             database.update("create table application_data (id int primary key)");
-            var waitingId = engine.newProcess(type).start();
-            var completedId = engine.newProcess(type).start();
+            var waitingId = engine.newProcess(type).businessKey("waiting").start();
+            var completedId = engine.newProcess(type).businessKey("completed").start();
             engine.sendMessageSync(completedId, signal, "later");
             engine.sendMessageSync(completedId, other, "done");
 
@@ -249,6 +249,11 @@ class SpringJdbcDatabaseTest {
                 assertThrows(MessageNotExpectedException.class,
                         () -> engine.sendMessageSync(waitingId, other, "wrong"));
                 assertThrows(ProcessStatusException.class, () -> engine.resumeFailedProcess(waitingId));
+                assertThrows(MessageNotExpectedException.class,
+                        () -> engine.sendMessage(type, "completed", signal, "late"));
+                assertThrows(MessageNotExpectedException.class,
+                        () -> engine.sendMessageSync(type, "waiting", other, "wrong"));
+                assertThrows(ProcessStatusException.class, () -> engine.resumeFailedProcess(type, "waiting"));
                 assertFalse(status.isRollbackOnly());
             });
 

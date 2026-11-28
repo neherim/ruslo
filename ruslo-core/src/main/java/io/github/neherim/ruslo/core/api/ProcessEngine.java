@@ -6,7 +6,9 @@ import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
+import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
+import io.github.neherim.ruslo.core.api.exception.TooManyRowsException;
 import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
 import io.github.neherim.ruslo.core.api.view.ProcessQuery;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
@@ -26,6 +28,11 @@ import java.util.UUID;
 /**
  * Engine entry point: lifecycle, process start, message delivery and search.
  * Operations join the caller's transaction if one is open.
+ * <p>
+ * Operations addressed by process type and business key require exactly one matching instance, regardless of its
+ * status. The lookup takes place in the operation's transaction. The engine allows multiple instances to share
+ * the same type and business key at start, so applications using these overloads must ensure their pair identifies
+ * a single instance.
  */
 public class ProcessEngine implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(ProcessEngine.class);
@@ -175,6 +182,36 @@ public class ProcessEngine implements AutoCloseable {
     }
 
     /**
+     * Resumes the matching {@code FAILED} process as in {@link #resumeFailedProcess(UUID)}.
+     *
+     * @throws ProcessNotFoundException if no process matches the type and business key
+     * @throws TooManyRowsException     if multiple processes match the type and business key
+     * @throws ProcessStatusException   if the matched process is not {@code FAILED}
+     * @throws IllegalStateException    if the engine is not started
+     */
+    public void resumeFailedProcess(ProcessType processType, String businessKey) {
+        requireStarted();
+        processRuntimeService.resumeFailedProcess(processType, businessKey, null);
+    }
+
+    /**
+     * Resumes the matching {@code FAILED} process at the target state as in
+     * {@link #resumeFailedProcess(UUID, ProcessState)}.
+     *
+     * @param targetState any state declared in the process definition
+     * @throws ProcessNotFoundException         if no process matches the type and business key
+     * @throws TooManyRowsException             if multiple processes match the type and business key
+     * @throws ProcessStatusException           if the matched process is not {@code FAILED}
+     * @throws UnsupportedProcessStateException if the definition does not declare the state
+     * @throws IllegalStateException            if the engine is not started
+     */
+    public void resumeFailedProcess(ProcessType processType, String businessKey, ProcessState targetState) {
+        requireStarted();
+        processRuntimeService.resumeFailedProcess(processType, businessKey,
+                Objects.requireNonNull(targetState, "Target state cannot be null"));
+    }
+
+    /**
      * Queues the message for the current await; the dispatcher handles it after commit.
      * <p>
      * Returning means the message is stored, not that it will be handled.
@@ -186,6 +223,20 @@ public class ProcessEngine implements AutoCloseable {
     public <T> void sendMessage(UUID processId, MessageType<T> type, T message) {
         requireStarted();
         processRuntimeService.sendMessage(processId, type, message);
+    }
+
+    /**
+     * Queues the message for the matching process as in {@link #sendMessage(UUID, MessageType, Object)}.
+     *
+     * @throws ProcessNotFoundException   if no process matches the type and business key
+     * @throws TooManyRowsException       if multiple processes match the type and business key
+     * @throws MessageNotExpectedException if the current state does not await this type or the process is completed
+     * @throws IllegalArgumentException    if no await of the process declares this type
+     * @throws IllegalStateException       if the engine is not started
+     */
+    public <T> void sendMessage(ProcessType processType, String businessKey, MessageType<T> type, T message) {
+        requireStarted();
+        processRuntimeService.sendMessage(processType, businessKey, type, message);
     }
 
     /**
@@ -206,6 +257,22 @@ public class ProcessEngine implements AutoCloseable {
     public <T> void sendMessageSync(UUID processId, MessageType<T> type, T message) {
         requireStarted();
         processRuntimeService.sendMessageSync(processId, type, message);
+    }
+
+    /**
+     * Processes the message for the matching process in the calling thread as in
+     * {@link #sendMessageSync(UUID, MessageType, Object)}.
+     *
+     * @throws ProcessNotFoundException   if no process matches the type and business key
+     * @throws TooManyRowsException       if multiple processes match the type and business key
+     * @throws MessageNotExpectedException if the current state does not await this type, the process is completed
+     *                                     or {@code FAILED}
+     * @throws IllegalArgumentException    if no await of the process declares this type
+     * @throws IllegalStateException       if the engine is not started
+     */
+    public <T> void sendMessageSync(ProcessType processType, String businessKey, MessageType<T> type, T message) {
+        requireStarted();
+        processRuntimeService.sendMessageSync(processType, businessKey, type, message);
     }
 
     /**
