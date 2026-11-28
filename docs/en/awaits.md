@@ -58,8 +58,12 @@ id:
 processEngine.sendMessage(processId, PAYMENT_CONFIRMED, new PaymentConfirmed("txn-42"));
 ```
 
-If only a domain key is known, first find the process by `businessKey`
-([processes.md](processes.md#process-search)).
+When the sender has the order ID stored as the [business key](processes.md#starting-a-process), address the process
+by type and key:
+
+```java
+processEngine.sendMessage(OrderDefinition.TYPE, orderId, PAYMENT_CONFIRMED, new PaymentConfirmed("txn-42"));
+```
 
 ### Sending a message
 
@@ -196,6 +200,7 @@ A process in `FAILED` handles no events. After `resumeFailedProcess` the rules o
 `processEngine.sendMessageSync(processId, type, payload)` processes the message in the calling thread and
 transaction. Use it when the caller needs the transition committed before the call returns, for example for a user
 cancellation (the `cancellation` recipe) or to return the result in the response to an HTTP request.
+Use `sendMessageSync(processType, businessKey, type, payload)` to address the process by its business key.
 
 - The dispatcher runs subsequent steps asynchronously after commit.
 - The message bypasses the queue: earlier messages and due timers keep waiting.

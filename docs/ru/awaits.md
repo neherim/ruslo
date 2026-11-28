@@ -58,8 +58,12 @@ static void onPaid(ProcessContext context, IncomingMessage<PaymentConfirmed> mes
 processEngine.sendMessage(processId, PAYMENT_CONFIRMED, new PaymentConfirmed("txn-42"));
 ```
 
-Если известен только ключ из предметной области, сначала найдите процесс по `businessKey`
-([processes.md](processes.md#поиск-процессов)).
+Если отправителю известен ID заказа, сохранённый как [бизнес-ключ](processes.md#запуск-процесса), укажите тип процесса
+и ключ:
+
+```java
+processEngine.sendMessage(OrderDefinition.TYPE, orderId, PAYMENT_CONFIRMED, new PaymentConfirmed("txn-42"));
+```
 
 ### Отправка сообщения
 
@@ -197,6 +201,7 @@ static Run buildReport(ProcessContext context) {
 `processEngine.sendMessageSync(processId, type, payload)` обрабатывает сообщение в вызывающем потоке и
 транзакции. Используйте его, когда вызывающему нужен зафиксированный переход до возврата из вызова,
 например для отмены пользователем (рецепт `cancellation`) или чтобы синхронно отдать результат вызова на HTTP запрос.
+Чтобы адресовать процесс по бизнес-ключу, вызовите `sendMessageSync(processType, businessKey, type, payload)`.
 
 - Следующие шаги диспетчер выполнит асинхронно после фиксации транзакции.
 - Сообщение обходит очередь: более ранние сообщения и наступившие таймеры продолжают ждать.

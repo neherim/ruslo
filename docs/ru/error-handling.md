@@ -81,6 +81,9 @@ public class CustomProcessErrorHandler implements ProcessErrorHandler {
 Перегрузка принимает любое состояние, объявленное в определении процесса. При переходе в ожидание процесс
 начинает ждать его событий. При переходе в терминальное состояние процесс сразу завершается.
 
+В обоих случаях вместо UUID можно передать тип процесса и [бизнес-ключ](processes.md#запуск-процесса):
+`resumeFailedProcess(processType, businessKey)` или `resumeFailedProcess(processType, businessKey, targetState)`.
+
 ## Подробности
 
 - Изменения `ProcessContext`, сделанные обработчиком ошибок, сохраняются атомарно с его результатом.

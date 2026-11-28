@@ -2,6 +2,7 @@ package io.github.neherim.ruslo.examples.cookbook.webhook;
 
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
+import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -27,17 +28,12 @@ public class VerificationWebhook {
      * a repeated callback for a completed process are acknowledged without action: redelivery would not fix them.
      */
     public void onCallback(VerificationCallback callback) {
-        var process = processEngine.processes()
-            .byType(IdentityVerificationDefinition.TYPE)
-            .byBusinessKey(callback.applicationId())
-            .single();
-        if (process.isEmpty()) {
+        try {
+            processEngine.sendMessage(IdentityVerificationDefinition.TYPE, callback.applicationId(),
+                    IdentityVerificationDefinition.CALLBACK, callback);
+        } catch (ProcessNotFoundException ex) {
             log.warn("Verification callback {} for unknown application {} ignored",
                     callback.eventId(), callback.applicationId());
-            return;
-        }
-        try {
-            processEngine.sendMessage(process.get().id(), IdentityVerificationDefinition.CALLBACK, callback);
         } catch (MessageNotExpectedException ex) {
             log.info("Verification callback {} for application {} in state {} ignored",
                     callback.eventId(), callback.applicationId(), ex.getCurrentState().name());

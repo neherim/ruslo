@@ -40,7 +40,8 @@ public class ProcessStartBuilder {
     }
 
     /**
-     * Sets the application's own not be unique key of the process, used in search.
+     * Sets the application's key for process search and for addressing an instance by type and business key
+     * through {@link ProcessEngine}. Starting a process does not check the key for uniqueness.
      */
     public ProcessStartBuilder businessKey(String businessKey) {
         this.businessKey = businessKey;

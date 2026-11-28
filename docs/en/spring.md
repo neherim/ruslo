@@ -62,8 +62,8 @@ Engine operations join the active application transaction (`PROPAGATION_REQUIRED
 `sendMessage()` inside `@Transactional` are atomic with the application changes on the same `DataSource` and
 transaction manager: on rollback neither is saved. Process steps run after commit, each in its own transaction.
 
-An engine error (a database error, `ProcessNotFoundException`, an undeclared message type) is thrown inside the
-transaction and, as usual in Spring, marks it rollback-only even if caught.
+An engine error (a database error, `ProcessNotFoundException`, `TooManyRowsException` from an ambiguous business key,
+or an undeclared message type) is thrown inside the transaction and marks it rollback-only even if caught.
 
 An expected rejection is thrown after the engine leaves its transaction: `MessageNotExpectedException` from
 `sendMessage` and `sendMessageSync`, `ProcessStatusException` from `resumeFailedProcess`. A caught rejection does not

@@ -84,17 +84,18 @@ A process is started and receives messages through `ProcessEngine`:
 
 ```java
 // start a process
-UUID processId = processEngine.newProcess(OrderProcess.TYPE)
+processEngine.newProcess(OrderProcess.TYPE)
         .businessKey(order.number())
         .variable(OrderProcess.ORDER_ID, order.id())
         .start();
 
 // later, e.g. in the payment callback
-processEngine.sendMessage(processId, OrderProcess.PAYMENT_CONFIRMED, new PaymentConfirmed(amount));
+processEngine.sendMessage(OrderProcess.TYPE, orderNumber, OrderProcess.PAYMENT_CONFIRMED,
+        new PaymentConfirmed(amount));
 ```
 
-`start` and `sendMessage` join the caller's transaction; the step or handler runs after commit. The business key
-lets you find the process by order number in search and in the Admin UI.
+`start` and `sendMessage` join the caller's transaction. The step or handler runs after commit. The callback uses
+the order number as the business key, which is also available in process search and the Admin UI.
 
 The full example with a test is in the [quickstart](docs/en/quickstart.md).
 

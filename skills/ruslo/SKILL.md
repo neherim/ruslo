@@ -161,16 +161,21 @@ variables), `setVariable(type, value)`, `removeVariable(type)`, `findTimer(timer
 ## Starting processes and sending messages
 
 ```java
-UUID id = processEngine.newProcess(OrderProcessDefinition.TYPE)
+processEngine.newProcess(OrderProcessDefinition.TYPE)
         .businessKey(orderId)
         .variable(Constants.CUSTOMER_ID, customerId)
         .start();                       // returns right after insert; steps run asynchronously
 
-processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(txId));
+processEngine.sendMessage(OrderProcessDefinition.TYPE, orderId, Constants.PAYMENT_CONFIRMED,
+        new PaymentConfirmed(txId));
 ```
 
 - Inside Spring `@Transactional`, `start()` and `sendMessage()` are atomic with the application's own changes
   (same `DataSource` / transaction manager).
+- `sendMessage`, `sendMessageSync` and both forms of `resumeFailedProcess` accept a process type and business key
+  in place of the process UUID. They look up the pair in the operation's transaction, including completed processes.
+  Starting a process does not enforce uniqueness. No match throws `ProcessNotFoundException` and multiple matches
+  throw `TooManyRowsException`. Use the UUID to address a specific instance when several share the pair.
 - A message is accepted **only while the process is in an await that declares its type**. Otherwise
   `sendMessage` throws `MessageNotExpectedException` (with `getStatus()` and `getCurrentState()`) and stores
   nothing.

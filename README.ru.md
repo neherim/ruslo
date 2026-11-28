@@ -84,17 +84,18 @@ public class OrderProcess extends SpringProcessDefinition {
 
 ```java
 // запуск процесса
-UUID processId = processEngine.newProcess(OrderProcess.TYPE)
+processEngine.newProcess(OrderProcess.TYPE)
         .businessKey(order.number())
         .variable(OrderProcess.ORDER_ID, order.id())
         .start();
 
 // позже, например в обработчике callback от платёжной системы
-processEngine.sendMessage(processId, OrderProcess.PAYMENT_CONFIRMED, new PaymentConfirmed(amount));
+processEngine.sendMessage(OrderProcess.TYPE, orderNumber, OrderProcess.PAYMENT_CONFIRMED,
+        new PaymentConfirmed(amount));
 ```
 
-`start` и `sendMessage` присоединяются к транзакции вызывающего кода, шаг или обработчик выполняется после коммита.
-По business key процесс можно найти по номеру заказа в поиске и в Admin UI.
+`start` и `sendMessage` присоединяются к транзакции вызывающего кода. Шаг или обработчик выполняется после коммита.
+Обработчик callback передаёт номер заказа как бизнес-ключ. По этому ключу процесс также можно найти в поиске и в Admin UI.
 
 Полный пример с тестом — в [быстром старте](docs/ru/quickstart.md).
 
