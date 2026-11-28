@@ -217,20 +217,37 @@ class ProcessSpecBuilderTest {
 
     @Test
     void rejectsIncompleteRoutesWhenTheirDeclarationEnds() {
-        assertRejected("do not cover all constants", () -> start().step(State.START, BRANCHING,
-                routes -> routes.on(Outcome.A, State.DONE)));
-        assertRejected("do not cover all constants", () -> start().await(State.WAIT,
+        assertRejected("Missing routes for [B] in step START of process TEST (enum Outcome)",
+                () -> start().step(State.START, BRANCHING,
+                        routes -> routes.on(Outcome.A, State.DONE)));
+        assertRejected("Missing routes for [B]", () -> start().await(State.WAIT,
                 await -> await.message(MESSAGE, (context, message) -> Outcome.A,
                         routes -> routes.on(Outcome.A, State.DONE))));
-        assertRejected("do not cover all constants", () -> start().await(State.WAIT,
+        assertRejected("Missing routes for [B]", () -> start().await(State.WAIT,
                 await -> await.every(Duration.ofSeconds(1), context -> Outcome.A,
                         routes -> routes.on(Outcome.A, State.DONE))));
-        assertRejected("do not cover all constants", () -> start().await(State.WAIT,
+        assertRejected("Missing routes for [B]", () -> start().await(State.WAIT,
                 await -> await.after(Duration.ofSeconds(1), context -> Outcome.A,
                         routes -> routes.on(Outcome.A, State.DONE))));
-        assertRejected("do not cover all constants", () -> start().await(State.WAIT,
+        assertRejected("Missing routes for [B]", () -> start().await(State.WAIT,
                 await -> await.at(DUE_DATE, context -> Outcome.A,
                         routes -> routes.on(Outcome.A, State.DONE))));
+    }
+
+    @Test
+    void listsAllMissingOutcomesInDeclarationOrder() {
+        enum ReviewOutcome {
+            APPROVED,
+            NEEDS_REVIEW,
+            DECLINED
+        }
+
+        var ex = assertThrows(IllegalArgumentException.class, () -> start().await(State.WAIT,
+                await -> await.message(MESSAGE, (context, message) -> ReviewOutcome.APPROVED,
+                        routes -> routes.on(ReviewOutcome.APPROVED, State.DONE))));
+
+        assertEquals("Missing routes for [NEEDS_REVIEW, DECLINED] in message MESSAGE in await state WAIT"
+                + " of process TEST (enum ReviewOutcome)", ex.getMessage());
     }
 
     @Test
