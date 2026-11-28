@@ -1,12 +1,14 @@
 package io.github.neherim.ruslo.spring.integration;
 
 import com.zaxxer.hikari.HikariDataSource;
+import io.github.neherim.ruslo.core.api.MessageDelivery;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
+import io.github.neherim.ruslo.core.api.ResumeResult;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
-import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.exception.TooManyRowsException;
+import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -242,13 +244,18 @@ class SpringJdbcDatabaseTest {
 
             transaction.executeWithoutResult(status -> {
                 database.update("insert into application_data values (1)");
-                assertThrows(MessageNotExpectedException.class, () -> engine.sendMessage(completedId, signal, "late"));
-                assertThrows(MessageNotExpectedException.class, () -> engine.sendMessage(waitingId, other, "wrong"));
+                assertInstanceOf(MessageDelivery.NotExpected.class,
+                        engine.sendMessage(completedId, signal, "late"));
+                assertInstanceOf(MessageDelivery.NotExpected.class,
+                        engine.sendMessage(waitingId, other, "wrong"));
+                assertInstanceOf(MessageDelivery.NotExpected.class,
+                        engine.sendMessageSync(completedId, signal, "late"));
+                assertInstanceOf(MessageDelivery.NotExpected.class,
+                        engine.sendMessageSync(waitingId, other, "wrong"));
+                assertEquals(new ResumeResult.NotFailed(waitingId, ProcessStatus.ACTIVE),
+                        engine.resumeFailedProcess(waitingId));
                 assertThrows(MessageNotExpectedException.class,
-                        () -> engine.sendMessageSync(completedId, signal, "late"));
-                assertThrows(MessageNotExpectedException.class,
-                        () -> engine.sendMessageSync(waitingId, other, "wrong"));
-                assertThrows(ProcessStatusException.class, () -> engine.resumeFailedProcess(waitingId));
+                        () -> engine.sendMessage(waitingId, other, "wrong").orThrow());
                 assertFalse(status.isRollbackOnly());
             });
 

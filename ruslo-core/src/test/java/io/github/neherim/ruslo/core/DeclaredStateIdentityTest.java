@@ -1,5 +1,6 @@
 package io.github.neherim.ruslo.core;
 
+import io.github.neherim.ruslo.core.api.MessageDelivery;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.definition.MessageType;
 import io.github.neherim.ruslo.core.api.definition.ProcessContext;
@@ -10,7 +11,6 @@ import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessStateId;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
 import io.github.neherim.ruslo.core.api.definition.ProcessTypeId;
-import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.test.TestProcessContext;
 import io.github.neherim.ruslo.core.api.view.ProcessSpecInfo;
 import org.junit.jupiter.api.Test;
@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** The engine returns the type and state objects declared in the definition, not canonical ids. */
 class DeclaredStateIdentityTest extends BaseTest {
@@ -104,10 +104,10 @@ class DeclaredStateIdentityTest extends BaseTest {
         try (var engine = newProcessEngineWith(new OrderDefinition())) {
             var id = engine.newProcess(Type.ORDER).start();
 
-            var exception = assertThrows(MessageNotExpectedException.class,
-                    () -> engine.sendMessage(id, APPROVE, "too early"));
+            var rejection = assertInstanceOf(MessageDelivery.NotExpected.class,
+                    engine.sendMessage(id, APPROVE, "too early"));
 
-            assertSame(State.CHECK, exception.getCurrentState());
+            assertSame(State.CHECK, rejection.currentState());
         }
     }
 

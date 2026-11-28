@@ -1,7 +1,9 @@
 package io.github.neherim.ruslo.core;
 
+import io.github.neherim.ruslo.core.api.MessageDelivery;
 import io.github.neherim.ruslo.core.api.ProcessEngineAdmin;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
+import io.github.neherim.ruslo.core.api.ResumeResult;
 import io.github.neherim.ruslo.core.api.RusloTimeSource;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
@@ -22,7 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,7 +57,7 @@ class ProcessStepExecutionTest extends BaseTest {
         var engine = newProcessEngineWith(definition);
         try {
             var id = engine.newProcess(ProcessType.of("FLOW")).start();
-            assertThrows(MessageNotExpectedException.class, () -> engine.sendMessage(id, SIGNAL, "early"));
+            assertInstanceOf(MessageDelivery.NotExpected.class, engine.sendMessage(id, SIGNAL, "early"));
             assertThrows(MessageNotExpectedException.class,
                     () -> new ProcessEngineAdmin(engine).sendMessage(id, SIGNAL.name(), "early"));
             emulator(engine).runUntilStop(id);
@@ -297,15 +298,13 @@ class ProcessStepExecutionTest extends BaseTest {
             assertTrue(failed.variables().find(TEMPORARY).isEmpty());
             fail.set(false);
             engine.resumeFailedProcess(id);
-            var active = assertThrows(ProcessStatusException.class, () -> engine.resumeFailedProcess(id),
+            assertEquals(new ResumeResult.NotFailed(id, ProcessStatus.ACTIVE), engine.resumeFailedProcess(id),
                     "an active process is not resumed again");
-            assertEquals(ProcessStatus.ACTIVE, active.getStatus());
             emulator(engine).runOneStep(id);
             assertEquals(List.of("first", "first"), received);
             assertEquals(ProcessStatus.COMPLETED, engine.processes().byId(id).singleDetails().orElseThrow().status());
-            var completed = assertThrows(ProcessStatusException.class, () -> engine.resumeFailedProcess(id),
+            assertEquals(new ResumeResult.NotFailed(id, ProcessStatus.COMPLETED), engine.resumeFailedProcess(id),
                     "a completed process is not resumed");
-            assertEquals(ProcessStatus.COMPLETED, completed.getStatus());
         } finally {
             engine.close();
         }
@@ -328,8 +327,8 @@ class ProcessStepExecutionTest extends BaseTest {
         try (var engine = newProcessEngineWith(definition)) {
             var emulator = emulator(engine);
             var id = engine.newProcess(type).variable(PAYLOAD, "order").start();
-            var active = assertThrows(ProcessStatusException.class, () -> engine.resumeFailedProcess(id, State.CANCEL));
-            assertEquals(ProcessStatus.ACTIVE, active.getStatus());
+            assertEquals(new ResumeResult.NotFailed(id, ProcessStatus.ACTIVE),
+                    engine.resumeFailedProcess(id, State.CANCEL));
 
             engine.sendMessage(id, SIGNAL, "fail");
             var failed = emulator.runOneStep(id);
@@ -352,9 +351,8 @@ class ProcessStepExecutionTest extends BaseTest {
             assertEquals(ProcessStatus.COMPLETED, completed.status());
             assertEquals(Optional.of("order cancelled"), completed.variables().find(PAYLOAD));
             assertEquals(1, handlerCalls.get());
-            var completedRejection = assertThrows(ProcessStatusException.class,
-                    () -> engine.resumeFailedProcess(id, State.CANCEL));
-            assertEquals(ProcessStatus.COMPLETED, completedRejection.getStatus());
+            assertEquals(new ResumeResult.NotFailed(id, ProcessStatus.COMPLETED),
+                    engine.resumeFailedProcess(id, State.CANCEL));
         }
     }
 
@@ -429,10 +427,9 @@ class ProcessStepExecutionTest extends BaseTest {
         try {
             var id = engine.newProcess(ProcessType.of("TWO_AWAITS")).start();
 
-            var rejected = assertThrows(MessageNotExpectedException.class, () -> engine.sendMessage(id, reply, "r"));
-
-            assertEquals("Message REPLY is not expected for ACTIVE process " + id
-                    + " in state WAIT: the state awaits only [SIGNAL]", rejected.getMessage());
+            assertEquals(new MessageDelivery.NotExpected(id, reply.name(), ProcessStatus.ACTIVE, State.WAIT,
+                    Set.of(SIGNAL.name()), "the state awaits only [SIGNAL]"),
+                    engine.sendMessage(id, reply, "r"));
         } finally {
             engine.close();
         }
@@ -464,13 +461,12 @@ class ProcessStepExecutionTest extends BaseTest {
             new ProcessEngineAdmin(engine).sendMessage(id, SIGNAL.name(), "admin");
             assertEquals(ProcessStatus.FAILED, engine.processes().byId(id).singleDetails().orElseThrow().status());
             assertThrows(ProcessStatusException.class, () -> emulator(engine).runOneStep(id));
-            var rejected = assertThrows(MessageNotExpectedException.class,
-                    () -> engine.sendMessageSync(id, SIGNAL, "sync"));
-            assertEquals(ProcessStatus.FAILED, rejected.getStatus());
-            assertEquals(Set.of(SIGNAL.name()), rejected.getExpectedMessageNames());
-            assertEquals("Message SIGNAL is not expected for FAILED process " + id + " in state WAIT: a FAILED "
-                    + "process cannot handle a message synchronously; resume it or queue the message with sendMessage",
-                    rejected.getMessage());
+            var rejected = assertInstanceOf(MessageDelivery.NotExpected.class,
+                    engine.sendMessageSync(id, SIGNAL, "sync"));
+            assertEquals(ProcessStatus.FAILED, rejected.status());
+            assertEquals(Set.of(SIGNAL.name()), rejected.expectedMessageNames());
+            assertEquals("a FAILED process cannot handle a message synchronously; resume it or queue the message "
+                    + "with sendMessage", rejected.reason());
             assertThrows(IllegalArgumentException.class,
                     () -> engine.sendMessage(id, MessageType.of("OTHER", String.class), "other"));
             assertEquals(List.of("first"), received);
@@ -628,14 +624,14 @@ class ProcessStepExecutionTest extends BaseTest {
             var senderStarted = new CountDownLatch(1);
             var sender = workers.submit(() -> {
                 senderStarted.countDown();
-                engine.sendMessage(id, SIGNAL, "late");
+                return engine.sendMessage(id, SIGNAL, "late");
             });
             assertTrue(senderStarted.await(5, TimeUnit.SECONDS));
             assertFalse(sender.isDone());
             release.countDown();
             assertEquals(ProcessStatus.COMPLETED, handler.get(5, TimeUnit.SECONDS).status());
-            var rejected = assertThrows(ExecutionException.class, () -> sender.get(5, TimeUnit.SECONDS));
-            assertInstanceOf(MessageNotExpectedException.class, rejected.getCause());
+            assertEquals(new MessageDelivery.NotExpected(id, SIGNAL.name(), ProcessStatus.COMPLETED, State.DONE,
+                    Set.of(), "the process is completed"), sender.get(5, TimeUnit.SECONDS));
             assertEquals(ProcessStatus.COMPLETED, engine.processes().byId(id).singleDetails().orElseThrow().status());
         } finally {
             release.countDown();

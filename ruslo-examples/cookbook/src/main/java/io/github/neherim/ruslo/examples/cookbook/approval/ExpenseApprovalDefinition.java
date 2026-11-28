@@ -37,8 +37,8 @@ import java.util.Map;
  * <ul>
  *   <li>A decision from the previous approver that arrives after escalation is accepted too. If that is not
  *       acceptable, compare {@code approver} with {@link #APPROVER} in the handler and keep waiting on a mismatch.
- *       While the process moves to the new approver, {@code sendMessage} throws
- *       {@code MessageNotExpectedException}: the approval UI should offer to retry.</li>
+ *       While the process moves to the new approver, {@code sendMessage} returns
+ *       {@code MessageDelivery.NotExpected}: the approval UI should offer to retry.</li>
  * </ul>
  */
 @Component

@@ -47,9 +47,10 @@ Maven multi-module project with Java 21 and a Spring Boot 4.0 baseline.
 
 Throw caller errors, invariant violations and infrastructure failures inside the engine transaction so it rolls
 back. For expected rejections that depend on current process state, return the rejection from the transactional
-action and throw it after the engine leaves its transaction via `ProcessRuntimeService.doInTransactionOrReject`.
-This lets a Spring caller catch the rejection without marking its transaction rollback-only. Use a diagnostic
-exception for these outcomes, including unexpected state in operator and test APIs. See
+action instead of throwing it: `sendMessage`, `sendMessageSync` and `resumeFailedProcess` return `MessageDelivery`
+and `ResumeResult`, and a returned rejection never marks a Spring caller's transaction rollback-only. Provide
+`orThrow()` on the result type to convert a rejection into a diagnostic exception where an operator or test API
+must fail loudly, including unexpected state in operator and test APIs. See
 [application transactions](docs/en/spring.md#application-transactions) for examples.
 
 ### Execution Invariants

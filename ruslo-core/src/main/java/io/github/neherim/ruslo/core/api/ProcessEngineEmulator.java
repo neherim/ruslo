@@ -116,7 +116,7 @@ public class ProcessEngineEmulator {
      * @throws MessageNotExpectedException if the current state does not await this message or the process is completed
      */
     public <T> ProcessInstanceDetails sendMessageAndRunUntilStop(UUID processId, MessageType<T> type, T message) {
-        processEngine.sendMessage(processId, type, message);
+        processEngine.sendMessage(processId, type, message).orThrow();
         return runUntilStop(processId);
     }
 

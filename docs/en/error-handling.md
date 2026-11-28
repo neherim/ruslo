@@ -74,7 +74,7 @@ means for deadlines and how to deal with it: [awaits.md](awaits.md#errors-in-an-
 A process in `FAILED` does not run: no steps, no timers. Find such processes by status
 ([processes.md](processes.md#process-search)), fix the cause and continue with
 `processEngine.resumeFailedProcess(id)`: the failed step or event runs again, and the attempt count starts over.
-For a process that is not in `FAILED`, `resumeFailedProcess` throws `ProcessStatusException`.
+For a process that is not in `FAILED`, the method returns `ResumeResult.NotFailed` with the current status.
 
 To let an operator choose cancellation after a failure, declare a cancellation step in the process definition
 and call `processEngine.resumeFailedProcess(id, State.CANCEL_INVOICE)`. The attempt count starts over and the

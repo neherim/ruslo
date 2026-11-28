@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.core;
 
+import io.github.neherim.ruslo.core.api.MessageDelivery;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.definition.*;
-import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.view.ProcessInstanceDetails;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import org.junit.jupiter.api.AfterEach;
@@ -105,19 +105,17 @@ class SendMessageSyncTest extends BaseTest {
         var id = engine.newProcess(TYPE).start();
         engine.sendMessageSync(id, SIGNAL, "m");
 
-        var unexpected = assertThrows(MessageNotExpectedException.class,
-                () -> engine.sendMessageSync(id, SIGNAL, "again"));
-        assertEquals(State.NEXT, unexpected.getCurrentState());
-        assertEquals(ProcessStatus.ACTIVE, unexpected.getStatus());
-        assertEquals("Message SIGNAL is not expected for ACTIVE process " + id
-                + " in state NEXT: the state awaits no messages", unexpected.getMessage());
+        var unexpected = assertInstanceOf(MessageDelivery.NotExpected.class,
+                engine.sendMessageSync(id, SIGNAL, "again"));
+        assertEquals(State.NEXT, unexpected.currentState());
+        assertEquals(ProcessStatus.ACTIVE, unexpected.status());
+        assertEquals("the state awaits no messages", unexpected.reason());
         emulator(engine).runUntilStop(id);
-        var completed = assertThrows(MessageNotExpectedException.class,
-                () -> engine.sendMessageSync(id, SIGNAL, "late"));
-        assertEquals(State.DONE, completed.getCurrentState());
-        assertEquals(ProcessStatus.COMPLETED, completed.getStatus());
-        assertEquals("Message SIGNAL is not expected for COMPLETED process " + id
-                + " in state DONE: the process is completed", completed.getMessage());
+        var completed = assertInstanceOf(MessageDelivery.NotExpected.class,
+                engine.sendMessageSync(id, SIGNAL, "late"));
+        assertEquals(State.DONE, completed.currentState());
+        assertEquals(ProcessStatus.COMPLETED, completed.status());
+        assertEquals("the process is completed", completed.reason());
         assertEquals(List.of("m", "next"), log);
     }
 

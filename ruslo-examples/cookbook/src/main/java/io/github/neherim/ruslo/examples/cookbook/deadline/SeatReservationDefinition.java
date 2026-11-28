@@ -39,8 +39,8 @@ import java.time.Instant;
  * <p>
  * Pitfalls:
  * <ul>
- *   <li>After the deadline the process does not accept the message: {@code sendMessage} throws
- *       {@code MessageNotExpectedException}. The sender handles a late payment, for example by refunding it. Which
+ *   <li>After the deadline the process does not accept the message: {@code sendMessage} returns
+ *       {@code MessageDelivery.NotExpected}. The sender handles a late payment, for example by refunding it. Which
  *       event wins when a message and the deadline are close is described in {@code docs/en/awaits.md}.</li>
  *   <li>Take the time from {@code context.now()}, not {@code Instant.now()}: a test cannot move the system clock.</li>
  *   <li>The step sets the timer; without it the reservation waits for the payment forever. A fixed delay that never

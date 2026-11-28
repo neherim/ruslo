@@ -72,7 +72,7 @@ public class CustomProcessErrorHandler implements ProcessErrorHandler {
 Процесс в `FAILED` не выполняется: ни шаги, ни таймеры. Найдите такие процессы по статусу
 ([processes.md](processes.md#поиск-процессов)), устраните причину и продолжите через
 `processEngine.resumeFailedProcess(id)`: упавший шаг или событие выполняется снова, а счёт попыток начинается
-заново. Для процесса не в `FAILED` `resumeFailedProcess` бросает `ProcessStatusException`.
+заново. Для процесса не в `FAILED` `resumeFailedProcess` возвращает `ResumeResult.NotFailed` с текущим статусом.
 
 Чтобы оператор мог выбрать отмену после сбоя, объявите шаг отмены в определении процесса и вызовите
 `processEngine.resumeFailedProcess(id, State.CANCEL_INVOICE)`. Счётчик попыток обнулится, и после фиксации

@@ -1,16 +1,16 @@
 package io.github.neherim.ruslo.examples.cookbook.webhook;
 
+import io.github.neherim.ruslo.core.api.MessageDelivery;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
-import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
  * Accepts callbacks from the external service. In an application the webhook REST controller calls it: a normal
- * return maps to {@code 200}, an exception to an error response, after which the service retries the delivery. A
- * {@code sendMessage} rejection is a {@link MessageNotExpectedException}. The engine throws it after leaving its
- * transaction, so a caught rejection does not roll back the application transaction.
+ * return maps to {@code 200}, an exception to an error response, after which the service retries the delivery.
+ * A {@code sendMessage} rejection is a returned {@link MessageDelivery.NotExpected} value: it does not mark the
+ * application transaction rollback-only, and the webhook decides what to do with it.
  */
 @Component
 public class VerificationWebhook {
@@ -36,11 +36,11 @@ public class VerificationWebhook {
                     callback.eventId(), callback.applicationId());
             return;
         }
-        try {
-            processEngine.sendMessage(process.get().id(), IdentityVerificationDefinition.CALLBACK, callback);
-        } catch (MessageNotExpectedException ex) {
-            log.info("Verification callback {} for application {} in state {} ignored",
-                    callback.eventId(), callback.applicationId(), ex.getCurrentState().name());
+        switch (processEngine.sendMessage(process.get().id(), IdentityVerificationDefinition.CALLBACK, callback)) {
+            case MessageDelivery.Delivered ignored -> { }
+            case MessageDelivery.NotExpected rejection -> log.info("Verification callback {} for application {} "
+                    + "in state {} ignored",
+                    callback.eventId(), callback.applicationId(), rejection.currentState().name());
         }
     }
 }

@@ -1,9 +1,9 @@
 package io.github.neherim.ruslo.examples.standalone;
 
+import io.github.neherim.ruslo.core.api.MessageDelivery;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineBuilder;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
-import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.spi.PlainJdbcDatabase;
 import org.h2.jdbcx.JdbcDataSource;
 
@@ -54,19 +54,21 @@ public class StandaloneCoreExample implements AutoCloseable {
     /**
      * Sends the "approved" decision to the process.
      *
-     * @throws MessageNotExpectedException if the process is not waiting for a decision now
+     * @return the delivery result; {@link MessageDelivery.NotExpected} if the process is not waiting for a
+     *         decision now
      */
-    public void approve(UUID processId, String approver) {
-        engine.sendMessage(processId, Constants.APPROVE_MESSAGE, approver);
+    public MessageDelivery approve(UUID processId, String approver) {
+        return engine.sendMessage(processId, Constants.APPROVE_MESSAGE, approver);
     }
 
     /**
      * Sends the "rejected" decision to the process.
      *
-     * @throws MessageNotExpectedException if the process is not waiting for a decision now
+     * @return the delivery result; {@link MessageDelivery.NotExpected} if the process is not waiting for a
+     *         decision now
      */
-    public void reject(UUID processId, String reason) {
-        engine.sendMessage(processId, Constants.REJECT_MESSAGE, reason);
+    public MessageDelivery reject(UUID processId, String reason) {
+        return engine.sendMessage(processId, Constants.REJECT_MESSAGE, reason);
     }
 
     /**

@@ -1,5 +1,6 @@
 package io.github.neherim.ruslo.core.api.exception;
 
+import io.github.neherim.ruslo.core.api.MessageDelivery;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 
@@ -10,6 +11,11 @@ import java.util.UUID;
  * The process does not accept the message now: the current state does not await this message, the process is
  * completed, or, for a synchronous send, the process is {@code FAILED}. {@link #getStatus()} tells these cases
  * apart; the exception message states the reason.
+ * <p>
+ * A diagnostic exception created from {@link MessageDelivery.NotExpected}. Thrown by the operator APIs
+ * {@link io.github.neherim.ruslo.core.api.ProcessEngineAdmin#sendMessage(UUID, String, Object)} and
+ * {@link io.github.neherim.ruslo.core.api.ProcessEngineEmulator#sendMessageAndRunUntilStop}, and by
+ * {@link MessageDelivery#orThrow()}.
  */
 public class MessageNotExpectedException extends ProcessEngineException {
     private final UUID processId;
@@ -19,26 +25,17 @@ public class MessageNotExpectedException extends ProcessEngineException {
     private final Set<String> expectedMessageNames;
 
     /**
-     * Creates the exception.
-     *
-     * @param expectedMessageNames messages the current state awaits
-     * @param reason               why the message is rejected, ends the exception message
+     * Creates the exception from the rejection returned by a message delivery operation.
      */
-    public MessageNotExpectedException(
-            UUID processId,
-            String messageName,
-            ProcessStatus status,
-            ProcessState currentState,
-            Set<String> expectedMessageNames,
-            String reason
-    ) {
-        super("Message " + messageName + " is not expected for " + status + " process " + processId
-                + " in state " + currentState.name() + ": " + reason);
-        this.processId = processId;
-        this.messageName = messageName;
-        this.status = status;
-        this.currentState = currentState;
-        this.expectedMessageNames = Set.copyOf(expectedMessageNames);
+    public MessageNotExpectedException(MessageDelivery.NotExpected rejection) {
+        super("Message " + rejection.messageName() + " is not expected for " + rejection.status()
+                + " process " + rejection.processId() + " in state " + rejection.currentState().name()
+                + ": " + rejection.reason());
+        this.processId = rejection.processId();
+        this.messageName = rejection.messageName();
+        this.status = rejection.status();
+        this.currentState = rejection.currentState();
+        this.expectedMessageNames = rejection.expectedMessageNames();
     }
 
     public UUID getProcessId() {

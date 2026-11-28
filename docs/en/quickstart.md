@@ -172,27 +172,27 @@ public class OrderService {
      * Confirms the order payment.
      *
      * @param orderId the order process id
-     * @throws MessageNotExpectedException if the process is not waiting for a payment now
+     * @return the delivery result; {@code NotExpected} if the process is not waiting for a payment now
      */
-    public void confirmPayment(UUID orderId, String transactionId) {
-        processEngine.sendMessage(orderId, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(transactionId));
+    public MessageDelivery confirmPayment(UUID orderId, String transactionId) {
+        return processEngine.sendMessage(orderId, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(transactionId));
     }
 
     /**
      * Cancels the order.
      *
      * @param orderId the order process id
-     * @throws MessageNotExpectedException if the process does not accept a cancellation now
+     * @return the delivery result; {@code NotExpected} if the process does not accept a cancellation now
      */
-    public void cancelOrder(UUID orderId, String reason) {
-        processEngine.sendMessage(orderId, Constants.ORDER_CANCELLED, reason);
+    public MessageDelivery cancelOrder(UUID orderId, String reason) {
+        return processEngine.sendMessage(orderId, Constants.ORDER_CANCELLED, reason);
     }
 }
 ```
 
 `createOrder` returns the `processId` right after the process is saved; steps run asynchronously.
 Once the process is in `WAITING_FOR_PAYMENT`, call `confirmPayment(processId, "txn-42")` or `cancelOrder`.
-A message the process is not waiting for now is rejected with `MessageNotExpectedException`, see
+A message the process is not waiting for now is rejected with a returned `MessageDelivery.NotExpected`, see
 [sending a message](awaits.md#sending-a-message).
 
 The current state is available through `processEngine.processes().byId(processId).singleDetails()`.

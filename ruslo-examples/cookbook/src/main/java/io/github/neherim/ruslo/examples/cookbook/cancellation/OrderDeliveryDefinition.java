@@ -29,8 +29,8 @@ import org.springframework.stereotype.Component;
  *   <li>{@link OrderCancellationService} accepts the cancellation with {@code sendMessageSync}: the transition to
  *       {@link State#CANCELLING} is committed before the method returns, so the customer gets a definite answer
  *       at once.</li>
- *   <li>Only an await accepts messages. While the process runs a step, {@code sendMessageSync} throws
- *       {@code MessageNotExpectedException}, and {@link OrderCancellationService} answers {@code BUSY}. A step always moves
+ *   <li>Only an await accepts messages. While the process runs a step, {@code sendMessageSync} returns
+ *       {@code MessageDelivery.NotExpected}, and {@link OrderCancellationService} answers {@code BUSY}. A step always moves
  *       on to an await or a terminal state, so a retry in a few seconds gets a final answer.</li>
  * </ul>
  * <p>

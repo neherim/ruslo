@@ -1,15 +1,15 @@
 package io.github.neherim.ruslo.examples.cookbook.cancellation;
 
+import io.github.neherim.ruslo.core.api.MessageDelivery;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
-import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import org.springframework.stereotype.Component;
 
 /**
  * Accepts an order cancellation from the customer. In an application a REST controller calls it: {@code ACCEPTED}
  * maps to {@code 202}, {@code BUSY} to {@code 409} with an offer to retry, {@code TOO_LATE} to {@code 409} without
  * a retry, {@code MANUAL} to {@code 409} with a referral to support. A {@code sendMessageSync} rejection is a
- * {@link MessageNotExpectedException} carrying the process status and state. The engine throws it after leaving its
- * transaction, so a caught rejection does not roll back the application transaction.
+ * returned {@link MessageDelivery.NotExpected} value carrying the process status and state: it does not mark the
+ * application transaction rollback-only, and this service decides the answer from it.
  */
 @Component
 public class OrderCancellationService {
@@ -32,18 +32,16 @@ public class OrderCancellationService {
             .byBusinessKey(orderId)
             .single()
             .orElseThrow(() -> new IllegalArgumentException("Unknown order: " + orderId));
-        try {
-            processEngine.sendMessageSync(process.id(), OrderDeliveryDefinition.CANCEL, reason);
-            return Result.ACCEPTED;
-        } catch (MessageNotExpectedException ex) {
-            return switch (ex.getStatus()) {
-                // An active process is running a step: after it, the process is in an await that accepts
-                // cancel or in a terminal state
+        return switch (processEngine.sendMessageSync(process.id(), OrderDeliveryDefinition.CANCEL, reason)) {
+            case MessageDelivery.Delivered ignored -> Result.ACCEPTED;
+            // An active process is running a step: after it, the process is in an await that accepts
+            // cancel or in a terminal state
+            case MessageDelivery.NotExpected rejection -> switch (rejection.status()) {
                 case ACTIVE -> Result.BUSY;
                 case COMPLETED -> Result.TOO_LATE;
                 case FAILED -> Result.MANUAL;
             };
-        }
+        };
     }
 
     /** Answer to a cancellation request. */

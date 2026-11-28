@@ -65,9 +65,11 @@ transaction manager: on rollback neither is saved. Process steps run after commi
 An engine error (a database error, `ProcessNotFoundException`, an undeclared message type) is thrown inside the
 transaction and, as usual in Spring, marks it rollback-only even if caught.
 
-An expected rejection is thrown after the engine leaves its transaction: `MessageNotExpectedException` from
-`sendMessage` and `sendMessageSync`, `ProcessStatusException` from `resumeFailedProcess`. A caught rejection does not
-prevent the application transaction from committing; an uncaught one rolls it back like any exception.
+An expected rejection is returned, not thrown: `MessageDelivery` from `sendMessage` and `sendMessageSync`,
+`ResumeResult` from `resumeFailedProcess`. A returned rejection does not mark the transaction rollback-only: the
+caller can act on it and still commit. `MessageDelivery.orThrow()` and `ResumeResult.orThrow()` turn a rejection
+into an exception; thrown from application code, it follows the application's own exception rules, not the
+engine's.
 
 ## Tests
 
