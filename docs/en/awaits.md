@@ -64,9 +64,9 @@ If only a domain key is known, first find the process by `businessKey`
 ### Sending a message
 
 - `sendMessage` accepts a message only if the process is now in an await that declares this message type.
-  Otherwise the method throws `MessageNotExpectedException` with the current process state and stores nothing. The
-  sender retries `sendMessage` later or ignores the rejection. `MessageNotExpectedException` does not roll back the
-  caller's transaction ([spring.md](spring.md#application-transactions)).
+  Otherwise the method returns `MessageDelivery.NotExpected` with the current process state and stores nothing.
+  The sender retries `sendMessage` later or ignores the rejection. A returned rejection does not mark the
+  caller's transaction rollback-only ([spring.md](spring.md#application-transactions)).
 - A process in `FAILED` accepts messages of its await, but they are handled after
   `ProcessEngine.resumeFailedProcess`.
 
@@ -199,8 +199,8 @@ cancellation (the `cancellation` recipe) or to return the result in the response
 
 - The dispatcher runs subsequent steps asynchronously after commit.
 - The message bypasses the queue: earlier messages and due timers keep waiting.
-- If the process does not expect this message now, the method throws `MessageNotExpectedException`; for a process in
-  `FAILED` too, with `getStatus() == FAILED`. Nothing is stored.
+- If the process does not expect this message now, the method returns `MessageDelivery.NotExpected`; for a
+  process in `FAILED` too, with `status == FAILED`. Nothing is stored.
 - A handler exception propagates to the caller and rolls back the transaction: the message is not stored, and the
   error policy is not called.
 

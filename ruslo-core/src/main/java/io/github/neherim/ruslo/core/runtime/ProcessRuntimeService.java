@@ -1,11 +1,13 @@
 package io.github.neherim.ruslo.core.runtime;
 
+import io.github.neherim.ruslo.core.api.MessageDelivery;
 import io.github.neherim.ruslo.core.api.ProcessStartBuilder;
+import io.github.neherim.ruslo.core.api.ResumeResult;
 import io.github.neherim.ruslo.core.api.definition.*;
 import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
-import io.github.neherim.ruslo.core.api.exception.ProcessEngineException;
 import io.github.neherim.ruslo.core.api.exception.ProcessNotFoundException;
 import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
+import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.core.dispatcher.ProcessDispatchSignal;
 import io.github.neherim.ruslo.core.runtime.logging.ProcessMdc;
@@ -29,7 +31,6 @@ import java.util.Objects;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
 /**
  * Runtime operations on process instances behind {@link io.github.neherim.ruslo.core.api.ProcessEngine},
@@ -81,17 +82,17 @@ public class ProcessRuntimeService {
      * Resumes a {@code FAILED} process at the target state, or at the current state when no target is given.
      * See {@link io.github.neherim.ruslo.core.api.ProcessEngine#resumeFailedProcess(UUID, ProcessState)}.
      *
-     * @throws ProcessStatusException if the process is not {@code FAILED}; thrown after the transaction
+     * @return the resume result; {@link ResumeResult.NotFailed} if the process is not {@code FAILED}
+     * @throws UnsupportedProcessStateException if the definition does not declare the target state
      */
-    public void resumeFailedProcess(UUID processId, @Nullable ProcessState targetState) {
-        doInTransactionOrReject(() -> {
+    public ResumeResult resumeFailedProcess(UUID processId, @Nullable ProcessState targetState) {
+        return database.doInTransactionWithResult(() -> {
             var process = getProcessWithLock(processId);
             if (!process.resume(targetState)) {
-                return new ProcessStatusException(processId, process.getStatus(),
-                        "only a FAILED process can be resumed");
+                return new ResumeResult.NotFailed(processId, process.getStatus());
             }
             saveAndWakeDispatcher(process);
-            return null;
+            return new ResumeResult.Resumed();
         });
     }
 
@@ -112,19 +113,19 @@ public class ProcessRuntimeService {
     /**
      * Queues the message for the current await, see {@link io.github.neherim.ruslo.core.api.ProcessEngine#sendMessage}.
      *
-     * @throws MessageNotExpectedException if the current state does not await this type or the process is completed;
-     *                                     thrown after the transaction
-     * @throws IllegalArgumentException    if no await of the process declares this type
+     * @return the delivery result; {@link MessageDelivery.NotExpected} if the current state does not await this
+     *         type or the process is completed
+     * @throws IllegalArgumentException if no await of the process declares this type
      */
-    public <T> void sendMessage(UUID processId, MessageType<T> type, T message) {
-        doInTransactionOrReject(() -> {
+    public <T> MessageDelivery sendMessage(UUID processId, MessageType<T> type, T message) {
+        return database.doInTransactionWithResult(() -> {
             var process = getProcessWithLock(processId);
             var spec = process.getProcessSpec();
             spec.checkMessageDeclared(type);
             var event = spec.getMessageEvent(type, process.getState());
             if (event.isEmpty()) return messageNotExpected(process, type.name());
             appendMessage(process, type, message);
-            return null;
+            return new MessageDelivery.Delivered();
         });
     }
 
@@ -139,7 +140,7 @@ public class ProcessRuntimeService {
             var process = getProcessWithLock(processId);
             var event = process.getProcessSpec()
                 .getMessageEvent(name, process.getState())
-                .orElseThrow(() -> messageNotExpected(process, name));
+                .orElseThrow(() -> new MessageNotExpectedException(messageNotExpected(process, name)));
             appendJsonMessage(process, event.type(), jsonPayload);
         });
     }
@@ -147,15 +148,15 @@ public class ProcessRuntimeService {
     /**
      * Runs the message handler in the calling thread,
      * see {@link io.github.neherim.ruslo.core.api.ProcessEngine#sendMessageSync}. A handler exception propagates
-     * as is; engine rejections are thrown after the transaction.
+     * as is and rolls the transaction back.
      *
-     * @throws MessageNotExpectedException if the current state does not await this type, the process is completed
-     *                                     or {@code FAILED}
-     * @throws IllegalArgumentException    if no await of the process declares this type
+     * @return the delivery result; {@link MessageDelivery.NotExpected} if the current state does not await this
+     *         type, the process is completed or {@code FAILED}; nothing is stored
+     * @throws IllegalArgumentException if no await of the process declares this type
      */
-    public <T> void sendMessageSync(UUID processId, MessageType<T> type, T message) {
+    public <T> MessageDelivery sendMessageSync(UUID processId, MessageType<T> type, T message) {
         try {
-            doInTransactionOrReject(() -> {
+            return database.doInTransactionWithResult(() -> {
                 var process = getProcessWithLock(processId);
                 var spec = process.getProcessSpec();
                 spec.checkMessageDeclared(type);
@@ -167,7 +168,7 @@ public class ProcessRuntimeService {
                 }
                 stepExecutor.executeMessageBypassingQueue(process, event.get(), message);
                 saveAndWakeDispatcher(process);
-                return null;
+                return new MessageDelivery.Delivered();
             });
         } catch (HandlerException ex) {
             throw ex.getCause();
@@ -307,7 +308,7 @@ public class ProcessRuntimeService {
         database.doAfterCommit(dispatchSignal::wakeUp);
     }
 
-    private static MessageNotExpectedException messageNotExpected(ProcessInstance process, String messageName) {
+    private static MessageDelivery.NotExpected messageNotExpected(ProcessInstance process, String messageName) {
         var awaited = process.getProcessSpec().getApplicableMessageTypeNames(process.getState());
         String reason;
         if (process.isCompleted()) reason = "the process is completed";
@@ -317,24 +318,14 @@ public class ProcessRuntimeService {
         return messageNotExpected(process, messageName, reason);
     }
 
-    private static MessageNotExpectedException messageNotExpected(
+    private static MessageDelivery.NotExpected messageNotExpected(
             ProcessInstance process,
             String messageName,
             String reason
     ) {
-        return new MessageNotExpectedException(process.getId(), messageName, process.getStatus(),
+        return new MessageDelivery.NotExpected(process.getId(), messageName, process.getStatus(),
                 process.getDeclaredState(),
                 process.getProcessSpec().getApplicableMessageTypeNames(process.getState()), reason);
-    }
-
-    /**
-     * Runs the action in a transaction and throws the rejection it returned only after leaving it. A rejection is
-     * an expected race outcome, not an error: thrown inside the action, it would mark the caller's transaction
-     * rollback-only even if the caller catches it.
-     */
-    private void doInTransactionOrReject(Supplier<@Nullable ProcessEngineException> action) {
-        var rejection = database.doInTransactionWithResult(action);
-        if (rejection != null) throw rejection;
     }
 
     private ProcessInstance getProcessWithLock(UUID processId) {

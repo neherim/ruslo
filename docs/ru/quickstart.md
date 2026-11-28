@@ -172,27 +172,27 @@ public class OrderService {
      * Confirms the order payment.
      *
      * @param orderId the order process id
-     * @throws MessageNotExpectedException if the process is not waiting for a payment now
+     * @return the delivery result; {@code NotExpected} if the process is not waiting for a payment now
      */
-    public void confirmPayment(UUID orderId, String transactionId) {
-        processEngine.sendMessage(orderId, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(transactionId));
+    public MessageDelivery confirmPayment(UUID orderId, String transactionId) {
+        return processEngine.sendMessage(orderId, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(transactionId));
     }
 
     /**
      * Cancels the order.
      *
      * @param orderId the order process id
-     * @throws MessageNotExpectedException if the process does not accept a cancellation now
+     * @return the delivery result; {@code NotExpected} if the process does not accept a cancellation now
      */
-    public void cancelOrder(UUID orderId, String reason) {
-        processEngine.sendMessage(orderId, Constants.ORDER_CANCELLED, reason);
+    public MessageDelivery cancelOrder(UUID orderId, String reason) {
+        return processEngine.sendMessage(orderId, Constants.ORDER_CANCELLED, reason);
     }
 }
 ```
 
 `createOrder` возвращает `processId` сразу после сохранения процесса; шаги выполняются асинхронно.
 После входа в `WAITING_FOR_PAYMENT` вызовите `confirmPayment(processId, "txn-42")` или `cancelOrder`.
-Сообщение, которое процесс сейчас не ждёт, отклоняется с `MessageNotExpectedException`, см.
+Сообщение, которое процесс сейчас не ждёт, отклоняется возвращённым значением `MessageDelivery.NotExpected`, см.
 [как сообщение отправляется](awaits.md#отправка-сообщения).
 
 Текущее состояние доступно через `processEngine.processes().byId(processId).singleDetails()`.

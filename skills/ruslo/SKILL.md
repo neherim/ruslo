@@ -172,18 +172,17 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
 - Inside Spring `@Transactional`, `start()` and `sendMessage()` are atomic with the application's own changes
   (same `DataSource` / transaction manager).
 - A message is accepted **only while the process is in an await that declares its type**. Otherwise
-  `sendMessage` throws `MessageNotExpectedException` (with `getStatus()` and `getCurrentState()`) and stores
-  nothing.
+  `sendMessage` returns `MessageDelivery.NotExpected` (with `status`, `currentState` and `expectedMessageNames`)
+  and stores nothing.
   **There is no buffering of early messages**: the sender retries later or ignores it.
-- `MessageNotExpectedException` is thrown after the engine's transaction, so catching it does **not** mark the
-  caller's transaction rollback-only. Catch it where a late or duplicate message is a normal case
-  (webhooks, reports to a finished parent):
+- A rejection is **returned, not thrown**: it never marks the caller's transaction rollback-only. Handle it with
+  a pattern match where a late or duplicate message is a normal case (webhooks, reports to a finished parent);
+  `orThrow()` turns it into `MessageNotExpectedException` where an exception is needed:
 
   ```java
-  try {
-      processEngine.sendMessage(processId, CALLBACK, callback);
-  } catch (MessageNotExpectedException ex) {
-      log.info("Callback ignored in state {}", ex.getCurrentState().name());
+  switch (processEngine.sendMessage(processId, CALLBACK, callback)) {
+      case MessageDelivery.Delivered ignored -> { }
+      case MessageDelivery.NotExpected n -> log.info("Callback ignored in state {}", n.currentState().name());
   }
   ```
 - A message type not declared by any await of the process is a caller bug: `IllegalArgumentException`.
@@ -191,8 +190,8 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
   variable (a record wrapping the list: variable classes cannot be generic); on a known id do nothing and target the
   await itself to keep waiting.
 - `sendMessageSync(...)` processes the message in the caller's thread and transaction; handler exceptions
-  propagate to the caller. A `FAILED` process is not handled synchronously: `MessageNotExpectedException` with
-  `getStatus() == FAILED`, nothing is stored.
+  propagate to the caller. A `FAILED` process is not handled synchronously: `MessageDelivery.NotExpected` with
+  `status == FAILED`, nothing is stored.
 - Find processes: `processEngine.processes().byType(TYPE).byBusinessKey(key).single()` (`Optional`),
   `.byId(id).singleDetails()`, `.list()`. Filters and `withLock()` mutate and return the same query;
   call `processes()` for each independent search and do not share queries between threads.
@@ -211,7 +210,8 @@ processEngine.sendMessage(id, Constants.PAYMENT_CONFIRMED, new PaymentConfirmed(
   error.
 - Retry is `ErrorResult.retryAfter`, never a step whose target is itself.
 - A `FAILED` process does not run. Retry the current step or event with `processEngine.resumeFailedProcess(id)`,
-  or use `processEngine.resumeFailedProcess(id, targetState)` to enter any declared state. An await waits for
+  or use `processEngine.resumeFailedProcess(id, targetState)` to enter any declared state; both return
+  `ResumeResult`, `NotFailed` when the process is not in `FAILED`. An await waits for
   events, and a terminal state completes the process immediately.
   `ProcessEngineAdmin.moveProcessToState(id, state)` moves it manually; a move to the current state keeps the
   queue and timers and runs the step or the due event again.
@@ -288,7 +288,7 @@ state, or add an `after` to the parent's await. Route zero parts past the await 
 all leading to one `CANCELLING` step that undoes work by the business key. Send it with
 `sendMessageSync`: the transition is committed before the call returns, so the user gets a definite answer.
 `sendMessage` only queues it, and a payment queued earlier may move the process on and drop the cancellation.
-On `MessageNotExpectedException` switch on `getStatus()`: `COMPLETED` is too late, `ACTIVE` means a step is running
+On `MessageDelivery.NotExpected` switch on `status`: `COMPLETED` is too late, `ACTIVE` means a step is running
 (answer "busy, retry": the step always moves on to an await or a terminal state), `FAILED` needs an operator. Keep
 the steps short.
 

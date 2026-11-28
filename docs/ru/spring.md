@@ -67,9 +67,11 @@ commit, каждый в своей транзакции.
 Ошибка движка (ошибка базы данных, `ProcessNotFoundException`, необъявленный тип сообщения) бросается внутри
 транзакции и, как обычно в Spring, помечает её rollback-only, даже если её перехватили.
 
-Ожидаемый отказ бросается после выхода из транзакции движка: `MessageNotExpectedException` из `sendMessage` и
-`sendMessageSync`, `ProcessStatusException` из `resumeFailedProcess`. Перехваченный отказ не мешает commit транзакции
-приложения; неперехваченный откатывает её, как любое исключение.
+Ожидаемый отказ возвращается, а не бросается: `MessageDelivery` из `sendMessage` и `sendMessageSync`,
+`ResumeResult` из `resumeFailedProcess`. Возвращённый отказ не помечает транзакцию rollback-only: вызывающий
+может отреагировать на него и всё же сделать commit. Методы `MessageDelivery.orThrow()` и `ResumeResult.orThrow()`
+превращают отказ в исключение; брошенный из кода приложения, он следует правилам исключений самого приложения,
+а не движка.
 
 ## Тесты
 

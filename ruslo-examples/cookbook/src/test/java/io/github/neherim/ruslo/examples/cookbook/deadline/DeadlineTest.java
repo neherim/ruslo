@@ -1,8 +1,8 @@
 package io.github.neherim.ruslo.examples.cookbook.deadline;
 
+import io.github.neherim.ruslo.core.api.MessageDelivery;
 import io.github.neherim.ruslo.core.api.ProcessEngine;
 import io.github.neherim.ruslo.core.api.ProcessEngineEmulator;
-import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
 import io.github.neherim.ruslo.core.api.view.ProcessStatus;
 import io.github.neherim.ruslo.examples.cookbook.CookbookApplication;
 import io.github.neherim.ruslo.spring.test.ProcessEngineTest;
@@ -15,7 +15,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 @ProcessEngineTest
 @SpringBootTest(classes = CookbookApplication.class)
@@ -61,8 +61,8 @@ class DeadlineTest {
         assertEquals(SeatReservationDefinition.State.EXPIRED, expired.state());
 
         // The process does not accept a late payment: the sender handles it
-        assertThrows(MessageNotExpectedException.class,
-                () -> processEngine.sendMessage(processId, SeatReservationDefinition.PAYMENT_RECEIVED, PAYMENT_ID));
+        assertInstanceOf(MessageDelivery.NotExpected.class,
+                processEngine.sendMessage(processId, SeatReservationDefinition.PAYMENT_RECEIVED, PAYMENT_ID));
     }
 
     @Test

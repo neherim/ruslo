@@ -5,8 +5,6 @@ import io.github.neherim.ruslo.core.api.definition.ProcessDefinition;
 import io.github.neherim.ruslo.core.api.definition.ProcessErrorHandler;
 import io.github.neherim.ruslo.core.api.definition.ProcessState;
 import io.github.neherim.ruslo.core.api.definition.ProcessType;
-import io.github.neherim.ruslo.core.api.exception.MessageNotExpectedException;
-import io.github.neherim.ruslo.core.api.exception.ProcessStatusException;
 import io.github.neherim.ruslo.core.api.exception.UnsupportedProcessStateException;
 import io.github.neherim.ruslo.core.api.view.ProcessQuery;
 import io.github.neherim.ruslo.core.definition.ProcessDefinitionRegistry;
@@ -26,6 +24,13 @@ import java.util.UUID;
 /**
  * Engine entry point: lifecycle, process start, message delivery and search.
  * Operations join the caller's transaction if one is open.
+ * <p>
+ * A thrown engine exception is a failure: it is thrown inside the transaction and, as usual in Spring, marks it
+ * rollback-only even if caught. A rejection that depends on the current process state is returned as a value:
+ * {@link MessageDelivery} from {@link #sendMessage} and {@link #sendMessageSync}, {@link ResumeResult} from
+ * {@link #resumeFailedProcess}. A returned rejection does not mark the transaction rollback-only;
+ * {@link MessageDelivery#orThrow()} and {@link ResumeResult#orThrow()} turn it into an exception where the
+ * caller needs one.
  */
 public class ProcessEngine implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(ProcessEngine.class);
@@ -152,40 +157,42 @@ public class ProcessEngine implements AutoCloseable {
     /**
      * Resumes a {@code FAILED} process by retrying the failed step or await event.
      *
-     * @throws ProcessStatusException if the process is not {@code FAILED}
-     * @throws IllegalStateException  if the engine is not started
+     * @return the resume result; {@link ResumeResult.NotFailed} if the process is not {@code FAILED}
+     * @throws IllegalStateException if the engine is not started
      */
-    public void resumeFailedProcess(UUID processId) {
+    public ResumeResult resumeFailedProcess(UUID processId) {
         requireStarted();
-        processRuntimeService.resumeFailedProcess(processId, null);
+        return processRuntimeService.resumeFailedProcess(processId, null);
     }
 
     /**
      * Resumes a {@code FAILED} process at the target state. A terminal target completes the process immediately.
      *
      * @param targetState any state declared in the process definition
-     * @throws ProcessStatusException           if the process is not {@code FAILED}
+     * @return the resume result; {@link ResumeResult.NotFailed} if the process is not {@code FAILED}
      * @throws UnsupportedProcessStateException if the definition does not declare the state
      * @throws IllegalStateException           if the engine is not started
      */
-    public void resumeFailedProcess(UUID processId, ProcessState targetState) {
+    public ResumeResult resumeFailedProcess(UUID processId, ProcessState targetState) {
         requireStarted();
-        processRuntimeService.resumeFailedProcess(processId,
+        return processRuntimeService.resumeFailedProcess(processId,
                 Objects.requireNonNull(targetState, "Target state cannot be null"));
     }
 
     /**
      * Queues the message for the current await; the dispatcher handles it after commit.
      * <p>
-     * Returning means the message is stored, not that it will be handled.
+     * {@link MessageDelivery.Delivered} means the message is stored, not that it will be handled. A rejection is
+     * returned, not thrown: it does not mark the caller's transaction rollback-only.
      *
-     * @throws MessageNotExpectedException if the current state does not await this type or the process is completed
-     * @throws IllegalArgumentException    if no await of the process declares this type
-     * @throws IllegalStateException       if the engine is not started
+     * @return the delivery result; {@link MessageDelivery.NotExpected} if the current state does not await this
+     *         type or the process is completed
+     * @throws IllegalArgumentException if no await of the process declares this type
+     * @throws IllegalStateException  if the engine is not started
      */
-    public <T> void sendMessage(UUID processId, MessageType<T> type, T message) {
+    public <T> MessageDelivery sendMessage(UUID processId, MessageType<T> type, T message) {
         requireStarted();
-        processRuntimeService.sendMessage(processId, type, message);
+        return processRuntimeService.sendMessage(processId, type, message);
     }
 
     /**
@@ -197,15 +204,17 @@ public class ProcessEngine implements AutoCloseable {
      * <p>
      * A handler exception propagates as is and rolls the transaction back: nothing is stored, no retry or
      * error is recorded and {@link ProcessErrorHandler} is not called.
+     * <p>
+     * A rejection is returned, not thrown: it does not mark the caller's transaction rollback-only.
      *
-     * @throws MessageNotExpectedException if the current state does not await this type, the process is completed
-     *                                     or {@code FAILED}; nothing is stored
-     * @throws IllegalArgumentException    if no await of the process declares this type
-     * @throws IllegalStateException       if the engine is not started
+     * @return the delivery result; {@link MessageDelivery.NotExpected} if the current state does not await this
+     *         type, the process is completed or {@code FAILED}; nothing is stored
+     * @throws IllegalArgumentException if no await of the process declares this type
+     * @throws IllegalStateException  if the engine is not started
      */
-    public <T> void sendMessageSync(UUID processId, MessageType<T> type, T message) {
+    public <T> MessageDelivery sendMessageSync(UUID processId, MessageType<T> type, T message) {
         requireStarted();
-        processRuntimeService.sendMessageSync(processId, type, message);
+        return processRuntimeService.sendMessageSync(processId, type, message);
     }
 
     /**

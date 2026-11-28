@@ -31,8 +31,8 @@ import org.springframework.stereotype.Component;
  *       {@link State#REJECTED}.</li>
  *   <li>The variable and the message removal from the queue commit in one transaction, so a callback is either
  *       handled and remembered, or neither.</li>
- *   <li>After a decision the process has completed and keeps no await: {@code sendMessage} throws
- *       {@code MessageNotExpectedException}, and the webhook acknowledges the repeat without doing anything.</li>
+ *   <li>After a decision the process has completed and keeps no await: {@code sendMessage} returns
+ *       {@code MessageDelivery.NotExpected}, and the webhook acknowledges the repeat without doing anything.</li>
  * </ul>
  * <p>
  * Pitfalls:
@@ -42,7 +42,8 @@ import org.springframework.stereotype.Component;
  *       handler's transaction.</li>
  *   <li>A callback may arrive while step {@link State#SUBMITTING} is still running. On the transactional
  *       {@code DEFAULT} worker {@code sendMessage} waits for the step and finds the await
- *       ({@code docs/en/dispatcher.md}, "Multiple nodes"). On a non-transactional worker it throws {@code MessageNotExpectedException},
+ *       ({@code docs/en/dispatcher.md}, "Multiple nodes"). On a non-transactional worker it returns
+ *       {@code MessageDelivery.NotExpected},
  *       and the webhook must answer with an error so the service retries.</li>
  *   <li>The business key is not unique: {@code single()} throws {@code TooManyRowsException} if two processes of
  *       the type share it.</li>

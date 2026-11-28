@@ -39,7 +39,7 @@ public class InvoiceOperations {
      */
     public void fixCountryAndResume(UUID processId, String country) {
         processEngineAdmin.setProcessVariable(processId, InvoiceDefinition.COUNTRY, country);
-        processEngine.resumeFailedProcess(processId);
+        processEngine.resumeFailedProcess(processId).orThrow();
     }
 
     /**
@@ -48,6 +48,6 @@ public class InvoiceOperations {
      * @throws ProcessStatusException if the process is no longer {@code FAILED}
      */
     public void cancelFailedInvoice(UUID processId) {
-        processEngine.resumeFailedProcess(processId, InvoiceDefinition.State.CANCEL_INVOICE);
+        processEngine.resumeFailedProcess(processId, InvoiceDefinition.State.CANCEL_INVOICE).orThrow();
     }
 }

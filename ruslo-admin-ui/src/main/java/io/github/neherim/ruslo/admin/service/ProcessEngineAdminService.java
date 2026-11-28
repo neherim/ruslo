@@ -209,7 +209,7 @@ public class ProcessEngineAdminService {
      * @throws io.github.neherim.ruslo.core.api.exception.ProcessStatusException if the process is not in {@code FAILED}
      */
     public void retryCurrentStep(UUID processId) {
-        processEngine.resumeFailedProcess(processId);
+        processEngine.resumeFailedProcess(processId).orThrow();
     }
 
     /**
